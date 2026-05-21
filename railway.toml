@@ -1,0 +1,15 @@
+[build]
+# Railway construye el backend desde /backend usando su Dockerfile
+dockerfilePath = "backend/Dockerfile"
+buildCommand   = ""
+
+[deploy]
+startCommand  = "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
+healthcheckPath    = "/health"
+healthcheckTimeout = 30
+restartPolicyType  = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production]
+# Variables de entorno se configuran en el panel de Railway
+# DATABASE_URL se inyecta automáticamente cuando agregas el plugin PostgreSQL
