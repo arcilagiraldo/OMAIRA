@@ -1,0 +1,56 @@
+# Claude Code (settings locales con permisos)
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+ENV/
+
+# Entorno y secretos
+.env
+.env.local
+.env.*.local
+*.key
+secrets/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker volumes locales
+docker/data/
+docker/pgdata/
+*.pid
+
+# Node (si hay dependencias frontend)
+node_modules/
+npm-debug.log*
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Archivos temporales
+*.tmp
+*.bak
+.cache/

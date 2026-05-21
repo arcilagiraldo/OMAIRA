@@ -1,0 +1,59 @@
+════════════════════════════════════════════════════════
+  OMAIRA v4 — Sistema de Gestión Inteligente de Riesgos
+  Observación · Monitoreo · Análisis · Inteligencia
+  de Riesgos y Amenazas
+════════════════════════════════════════════════════════
+
+INSTALACIÓN EN UN NUEVO PC
+────────────────────────────────────────────────────────
+
+PASO 1 — Instalar Python (solo una vez)
+  → Ir a: https://www.python.org/downloads/
+  → Descargar la versión más reciente (3.11 o superior)
+  → Al instalar: MARCAR "Add Python to PATH"  ← importante
+  → Clic en Install Now
+
+PASO 2 — Copiar esta carpeta completa al nuevo PC
+  → Puedes usar USB, OneDrive, Google Drive o correo
+  → Pegar la carpeta en el Escritorio o donde prefieras
+
+PASO 3 — Doble clic en INICIAR-OMAIRA.bat
+  → Se abre una ventana negra
+  → Se abre el navegador automáticamente
+  → La app carga en http://localhost:8080
+  → ¡Listo!
+
+════════════════════════════════════════════════════════
+
+ESTRUCTURA DE ARCHIVOS
+────────────────────────────────────────────────────────
+  OMAIRA-v4/
+  │
+  ├── INICIAR-OMAIRA.bat   ← DOBLE CLIC AQUÍ para abrir
+  ├── servidor.py           ← Servidor HTTP + proxy CORS
+  ├── LEEME.txt             ← Este archivo
+  │
+  ├── frontend/
+  │   └── index.html        ← La aplicación completa
+  │
+  └── docs/
+      └── Manual-OMAIRA-v4.pdf
+
+════════════════════════════════════════════════════════
+
+PREGUNTAS FRECUENTES
+────────────────────────────────────────────────────────
+
+¿Por qué no abre el navegador solo?
+  → Espera 5 segundos y abre: http://localhost:8080
+
+¿Dónde se guardan las API keys?
+  → En el navegador (localStorage). Para llevarlas
+     a otro PC: Sistema ▾ → Configuración → Exportar config
+
+¿Puedo usar OMAIRA sin internet?
+  → Sí, con los últimos datos guardados localmente.
+
+════════════════════════════════════════════════════════
+  OMAIRA v4.1 — Mayo 2026 · Desarrollado por Arcil Ríos
+════════════════════════════════════════════════════════
