@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS, nombre_zona
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 TZ_COL = ZoneInfo("America/Bogota")
 
@@ -95,7 +95,11 @@ Responde esta pregunta del usuario de forma directa y útil:
             }
     except Exception as e:
         logger.warning(f"Gemini error: {type(e).__name__}: {e}")
-        return None
+        return {
+            "pregunta_tipo": "gemini_error",
+            "respuesta": f"[Gemini error: {type(e).__name__}: {str(e)[:200]}]",
+            "datos": {"fuente": "error"}
+        }
 
 
 async def responder_consulta(
