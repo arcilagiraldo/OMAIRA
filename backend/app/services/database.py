@@ -15,14 +15,71 @@ logger = logging.getLogger(__name__)
 
 _pool: Optional[asyncpg.Pool] = None
 
-DB_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://omaira:riesgo123@localhost:5432/riesgo_antioquia"
-)
+_raw_url = os.getenv("DATABASE_URL", "postgresql://omaira:riesgo123@localhost:5432/riesgo_antioquia")
+# asyncpg requiere postgresql://, Railway a veces entrega postgres://
+DB_URL = _raw_url.replace("postgres://", "postgresql://", 1)
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS zonas (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(100) UNIQUE NOT NULL,
+    municipio VARCHAR(200) NOT NULL,
+    departamento VARCHAR(100) DEFAULT 'Antioquia',
+    radio_km FLOAT DEFAULT 25,
+    activa BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS predicciones (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(100) NOT NULL,
+    tipo_riesgo VARCHAR(50) NOT NULL,
+    horizonte VARCHAR(10) NOT NULL,
+    nivel VARCHAR(20) NOT NULL,
+    probabilidad FLOAT NOT NULL,
+    amenaza FLOAT,
+    exposicion FLOAT,
+    vulnerabilidad FLOAT,
+    factor_clima FLOAT,
+    riesgo_total FLOAT,
+    modo_degradado BOOLEAN DEFAULT FALSE,
+    timestamp_prediccion TIMESTAMP NOT NULL,
+    timestamp_horizonte TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alertas (
+    id SERIAL PRIMARY KEY,
+    alerta_id VARCHAR(200) UNIQUE NOT NULL,
+    zona_id VARCHAR(100),
+    tipo_riesgo VARCHAR(50) NOT NULL,
+    nivel VARCHAR(20) NOT NULL,
+    municipio VARCHAR(200),
+    descripcion TEXT,
+    acciones TEXT,
+    activa BOOLEAN DEFAULT TRUE,
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS consultas_ia (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(100),
+    pregunta TEXT NOT NULL,
+    respuesta TEXT,
+    timestamp TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO zonas (zona_id, municipio) VALUES
+    ('guatape', 'Guatapé'),
+    ('medellin', 'Medellín'),
+    ('rionegro', 'Rionegro'),
+    ('santa_fe_antioquia', 'Santa Fe de Antioquia'),
+    ('caucasia', 'Caucasia')
+ON CONFLICT (zona_id) DO NOTHING;
+"""
 
 
 async def init_pool() -> None:
-    """Crea el pool de conexiones al iniciar la app. Falla silenciosamente."""
+    """Crea el pool y las tablas al iniciar la app. Falla silenciosamente."""
     global _pool
     try:
         _pool = await asyncpg.create_pool(
@@ -30,8 +87,10 @@ async def init_pool() -> None:
             min_size=1,
             max_size=5,
             command_timeout=10,
-            timeout=3,
+            timeout=5,
         )
+        async with _pool.acquire() as conn:
+            await conn.execute(_SCHEMA)
         logger.info("PostgreSQL conectado — histórico de predicciones activo")
     except Exception as e:
         logger.warning(f"PostgreSQL no disponible ({type(e).__name__}) — app funciona sin histórico")
