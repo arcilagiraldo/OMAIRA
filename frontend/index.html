@@ -275,9 +275,17 @@ main{flex:1;display:flex;overflow:hidden}
 
 /* ── RESPONSIVE MÓVIL ─────────────────────────────────────────── */
 #mob-sb-toggle{display:none;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px 8px;flex-shrink:0}
+#mob-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:300;padding:4px 0 max(4px,env(safe-area-inset-bottom))}
+#mob-bottom-nav .mob-nav-inner{display:flex;justify-content:space-around;align-items:stretch}
+#mob-bottom-nav button{flex:1;background:none;border:none;color:var(--text3);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;cursor:pointer;font-size:8px;transition:color .15s;min-width:0}
+#mob-bottom-nav button span.icon{font-size:20px;line-height:1}
+#mob-bottom-nav button.mob-act{color:var(--az)}
+#mob-bottom-nav button.mob-act span.icon{filter:drop-shadow(0 0 4px var(--az))}
 @media(max-width:768px){
-  body{height:100dvh;overflow:hidden}
+  body{height:100dvh;overflow:hidden;padding-bottom:64px}
+  #mob-bottom-nav{display:block}
   header{padding:0 8px;height:44px;gap:6px}
+  header nav{display:none}
   .logo h1{font-size:11px}.logo small{display:none}
   .logo-i{width:26px;height:26px;font-size:12px}
   nav{gap:0}
@@ -4964,6 +4972,10 @@ function wPrev(){if(wp>1){wp--;renderW();}}
 
 // ═══════════════════════════════════════════════════════════
 // ── SIDEBAR MÓVIL ────────────────────────────────────────────
+function mobNav(btn){
+  document.querySelectorAll('#mob-bottom-nav button').forEach(b=>b.classList.remove('mob-act'));
+  if(btn)btn.classList.add('mob-act');
+}
 function toggleSbMob(){
   const sb=document.querySelector('.sb');
   const ov=document.getElementById('mob-overlay');
@@ -8111,5 +8123,16 @@ function eliminarFuenteCustom(idx){
 
 
 
+<nav id="mob-bottom-nav">
+  <div class="mob-nav-inner">
+    <button class="mob-act" onclick="go('dashboard');mobNav(this)"><span class="icon">📊</span>Inicio</button>
+    <button onclick="go('irg');mobNav(this)"><span class="icon">🎯</span>IRG</button>
+    <button onclick="go('mapa');mobNav(this)"><span class="icon">🗺️</span>Mapa</button>
+    <button onclick="go('prediccion');mobNav(this)"><span class="icon">📈</span>Predicción</button>
+    <button onclick="go('alertas');mobNav(this)"><span class="icon">🚨</span>Alertas</button>
+    <button onclick="go('ia-analisis');mobNav(this)"><span class="icon">🤖</span>IA</button>
+    <button onclick="toggleSbMob()"><span class="icon">☰</span>Más</button>
+  </div>
+</nav>
 </body>
 </html>
