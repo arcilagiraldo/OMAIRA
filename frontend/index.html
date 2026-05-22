@@ -613,6 +613,14 @@ main{flex:1;display:flex;overflow:hidden}
       <button class="btn btpu" id="ia-run" onclick="runIA()" style="font-size:11px;padding:7px 16px">🔍 Analizar con IA</button>
     <div id="ia-key-warning" style="display:none;margin-top:6px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:6px 9px;font-size:9px;color:var(--a)">⚠️ Este modelo requiere API key. Ingresa la clave arriba antes de analizar.</div>
     </div>
+    <div style="margin-top:10px;border-top:1px solid var(--b2);padding-top:10px">
+      <div class="ctit" style="margin-bottom:6px">Pregunta en lenguaje natural</div>
+      <div style="display:flex;gap:6px">
+        <input id="consulta-input" type="text" placeholder="Ej: ¿cuándo va a escampar? ¿va a llover hoy? ¿qué temperatura hace?" style="flex:1;background:var(--b2);border:1px solid var(--b3);border-radius:6px;padding:7px 10px;color:var(--text1);font-size:11px;outline:none"/>
+        <button class="btn btpu" onclick="enviarConsulta()" style="font-size:11px;padding:7px 14px;white-space:nowrap">💬 Preguntar</button>
+      </div>
+      <div id="consulta-res" style="display:none;margin-top:8px;background:var(--b2);border-radius:6px;padding:10px;font-size:11px;color:var(--text1);line-height:1.5"></div>
+    </div>
     <div id="ia-prog" style="display:none;margin-top:7px">
       <div style="font-size:9px;color:var(--text2);margin-bottom:2px" id="ia-plbl">—</div>
       <div class="pbg"><div class="pf" id="ia-pf" style="width:0%"></div></div>
@@ -4364,6 +4372,23 @@ function parsearRespuestaIA(txt2, modelo_nombre) {
       modelo_usado: modelo_nombre+' (respuesta no estructurada)',
       timestamp: new Date().toISOString(),
     };
+  }
+}
+
+async function enviarConsulta(){
+  const input=document.getElementById('consulta-input');
+  const res=document.getElementById('consulta-res');
+  const pregunta=input?.value?.trim();
+  if(!pregunta)return;
+  res.style.display='block';
+  res.textContent='⏳ Consultando...';
+  const zona=zonaActual||'guatape';
+  try{
+    const r=await fetch(`${API}/ia/consultar?q=${encodeURIComponent(pregunta)}&zona_id=${zona}`);
+    const d=await r.json();
+    res.innerHTML=`<strong>🤖 OMAIRA:</strong> ${d.respuesta||d.detail||JSON.stringify(d)}`;
+  }catch(e){
+    res.textContent=`❌ Error: ${e.message}`;
   }
 }
 
