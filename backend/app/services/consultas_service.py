@@ -84,10 +84,8 @@ Responde esta pregunta del usuario de forma directa y útil:
                 json=payload,
                 headers={"Content-Type": "application/json"},
             )
-            if r.status_code == 429:
-                return None  # rate limit — fallback al motor local
             if r.status_code != 200:
-                return {"pregunta_tipo": "gemini_error", "respuesta": f"Gemini HTTP {r.status_code}: {r.text[:200]}", "datos": {}}
+                return {"pregunta_tipo": "gemini_error", "respuesta": f"Gemini HTTP {r.status_code}: {r.text[:300]}", "datos": {}}
             data = r.json()
             texto = data["candidates"][0]["content"]["parts"][0]["text"].strip()
             return {
