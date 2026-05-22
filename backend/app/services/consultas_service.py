@@ -118,10 +118,12 @@ async def responder_consulta(
     zona_nombre = nombre_zona(zona_id)
 
     # Gemini como primera opción si hay API key
-    if os.getenv("GEMINI_API_KEY") or GEMINI_API_KEY:
+    gemini_key = os.getenv("GEMINI_API_KEY") or GEMINI_API_KEY
+    if gemini_key:
         resultado = await _responder_con_gemini(pregunta, zona_id, lat, lon, zona_nombre)
         if resultado:
             return resultado
+        return {"pregunta_tipo": "gemini_none", "respuesta": f"Gemini retornó None. Key presente: {bool(gemini_key)}", "datos": {}}
 
     # Clasificación local como fallback
     if _es_pregunta_escampar(pregunta_lower):
