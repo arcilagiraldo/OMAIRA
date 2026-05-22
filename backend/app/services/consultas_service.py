@@ -64,20 +64,24 @@ async def responder_consulta(
 # ── Clasificadores ─────────────────────────────────────────────────────────────
 
 def _es_pregunta_escampar(q: str) -> bool:
-    palabras = ["escampa", "escampará", "para de llover", "deja de llover",
+    palabras = ["escampa", "escampara", "escampará", "para de llover", "deja de llover",
                 "cuando para", "cuándo para", "cuanto tarda", "cuánto tarda",
-                "cuanto tiempo llueve", "cuando termina la lluvia"]
+                "cuanto tiempo llueve", "cuando termina la lluvia", "deja de llover",
+                "termina la lluvia", "para la lluvia", "se va la lluvia"]
     return any(p in q for p in palabras)
 
 def _es_pregunta_va_a_llover(q: str) -> bool:
-    palabras = ["va a llover", "va llover", "lloverá", "lluvia hoy",
+    palabras = ["va a llover", "va llover", "lloverá", "llovera", "lluvia hoy",
                 "pronóstico lluvia", "pronostico lluvia", "llueve hoy",
-                "habrá lluvia", "habra lluvia"]
+                "habrá lluvia", "habra lluvia", "cuando llueve", "cuando lluvia",
+                "cuando llover", "lloverá hoy", "llovera hoy", "va llover",
+                "va a caer lluvia", "caerá lluvia", "caera lluvia"]
     return any(p in q for p in palabras)
 
 def _es_pregunta_temperatura(q: str) -> bool:
-    palabras = ["temperatura", "calor", "frío", "frio", "cuánto hace",
-                "que tan caliente", "grados", "°c"]
+    palabras = ["temperatura", "calor", "frío", "frio", "cuánto hace", "cuanto hace",
+                "que tan caliente", "grados", "°c", "que temperatura", "qué temperatura",
+                "hace frio", "hace calor", "esta frio", "está frío"]
     return any(p in q for p in palabras)
 
 def _es_pregunta_viento(q: str) -> bool:
