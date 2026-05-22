@@ -78,20 +78,25 @@ ON CONFLICT (zona_id) DO NOTHING;
 """
 
 
+async def _init_pool_inner() -> None:
+    global _pool
+    _pool = await asyncpg.create_pool(
+        DB_URL,
+        min_size=1,
+        max_size=5,
+        command_timeout=10,
+        timeout=5,
+    )
+    async with _pool.acquire() as conn:
+        await conn.execute(_SCHEMA)
+    logger.info("PostgreSQL conectado — histórico de predicciones activo")
+
+
 async def init_pool() -> None:
-    """Crea el pool y las tablas al iniciar la app. Falla silenciosamente."""
+    """Crea el pool y las tablas al iniciar la app. Falla silenciosamente en máx 12 s."""
     global _pool
     try:
-        _pool = await asyncpg.create_pool(
-            DB_URL,
-            min_size=1,
-            max_size=5,
-            command_timeout=10,
-            timeout=5,
-        )
-        async with _pool.acquire() as conn:
-            await conn.execute(_SCHEMA)
-        logger.info("PostgreSQL conectado — histórico de predicciones activo")
+        await asyncio.wait_for(_init_pool_inner(), timeout=12)
     except Exception as e:
         logger.warning(f"PostgreSQL no disponible ({type(e).__name__}) — app funciona sin histórico")
         _pool = None
