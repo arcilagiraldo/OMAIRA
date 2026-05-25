@@ -2830,6 +2830,7 @@ function evaluarUmbralesIDF(lluvia_mmh, api, subregion, pronostico_6h) {
       tipo: 'IDF_1H',
       descripcion: `Lluvia ${lluvia_1h_est.toFixed(1)}mm/h supera umbral DAGRAN ${umb[1]}mm/h (T10)`,
       nivel: lluvia_1h_est > umb[1]*1.5 ? 'muy_alto' : 'alto',
+      acciones: ['Monitorear cauces cercanos','Alertar comunidades en pendiente'],
       fuente: 'Umbrales IDF DAGRAN',
     });
   }
@@ -2840,6 +2841,7 @@ function evaluarUmbralesIDF(lluvia_mmh, api, subregion, pronostico_6h) {
       tipo: 'IDF_6H',
       descripcion: `Acumulado estimado 6h: ${lluvia_6h_est.toFixed(0)}mm > umbral DAGRAN ${umb[3]}mm`,
       nivel: 'muy_alto',
+      acciones: ['Revisar embalses','Activar protocolo inundaciones'],
       fuente: 'Umbrales IDF DAGRAN',
     });
   }
@@ -2849,6 +2851,7 @@ function evaluarUmbralesIDF(lluvia_mmh, api, subregion, pronostico_6h) {
       tipo: 'API_IDF_COMBINADO',
       descripcion: `⚠️ SUELO SATURADO (API=${api.toFixed(0)}) + lluvia activa ${lluvia_mmh.toFixed(1)}mm/h — deslizamiento inminente`,
       nivel: 'critico',
+      acciones: ['EVACUAR comunidades en pendiente','Notificar DAGRAN inmediatamente'],
       fuente: 'Modelo combinado API+IDF DAGRAN',
     });
   }
@@ -4093,7 +4096,7 @@ function renderAlertas(cid='adash'){
   const ml=D.riesgos.filter(r=>['alto','muy_alto','critico'].includes(r.nivel));
   const ia=D.irg.alertas;
   if(!ml.length&&!ia.length){el.innerHTML='<div style="color:var(--v);font-size:10px;padding:6px">✓ Sin alertas activas</div>';return;}
-  el.innerHTML=[...ia.map(a=>{const c=NCV(a.nivel);return`<div class="alerta" style="border-color:${c}"><div class="at" style="color:${c}">🎯 IRG · ${a.nivel.replace('_',' ')} — ${a.tipo}</div><div class="ad">${a.descripcion}</div>${a.acciones.slice(0,2).map(x=>`<div class="a-acc">${x}</div>`).join('')}</div>`}),
+  el.innerHTML=[...ia.map(a=>{const c=NCV(a.nivel);return`<div class="alerta" style="border-color:${c}"><div class="at" style="color:${c}">🎯 IRG · ${a.nivel.replace('_',' ')} — ${a.tipo}</div><div class="ad">${a.descripcion||a.msg||''}</div>${(a.acciones||[]).slice(0,2).map(x=>`<div class="a-acc">${x}</div>`).join('')}</div>`}),
   ...ml.map(r=>{const c=NCV(r.nivel);return`<div class="alerta" style="border-color:${c}"><div class="at" style="color:${c}">${r.e} ML · ${r.nivel.replace('_',' ')}</div><div class="ad">${r.n} — ${(r.prob*100).toFixed(1)}%</div><div class="ad" style="font-size:8px">${r.desc}</div></div>`})].join('');
 }
 function renderSismos(cid){
