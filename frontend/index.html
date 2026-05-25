@@ -3929,7 +3929,8 @@ async function cargarDatos(z){
       const nivel=ev.alerta==='red'?'rojo':'naranja';
       if(!irg.alertas.find(x=>x.tipo==='GDACS-'+ev.tipo))
         irg.alertas.push({tipo:'GDACS-'+ev.tipo,nivel,
-          msg:`🌐 GDACS: ${ev.nombre} — Alerta ${ev.alerta.toUpperCase()} ONU`});
+          descripcion:`🌐 GDACS: ${ev.nombre} — Alerta ${ev.alerta.toUpperCase()} ONU`,
+          acciones:['Revisar portal GDACS','Activar protocolo de respuesta'],fuente:'GDACS'});
     });
   }
   // Alertas ReliefWeb activas en Colombia
@@ -3937,7 +3938,8 @@ async function cargarDatos(z){
     dr.reliefweb.items.filter(ev=>ev.estado==='ongoing').slice(0,2).forEach(ev=>{
       if(!irg.alertas.find(x=>x.tipo==='RW-'+ev.tipo))
         irg.alertas.push({tipo:'RW-'+ev.tipo,nivel:'amarillo',
-          msg:`🆘 ReliefWeb: ${ev.nombre} (${ev.tipo})`});
+          descripcion:`🆘 ReliefWeb: ${ev.nombre} (${ev.tipo})`,
+          acciones:['Consultar ReliefWeb para detalles'],fuente:'ReliefWeb'});
     });
   }
   return{zona:z,muni:m.n,lat:m.lat,lon:m.lon,sub:m.sub,pop:m.pop,alt:m.alt,
