@@ -14,7 +14,8 @@ from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
 from app.services.consultas_service import responder_consulta
 from app.services.database import guardar_consulta
 from app.services.fuentes_externas import (
-    obtener_dane, obtener_reps, obtener_ansv, obtener_sivigila, obtener_sisaire
+    obtener_dane, obtener_reps, obtener_ansv, obtener_sivigila, obtener_sisaire,
+    obtener_sismicidad, obtener_enso,
 )
 
 router_irg = APIRouter()
@@ -28,9 +29,10 @@ async def _obtener_datos_ext(zona_id: str) -> dict:
     resultados = await asyncio.gather(
         obtener_dane(zona_id), obtener_reps(zona_id), obtener_ansv(zona_id),
         obtener_sivigila(zona_id), obtener_sisaire(zona_id),
+        obtener_sismicidad(zona_id), obtener_enso(),
         return_exceptions=True,
     )
-    claves = ["dane", "reps", "ansv", "sivigila", "sisaire"]
+    claves = ["dane", "reps", "ansv", "sivigila", "sisaire", "sismicidad", "enso"]
     return {k: (v if not isinstance(v, Exception) else {}) for k, v in zip(claves, resultados)}
 
 
@@ -125,17 +127,21 @@ async def analizar(solicitud: SolicitudIA):
     except ValueError:
         raise HTTPException(400, f"Modelo '{solicitud.modelo}' no válido. Use: {[m.value for m in ModeloIA]}")
 
-    # Recolectar datos internos
+    # Recolectar datos internos + todas las fuentes externas en paralelo
     zona = solicitud.zona_id
     try:
         meteo = await obtener_meteo_real(zona, solicitud.lat, solicitud.lon)
     except Exception:
         meteo = _simular_datos_meteorologicos(zona)
 
-    irg_resultado = calcular_irg(meteo, {}, zona_id=zona)
+    datos_ext = await _obtener_datos_ext(zona)
+    irg_resultado = calcular_irg(meteo, {}, zona_id=zona, datos_ext=datos_ext)
     preds_resultado = await calcular_riesgo_zona(zona)
 
-    # Construir payload combinado para el modelo IA
+    enso_data = datos_ext.get("enso") or {}
+    f_enso = enso_data.get("factor_clima", 1.0)
+
+    # Construir payload combinado para el modelo IA — incluye todas las fuentes
     datos_combinados = {
         "zona": zona,
         "sensores": {
@@ -144,6 +150,8 @@ async def analizar(solicitud: SolicitudIA):
             "temp":      round(meteo.get("temperatura_c", 0), 1),
             "hum":       round(meteo.get("humedad_suelo", 0) * 100, 1),
             "viento":    round(meteo.get("velocidad_viento_ms", 0), 1),
+            "lluvia_pron_24h": meteo.get("lluvia_24h_pronostico_mm", 0),
+            "lluvia_pron_72h": meteo.get("lluvia_72h_pronostico_mm", 0),
         },
         "irg": {
             "irg": irg_resultado.irg,
@@ -153,7 +161,8 @@ async def analizar(solicitud: SolicitudIA):
         "alertas_irg": irg_resultado.alertas_irg,
         "predicciones": preds_resultado.get("predicciones", []),
         "contexto_local": irg_resultado.contexto_local,
-        "factor_enso": 1.04,
+        "factor_enso": f_enso,
+        "datos_ext": datos_ext,
         "timestamp": datetime.utcnow().isoformat(),
     }
 

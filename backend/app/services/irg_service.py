@@ -206,8 +206,22 @@ def calcular_irg(
         if isinstance(casos, (int, float)) and casos > 0:
             sivigila_factor = min(1.0, casos / 3000)
             congestion = min(1.0, congestion * 0.85 + sivigila_factor * 0.15)
-            if "REPS" not in fuentes_usadas:
+            if "SIVIGILA" not in fuentes_usadas:
                 fuentes_usadas.append("SIVIGILA")
+
+        # USGS Sismicidad → derrumbes_vias + puentes_riesgo
+        _sismo = datos_ext.get("sismicidad") or {}
+        factor_sismico = _sismo.get("factor_sismico")
+        if isinstance(factor_sismico, (int, float)) and factor_sismico > 0.08:
+            derrumbes = min(1.0, derrumbes * 0.70 + factor_sismico * 0.30)
+            puentes   = min(1.0, puentes   * 0.75 + factor_sismico * 0.25)
+            fuentes_usadas.append("USGS")
+
+        # ENSO → factor multiplicador global del IRG (La Niña amplifica, El Niño reduce)
+        _enso = datos_ext.get("enso") or {}
+        f_enso = _enso.get("factor_clima")
+        if isinstance(f_enso, (int, float)) and f_enso != 1.0:
+            fuentes_usadas.append("ENSO/NOAA")
 
     # ── Mapa de variables ────────────────────────────────────────────────
     vars_mapa = {
@@ -238,6 +252,13 @@ def calcular_irg(
     for key, var in vars_mapa.items():
         var.contribucion = var.valor * var.peso
         irg_total += var.contribucion
+
+    # Aplicar factor ENSO real si está disponible
+    if datos_ext:
+        _enso = datos_ext.get("enso") or {}
+        f_enso = _enso.get("factor_clima")
+        if isinstance(f_enso, (int, float)) and 0.5 <= f_enso <= 2.0:
+            irg_total = irg_total * f_enso
 
     irg_total = min(1.0, max(0.0, irg_total))
     nivel = _nivel_irg(irg_total)

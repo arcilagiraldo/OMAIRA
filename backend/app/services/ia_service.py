@@ -74,51 +74,66 @@ def _construir_prompt(datos_combinados: Dict) -> str:
         for a in alertas[:4]
     ]) if alertas else "  - Sin alertas activas"
 
-    externos_txt = ""
-    if externos:
-        fuente_label = "Open-Meteo (real, sin API key)" if externos.get("fuente_real") else externos.get("fuente", "Open-Meteo")
-        externos_txt = f"""
-DATOS METEOROLÓGICOS EXTERNOS ({fuente_label}):
-- Temperatura: {externos.get('temperatura_c', 'N/D')}°C
-- Lluvia acumulada 24h: {externos.get('lluvia_24h_mm', externos.get('precipitacion_3h', 'N/D'))} mm
-- Precipitación actual: {externos.get('precipitacion_actual_mm', 'N/D')} mm/h
-- Humedad relativa: {externos.get('humedad_relativa', 'N/D')}%
-- Velocidad viento: {externos.get('velocidad_viento_ms', externos.get('viento_ms', 'N/D'))} m/s
-- Nubosidad: {externos.get('nubosidad_pct', 'N/D')}%
-- Código clima WMO: {externos.get('codigo_clima', 'N/D')}"""
+    # Bloque meteorológico
+    fuente_label = "Open-Meteo/Copernicus (real)" if externos.get("fuente_real") else externos.get("fuente", "Open-Meteo")
+    meteo_txt = f"""
+METEOROLOGÍA REAL ({fuente_label}):
+- Temperatura: {externos.get('temperatura_c', 'N/D')}°C  |  Humedad relativa: {externos.get('humedad_relativa', 'N/D')}%
+- Lluvia últimas 24h: {externos.get('lluvia_24h_mm', 'N/D')} mm  |  Lluvia últimas 72h: {externos.get('lluvia_72h_mm', 'N/D')} mm
+- Pronóstico 24h: {externos.get('lluvia_24h_pronostico_mm', 'N/D')} mm  |  Pronóstico 72h: {externos.get('lluvia_72h_pronostico_mm', 'N/D')} mm
+- Viento: {externos.get('velocidad_viento_ms', 'N/D')} m/s  |  Presión: {externos.get('presion_hpa', 'N/D')} hPa
+- Código WMO: {externos.get('codigo_clima', 'N/D')}  |  Nubosidad: {externos.get('nubosidad_pct', 'N/D')}%"""
 
-    return f"""Eres un experto en gestión del riesgo de desastres en Colombia, especializado en el Oriente Antioqueño.
-Analiza la siguiente información en tiempo real del sistema SIRGA para el municipio de {zona_nombre}, Antioquia.
+    # Bloque fuentes externas
+    datos_ext = datos_combinados.get("datos_ext", {})
+    dane  = datos_ext.get("dane", {})
+    reps  = datos_ext.get("reps", {})
+    ansv  = datos_ext.get("ansv", {})
+    sivi  = datos_ext.get("sivigila", {})
+    sisa  = datos_ext.get("sisaire", {})
+    sismo = datos_ext.get("sismicidad", {})
+    enso  = datos_ext.get("enso", {})
 
-DATOS DE SENSORES EN TIEMPO REAL:
-- Lluvia 24h: {sensores.get('lluvia24', 'N/D')} mm/h
-- Nivel embalse El Peñol: {sensores.get('embalse', 'N/D')}%
-- Temperatura: {sensores.get('temp', 'N/D')}°C
-- Humedad suelo: {sensores.get('hum', 'N/D')}%
-- Viento: {sensores.get('viento', 'N/D')} m/s
-{externos_txt}
+    fuentes_txt = ""
+    if any([dane, reps, ansv, sivi, sisa, sismo, enso]):
+        fuentes_txt = f"""
+FUENTES EXTERNAS INTEGRADAS (datos reales):
+- DANE CNPV 2018: Población {dane.get('poblacion_2024','N/D'):,} hab | NBI {(dane.get('nbi') or {}).get('total_pct','N/D')}% | Vulnerabilidad social {dane.get('indice_vulnerabilidad_dane','N/D')}
+- REPS MinSalud: {reps.get('total_prestadores','N/D')} prestadores | Cobertura médica: {reps.get('cobertura_medica','N/D')}
+- ANSV (vías): {ansv.get('total_sectores_criticos','N/D')} sectores críticos | {ansv.get('total_fallecidos_registrados','N/D')} fallecidos registrados | Riesgo vial: {ansv.get('nivel_riesgo_vial','N/D')}
+- SIVIGILA (INS): {sivi.get('total_casos_reportados','N/D')} casos reportados | {sivi.get('total_eventos_distintos','N/D')} eventos distintos
+- SISAIRE/Copernicus: AQI-EU {sisa.get('ica','N/D')} ({sisa.get('categoria_ica','N/D')}) | PM2.5 {(sisa.get('contaminantes') or {}).get('pm25_ug_m3','N/D')} µg/m³
+- Sismicidad USGS: {sismo.get('sismos_7_dias','N/D')} sismos (7 días) | Mag. máx: {sismo.get('magnitud_maxima','N/D')} | Nivel: {sismo.get('nivel_sismico','N/D')}
+- ENSO NOAA: {enso.get('fase_enso','N/D')} (ONI={enso.get('indice_oni','N/D')}) | Factor climático: {enso.get('factor_clima','N/D')} | {enso.get('descripcion','')}"""
+
+    f_enso = datos_combinados.get("factor_enso", 1.0)
+
+    return f"""Eres un experto en gestión del riesgo de desastres en Colombia, especializado en Antioquia.
+Analiza la siguiente información en tiempo real del sistema OMAIRA para el municipio de {zona_nombre}.
+{meteo_txt}
+{fuentes_txt}
 
 ÍNDICE DE RIESGO GLOBAL (IRG): {irg.get('irg', 0)*100:.1f}% — Nivel: {irg.get('nivel', 'N/D').replace('_', ' ').upper()}
+Factor ENSO aplicado: {f_enso} ({enso.get('fase_enso','neutro')})
+Fuentes activas en modelo: {contexto.get('fuentes_externas_activas', [])}
 
 TOP FACTORES DE RIESGO:
-{chr(10).join([f"  - {v}: {c*100:.1f}%" for v, c in irg.get('top_factores', [])[:4]])}
+{chr(10).join([f"  - {v}: {c*100:.1f}%" for v, c in irg.get('top_factores', [])[:5]])}
 
-PREDICCIONES ML POR TIPO:
+PREDICCIONES H×E×V POR TIPO:
 {pred_resumen}
 
 ALERTAS ACTIVAS:
 {alertas_resumen}
 
-CONTEXTO LOCAL {zona_nombre.upper()}:
-- Hora actual: {contexto.get('hora', 'N/D')}:00
-- Turismo: {contexto.get('turismo_nivel', 'N/D')} ({contexto.get('turismo_pct', 'N/D')}%)
-- Movilidad vial: {contexto.get('movilidad_pct', 'N/D')}%
+CONTEXTO LOCAL:
+- Hora: {contexto.get('hora', 'N/D')}:00 | Turismo: {contexto.get('turismo_nivel', 'N/D')} ({contexto.get('turismo_pct', 'N/D')}%) | Movilidad: {contexto.get('movilidad_pct', 'N/D')}%
 
-Proporciona un análisis estructurado con estos 4 componentes EXACTOS en formato JSON:
+Proporciona análisis estructurado en JSON exacto:
 {{
-  "diagnostico": "Párrafo de 2-3 oraciones explicando la situación actual del riesgo en lenguaje claro para autoridades no técnicas",
-  "pronostico": "Párrafo de 2-3 oraciones sobre qué se espera en las próximas 6-12 horas basado en las tendencias",
-  "explicacion_experta": "Explicación técnica de 3-4 oraciones sobre los mecanismos físicos que generan el riesgo actual (deslizamientos, inundaciones, etc.)",
+  "diagnostico": "2-3 oraciones sobre la situación actual para autoridades no técnicas. Incluye datos concretos de las fuentes externas (NBI, prestadores de salud, sectores viales, calidad del aire).",
+  "pronostico": "2-3 oraciones sobre las próximas 6-24 horas basadas en pronóstico de lluvia real y fase ENSO actual.",
+  "explicacion_experta": "3-4 oraciones técnicas sobre los mecanismos físicos y sociales del riesgo (H×E×V, ENSO, vulnerabilidad DANE, sismicidad).",
   "recomendaciones": ["Acción 1 específica y ejecutable", "Acción 2", "Acción 3", "Acción 4", "Acción 5"]
 }}
 Responde SOLO con el JSON, sin texto adicional, sin markdown."""
@@ -137,11 +152,17 @@ def _analisis_local(datos_combinados: Dict) -> Dict:
     irg_val = irg.get("irg", 0.2)
     nivel = irg.get("nivel", "bajo")
     lluvia = sensores.get("lluvia24", 0)
+    lluvia_pron = sensores.get("lluvia_pron_24h", 0)
     embalse = sensores.get("embalse", 70)
     turismo_pct = contexto.get("turismo_pct", 30)
     hora = contexto.get("hora", 12)
     top = irg.get("top_factores", [])
     factor_principal = top[0][0].replace("_", " ") if top else "precipitación"
+    datos_ext = datos_combinados.get("datos_ext", {})
+    enso = datos_ext.get("enso", {})
+    sismo = datos_ext.get("sismicidad", {})
+    dane = datos_ext.get("dane", {})
+    reps = datos_ext.get("reps", {})
 
     # ── Diagnóstico basado en reglas ──────────────────────────────────────
     if irg_val > 0.72:
@@ -185,8 +206,13 @@ def _analisis_local(datos_combinados: Dict) -> Dict:
     else:
         turismo_txt = f"Afluencia turística moderada ({turismo_pct}%) facilita el control de accesos."
 
+    enso_txt = f" Fase ENSO {enso.get('fase_enso','neutro')} (ONI={enso.get('indice_oni',0)}) {enso.get('descripcion','')}." if enso else ""
+    pron_txt = f" Pronóstico de lluvia próximas 24h: {lluvia_pron} mm." if lluvia_pron else ""
+    sismo_txt = (f" Actividad sísmica detectada: {sismo['sismos_7_dias']} sismos en 7 días (mag. máx. {sismo['magnitud_maxima']})."
+                 if sismo and sismo.get("sismos_7_dias", 0) > 0 else "")
     pronostico = (
-        f"Para {fase_dia} se proyecta {tendencia} "
+        f"Para {fase_dia} se proyecta {tendencia}{pron_txt}"
+        f"{enso_txt}{sismo_txt} "
         f"{turismo_txt} "
         f"Se recomienda actualizar el IRG cada 30 minutos durante este período."
     )
@@ -203,7 +229,7 @@ def _analisis_local(datos_combinados: Dict) -> Dict:
         mec = (
             "El sistema integra el modelo RIESGO=(H×E×V)×F_clima donde H es la amenaza calculada con física de taludes y modelos ML calibrados con datos DAGRAN. "
             "La exposición (E) combina densidad de turistas y flujos de movilidad, mientras la vulnerabilidad (V) refleja la pendiente del terreno y cobertura vegetal. "
-            f"El factor ENSO ({datos_combinados.get('factor_enso', 1.04)}) ajusta el riesgo según la fase del ciclo climático (actualmente neutro). "
+            f"El factor ENSO {datos_combinados.get('factor_enso', 1.0)} ({enso.get('fase_enso','neutro')}) ajusta el riesgo según la fase climática. "
             "La incertidumbre se calcula mediante intervalos de confianza bootstrap del 90%."
         )
 

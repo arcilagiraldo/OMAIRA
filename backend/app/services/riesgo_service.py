@@ -24,7 +24,7 @@ DATOS_BASE_ZONAS = {
         "altitud_m": 1890,
         "pendiente_media_grados": 22,
         "cobertura_vegetal": 0.65,
-        "densidad_poblacion": 12,  # hab/km²
+        "densidad_poblacion": 12,
         "infraestructura_riesgo": 0.4,
     },
     "medellin": {
@@ -44,7 +44,25 @@ DATOS_BASE_ZONAS = {
         "cobertura_vegetal": 0.55,
         "densidad_poblacion": 95,
         "infraestructura_riesgo": 0.5,
-    }
+    },
+    "santa_fe_antioquia": {
+        "municipio": "Santa Fe de Antioquia",
+        "lat": 6.5548, "lon": -75.8278,
+        "altitud_m": 550,
+        "pendiente_media_grados": 8,
+        "cobertura_vegetal": 0.45,
+        "densidad_poblacion": 18,
+        "infraestructura_riesgo": 0.55,
+    },
+    "caucasia": {
+        "municipio": "Caucasia",
+        "lat": 7.9882, "lon": -75.1975,
+        "altitud_m": 150,
+        "pendiente_media_grados": 3,
+        "cobertura_vegetal": 0.35,
+        "densidad_poblacion": 85,
+        "infraestructura_riesgo": 0.45,
+    },
 }
 
 
@@ -65,18 +83,10 @@ def _simular_datos_meteorologicos(zona_id: str) -> Dict:
     }
 
 
-def _calcular_factor_enso() -> float:
-    """
-    Factor climático ENSO (El Niño / La Niña).
-    En producción: consultar índice ONI de NOAA.
-    Retorna: >1.0 = lluvioso (La Niña), <1.0 = seco (El Niño), ~1.0 = neutral
-    """
-    # Simulado — en producción consultar ONI NOAA
-    oni_actual = 0.4  # Ligeramente Niño
-    if oni_actual > 0.5:
-        return 0.85  # El Niño → más seco → menos deslizamientos, más incendios
-    elif oni_actual < -0.5:
-        return 1.35  # La Niña → más lluvia → más inundaciones y deslizamientos
+def _calcular_factor_enso(enso_data: dict = None) -> float:
+    """Factor climático ENSO real desde NOAA ONI. Fallback a 1.0 (neutro)."""
+    if enso_data and isinstance(enso_data.get("factor_clima"), float):
+        return enso_data["factor_clima"]
     return 1.0
 
 
@@ -125,18 +135,29 @@ def _calcular_amenaza(
     return min(1.0, max(0.0, h * factor_tiempo))
 
 
-def _calcular_exposicion(zona: Dict) -> float:
-    """Componente E (Exposición de elementos en riesgo)"""
+def _calcular_exposicion(zona: Dict, dane_data: Dict = None) -> float:
+    """Componente E — usa población real de DANE cuando está disponible."""
     densidad_norm = min(1.0, zona["densidad_poblacion"] / 5000)
+    if dane_data:
+        pob = dane_data.get("poblacion_2024")
+        if isinstance(pob, (int, float)) and pob > 0:
+            # Normalizar sobre la referencia máxima de Antioquia (Medellín ~2.6M)
+            densidad_norm = min(1.0, pob / 2_700_000)
     infra = zona["infraestructura_riesgo"]
-    return (0.6 * densidad_norm + 0.4 * infra)
+    return round(0.6 * densidad_norm + 0.4 * infra, 4)
 
 
-def _calcular_vulnerabilidad(zona: Dict) -> float:
-    """Componente V (Vulnerabilidad social y física)"""
+def _calcular_vulnerabilidad(zona: Dict, dane_data: Dict = None) -> float:
+    """Componente V — mezcla física del terreno con índice DANE cuando está disponible."""
     pendiente_norm = min(1.0, zona["pendiente_media_grados"] / 45)
     cobertura_inv = 1 - zona["cobertura_vegetal"]
-    return (0.5 * pendiente_norm + 0.3 * cobertura_inv + 0.2 * zona["infraestructura_riesgo"])
+    v_fisico = 0.5 * pendiente_norm + 0.3 * cobertura_inv + 0.2 * zona["infraestructura_riesgo"]
+    if dane_data:
+        idx = dane_data.get("indice_vulnerabilidad_dane")
+        if isinstance(idx, (int, float)):
+            # 60% físico + 40% índice social DANE
+            v_fisico = v_fisico * 0.60 + idx * 0.40
+    return round(min(1.0, v_fisico), 4)
 
 
 def _nivel_desde_probabilidad(prob: float) -> NivelRiesgo:
@@ -185,14 +206,17 @@ async def calcular_riesgo_zona(
     """
     Calcula el riesgo total para una zona.
     Implementa: RIESGO = (H × E × V) × F_clima
+    Usa datos reales de DANE (E, V) y NOAA ENSO (F_clima).
     """
+    import asyncio
+    from app.services.fuentes_externas import obtener_dane, obtener_enso
+
     zona = DATOS_BASE_ZONAS.get(zona_id)
     modo_degradado = False
 
     if not zona:
-        # Fallback: zona genérica de Antioquia
         zona = {
-            "municipio": zona_id.title(),
+            "municipio": zona_id.replace("_", " ").title(),
             "lat": 6.5, "lon": -75.5,
             "altitud_m": 1500, "pendiente_media_grados": 20,
             "cobertura_vegetal": 0.5, "densidad_poblacion": 50,
@@ -200,17 +224,31 @@ async def calcular_riesgo_zona(
         }
         modo_degradado = True
 
-    try:
-        meteo = await obtener_meteo_real(zona_id, zona.get("lat"), zona.get("lon"))
-    except Exception:
-        meteo = _simular_datos_meteorologicos(zona_id)
+    # Obtener meteo, DANE y ENSO en paralelo
+    meteo_res, dane_res, enso_res = await asyncio.gather(
+        obtener_meteo_real(zona_id, zona.get("lat"), zona.get("lon")),
+        obtener_dane(zona_id),
+        obtener_enso(),
+        return_exceptions=True,
+    )
+    meteo = meteo_res if isinstance(meteo_res, dict) else _simular_datos_meteorologicos(zona_id)
+    if not isinstance(meteo_res, dict):
         modo_degradado = True
+    dane_data = dane_res if isinstance(dane_res, dict) else {}
+    enso_data = enso_res if isinstance(enso_res, dict) else {}
+
+    # Para horizontes futuros usar lluvia pronosticada si está disponible
+    if horizonte == HorizontePrediccion.H24 and meteo.get("lluvia_24h_pronostico_mm") is not None:
+        meteo = {**meteo, "lluvia_24h_mm": meteo["lluvia_24h_pronostico_mm"]}
+    elif horizonte == HorizontePrediccion.H72 and meteo.get("lluvia_72h_pronostico_mm") is not None:
+        meteo = {**meteo, "lluvia_24h_mm": meteo["lluvia_72h_pronostico_mm"],
+                 "lluvia_72h_mm": meteo["lluvia_72h_pronostico_mm"]}
 
     tipos = [tipo_riesgo] if tipo_riesgo else list(TipoRiesgo)
     predicciones = []
-    f_clima = _calcular_factor_enso()
-    e = _calcular_exposicion(zona)
-    v = _calcular_vulnerabilidad(zona)
+    f_clima = _calcular_factor_enso(enso_data)
+    e = _calcular_exposicion(zona, dane_data)
+    v = _calcular_vulnerabilidad(zona, dane_data)
 
     for tipo in tipos:
         h = _calcular_amenaza(tipo, zona, meteo, horizonte)
@@ -243,7 +281,11 @@ async def calcular_riesgo_zona(
                 hours={"1h": 1, "6h": 6, "24h": 24, "72h": 72}[horizonte.value]
             ),
             acciones_recomendadas=_acciones_recomendadas(tipo, nivel),
-            fuentes_datos_activas=fuentes_activas or ["IDEAM", "SIATA"],
+            fuentes_datos_activas=fuentes_activas or (
+                ["Open-Meteo"]
+                + (["DANE"] if dane_data else [])
+                + (["ENSO/NOAA"] if enso_data.get("fuente_real") else [])
+            ),
             modo_degradado=modo_degradado,
             metadata={
                 "datos_meteo": meteo,

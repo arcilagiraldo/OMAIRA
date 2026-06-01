@@ -13,7 +13,8 @@ Patrón: GET https://www.datos.gov.co/resource/{dataset_id}.json?...
 import aiohttp
 import ssl
 import logging
-from datetime import datetime, timezone
+import time as _time
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 
 # SSL context permisivo para datos.gov.co (certificado intermedio no instalado en Windows)
@@ -659,3 +660,158 @@ async def obtener_here(zona_id: str, api_key: Optional[str] = None) -> Dict:
             "fuente_real": False,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
+
+
+# ── ENSO — Índice ONI real (NOAA CPC) ────────────────────────────────────────
+async def obtener_enso() -> Dict:
+    """Índice ONI de NOAA — fase actual de El Niño/La Niña. Caché 24 h."""
+    cache_key = "enso_oni"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 86400:
+        return cached[1]
+
+    url = "https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, ssl=_SSL_CTX, timeout=aiohttp.ClientTimeout(total=12)) as resp:
+                texto = await resp.text()
+
+        lineas = [l.strip() for l in texto.strip().splitlines()
+                  if l.strip() and not l.strip().startswith("SEAS")]
+        ultima = lineas[-1].split()
+        seas, yr, oni = ultima[0], int(ultima[1]), float(ultima[2])
+
+        if oni > 0.5:
+            fase = "El Niño"
+            f_clima = max(0.70, 1.0 - (oni - 0.5) * 0.30)
+            desc = "Condiciones más secas. Menor riesgo de inundaciones, mayor riesgo de incendios en Antioquia."
+        elif oni < -0.5:
+            fase = "La Niña"
+            f_clima = min(1.55, 1.0 + (abs(oni) - 0.5) * 0.45)
+            desc = "Condiciones más húmedas. Mayor riesgo de deslizamientos e inundaciones en Antioquia."
+        else:
+            fase = "Neutro"
+            f_clima = 1.0
+            desc = "Condiciones climáticas sin amplificación adicional de riesgos."
+
+        resultado = {
+            "fuente": "NOAA Climate Prediction Center — ONI",
+            "fuente_id": "ENSO",
+            "indice_oni": oni,
+            "temporada": seas,
+            "año": yr,
+            "fase_enso": fase,
+            "factor_clima": round(f_clima, 3),
+            "descripcion": desc,
+            "fuente_real": True,
+            "modo_degradado": False,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"ENSO NOAA no disponible: {e}")
+        fallback = {
+            "fuente": "Fallback — NOAA no disponible",
+            "fuente_id": "ENSO",
+            "indice_oni": 0.0,
+            "fase_enso": "Neutro (estimado)",
+            "factor_clima": 1.0,
+            "descripcion": "Sin datos ENSO — factor climático neutro aplicado.",
+            "fuente_real": False,
+            "modo_degradado": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora - 82800, fallback)  # reintentar en 1 h
+        return fallback
+
+
+# ── Sismicidad — USGS FDSNWS ─────────────────────────────────────────────────
+_COORDS_SISMO: Dict[str, tuple] = {
+    "guatape":            (6.2336, -75.1567),
+    "medellin":           (6.2442, -75.5812),
+    "rionegro":           (6.1546, -75.3769),
+    "santa_fe_antioquia": (6.5548, -75.8278),
+    "caucasia":           (7.9882, -75.1975),
+}
+
+async def obtener_sismicidad(zona_id: str) -> Dict:
+    """Sismos recientes (USGS FDSNWS) en radio 250 km. Caché 30 min."""
+    cache_key = f"sismicidad:{zona_id}"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 1800:
+        return cached[1]
+
+    lat, lon = _COORDS_SISMO.get(zona_id, (6.2442, -75.5812))
+    inicio = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
+
+    url = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+    params = {
+        "format": "geojson", "latitude": lat, "longitude": lon,
+        "maxradiuskm": 250, "minmagnitude": 3.0,
+        "orderby": "time", "limit": 10, "starttime": inicio,
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                data = await resp.json(content_type=None)
+
+        features = data.get("features", [])
+        total = len(features)
+        max_mag = 0.0
+        sismos = []
+        for f in features[:5]:
+            p = f.get("properties", {})
+            mag = p.get("mag") or 0.0
+            if mag > max_mag:
+                max_mag = mag
+            t_ms = p.get("time", 0)
+            dt = datetime.fromtimestamp(t_ms / 1000, tz=timezone.utc).isoformat() if t_ms else ""
+            sismos.append({"magnitud": round(mag, 1), "lugar": p.get("place", ""), "tiempo": dt})
+
+        if max_mag >= 5.0:
+            factor = min(1.0, (max_mag - 3.0) / 3.0)
+        elif max_mag >= 4.0:
+            factor = 0.35 + min(0.30, total / 20 * 0.30)
+        else:
+            factor = min(0.20, total * 0.03)
+
+        nivel = "alto" if factor > 0.5 else "medio" if factor > 0.2 else "bajo"
+
+        resultado = {
+            "fuente": "USGS FDSNWS — National Earthquake Information Center",
+            "fuente_id": "USGS",
+            "zona_id": zona_id,
+            "sismos_7_dias": total,
+            "magnitud_maxima": round(max_mag, 1),
+            "factor_sismico": round(factor, 3),
+            "nivel_sismico": nivel,
+            "sismos_recientes": sismos,
+            "fuente_real": True,
+            "modo_degradado": False,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"Sismicidad USGS no disponible para {zona_id}: {e}")
+        fallback = {
+            "fuente": "Fallback — USGS no disponible",
+            "fuente_id": "USGS",
+            "zona_id": zona_id,
+            "sismos_7_dias": 0,
+            "magnitud_maxima": 0.0,
+            "factor_sismico": 0.04,
+            "nivel_sismico": "bajo",
+            "sismos_recientes": [],
+            "fuente_real": False,
+            "modo_degradado": True,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora - 1740, fallback)  # reintentar en 1 min
+        return fallback

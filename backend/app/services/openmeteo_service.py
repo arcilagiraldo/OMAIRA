@@ -83,7 +83,7 @@ async def _fetch(lat: float, lon: float, zona_id: str) -> Dict:
         "&current=temperature_2m,relative_humidity_2m,precipitation,"
         "wind_speed_10m,surface_pressure,weather_code,cloud_cover"
         "&hourly=precipitation,soil_moisture_0_to_1cm"
-        "&past_days=3&forecast_days=1"
+        "&past_days=3&forecast_days=4"
         "&timezone=America%2FBogota"
         "&wind_speed_unit=ms"
     )
@@ -107,9 +107,12 @@ async def _fetch(lat: float, lon: float, zona_id: str) -> Dict:
     precipitaciones = hourly.get("precipitation", [])
     humedad_suelo_raw = hourly.get("soil_moisture_0_to_1cm", [])
 
-    # Lluvia acumulada (suma de los valores horarios anteriores al instante actual)
+    # Lluvia acumulada pasada y pronóstico futuro
     lluvia_24h = _suma_segura(precipitaciones, max(0, idx - 24), idx)
     lluvia_72h = _suma_segura(precipitaciones, max(0, idx - 72), idx)
+    n = len(precipitaciones)
+    lluvia_24h_pron = _suma_segura(precipitaciones, idx, min(n, idx + 24))
+    lluvia_72h_pron = _suma_segura(precipitaciones, idx, min(n, idx + 72))
 
     # Humedad de suelo: promedio de últimas 6h (0–0.5 m³/m³ → 0–1)
     hum_vals = [v for v in humedad_suelo_raw[max(0, idx - 6):idx + 1] if v is not None]
@@ -138,6 +141,8 @@ async def _fetch(lat: float, lon: float, zona_id: str) -> Dict:
         "precipitacion_actual_mm": round(precip_now, 1),
         "codigo_clima":            curr.get("weather_code"),
         "nubosidad_pct":           curr.get("cloud_cover"),
+        "lluvia_24h_pronostico_mm": round(max(0.0, lluvia_24h_pron), 1),
+        "lluvia_72h_pronostico_mm": round(max(0.0, lluvia_72h_pron), 1),
         "fuente":                  "Open-Meteo (real)",
         "fuente_real":             True,
         "lat":                     lat,
