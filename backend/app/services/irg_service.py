@@ -94,6 +94,7 @@ def calcular_irg(
     datos_sensores: Dict,
     hora: int = None,
     zona_id: str = "guatape",
+    datos_ext: Dict = None,
 ) -> ResultadoIRG:
     """
     Calcula el Índice de Riesgo Global combinando todas las variables.
@@ -161,6 +162,53 @@ def calcular_irg(
     # Densidad de exposición: turismo alto en zona de riesgo
     densidad_exp = min(1.0, turismo * 0.5 + movilidad * 0.5)
 
+    # ── Integrar fuentes externas cuando están disponibles ───────────────
+    # Cada fuente sobreescribe la estimación local con datos reales.
+    # Para agregar una fuente futura: añadir su clave a datos_ext y mapearla aquí.
+    fuentes_usadas = []
+    if datos_ext:
+        _s = datos_ext.get("sisaire") or {}
+        _d = datos_ext.get("dane") or {}
+        _a = datos_ext.get("ansv") or {}
+        _r = datos_ext.get("reps") or {}
+        _v = datos_ext.get("sivigila") or {}
+
+        # SISAIRE → contaminacion_aire (AQI europeo real de Copernicus CAMS)
+        aqi = _s.get("ica")
+        if isinstance(aqi, (int, float)):
+            contaminacion = min(1.0, aqi / 300)
+            fuentes_usadas.append("SISAIRE")
+
+        # DANE → densidad_exposicion (NBI real pondera vulnerabilidad social)
+        nbi = (_d.get("nbi") or {}).get("total_pct")
+        if isinstance(nbi, (int, float)):
+            densidad_exp = min(1.0, turismo * 0.35 + movilidad * 0.30 + (nbi / 100) * 0.35)
+            fuentes_usadas.append("DANE")
+
+        # ANSV → vias_problemas / puentes / derrumbes (sectores reales de accidentalidad)
+        sectores = _a.get("total_sectores_criticos")
+        if isinstance(sectores, (int, float)) and sectores > 0:
+            ansv_factor = min(1.0, sectores / 25)
+            vias_prob  = min(1.0, vias_prob  * 0.65 + ansv_factor * 0.35)
+            puentes    = min(1.0, puentes    * 0.70 + ansv_factor * 0.30)
+            derrumbes  = min(1.0, derrumbes  * 0.70 + ansv_factor * 0.30)
+            fuentes_usadas.append("ANSV")
+
+        # REPS → congestion_emergencia (capacidad médica real de respuesta)
+        cobertura = _r.get("cobertura_medica", "")
+        _reps_map = {"ALTA": 0.15, "MEDIA_ALTA": 0.30, "MEDIA": 0.50, "BAJA": 0.70, "MUY_BAJA": 0.90}
+        if cobertura in _reps_map:
+            congestion = min(1.0, congestion * 0.65 + _reps_map[cobertura] * 0.35)
+            fuentes_usadas.append("REPS")
+
+        # SIVIGILA → congestion_emergencia (presión epidemiológica sobre el sistema)
+        casos = _v.get("total_casos_reportados")
+        if isinstance(casos, (int, float)) and casos > 0:
+            sivigila_factor = min(1.0, casos / 3000)
+            congestion = min(1.0, congestion * 0.85 + sivigila_factor * 0.15)
+            if "REPS" not in fuentes_usadas:
+                fuentes_usadas.append("SIVIGILA")
+
     # ── Mapa de variables ────────────────────────────────────────────────
     vars_mapa = {
         "precipitacion":      VariableRiesgo("Precipitación",      min(1, lluvia/100),  lluvia,    "mm/h", PESOS_IRG["precipitacion"],      icono="🌧️",  descripcion="Lluvia acumulada 24h"),
@@ -210,6 +258,7 @@ def calcular_irg(
         "turismo_pct": round(turismo * 100),
         "movilidad_pct": round(movilidad * 100),
         "zona": zona_id,
+        "fuentes_externas_activas": fuentes_usadas if datos_ext else [],
     }
 
     return ResultadoIRG(

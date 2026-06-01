@@ -1,6 +1,7 @@
 """
 API Router — IRG (Índice de Riesgo Global) + IA Multi-Modelo
 """
+import asyncio
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
@@ -12,12 +13,26 @@ from app.services.riesgo_service import calcular_riesgo_zona, _simular_datos_met
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
 from app.services.consultas_service import responder_consulta
 from app.services.database import guardar_consulta
+from app.services.fuentes_externas import (
+    obtener_dane, obtener_reps, obtener_ansv, obtener_sivigila, obtener_sisaire
+)
 
 router_irg = APIRouter()
 router_ia  = APIRouter()
 
 
 # ── IRG ──────────────────────────────────────────────────────────────────────
+
+async def _obtener_datos_ext(zona_id: str) -> dict:
+    """Obtiene todas las fuentes externas en paralelo. Fallos silenciosos."""
+    resultados = await asyncio.gather(
+        obtener_dane(zona_id), obtener_reps(zona_id), obtener_ansv(zona_id),
+        obtener_sivigila(zona_id), obtener_sisaire(zona_id),
+        return_exceptions=True,
+    )
+    claves = ["dane", "reps", "ansv", "sivigila", "sisaire"]
+    return {k: (v if not isinstance(v, Exception) else {}) for k, v in zip(claves, resultados)}
+
 
 @router_irg.get("/zona/{zona_id}")
 async def get_irg(zona_id: str, hora: Optional[int] = None):
@@ -27,7 +42,8 @@ async def get_irg(zona_id: str, hora: Optional[int] = None):
     except Exception:
         meteo = _simular_datos_meteorologicos(zona_id)
 
-    resultado = calcular_irg(meteo, {}, hora=hora, zona_id=zona_id)
+    datos_ext = await _obtener_datos_ext(zona_id)
+    resultado = calcular_irg(meteo, {}, hora=hora, zona_id=zona_id, datos_ext=datos_ext)
 
     return {
         "zona_id": zona_id,
@@ -58,7 +74,8 @@ async def get_irg_dashboard(zona_id: str):
     except Exception:
         meteo = _simular_datos_meteorologicos(zona_id)
 
-    r = calcular_irg(meteo, {}, zona_id=zona_id)
+    datos_ext = await _obtener_datos_ext(zona_id)
+    r = calcular_irg(meteo, {}, zona_id=zona_id, datos_ext=datos_ext)
     return {
         "irg": r.irg,
         "irg_pct": round(r.irg * 100, 1),
@@ -67,6 +84,7 @@ async def get_irg_dashboard(zona_id: str):
         "n_alertas": len(r.alertas_irg),
         "turismo": r.contexto_local.get("turismo_nivel"),
         "hora": r.contexto_local.get("hora"),
+        "fuentes_activas": r.contexto_local.get("fuentes_externas_activas", []),
     }
 
 
