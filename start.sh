@@ -49,19 +49,20 @@ fi
 
 cd ..
 
-# Abrir frontend
+# Abrir frontend — siempre via HTTP (file:// rompe Google OAuth)
 echo ""
-echo "  🌐 Abriendo dashboard…"
-if command -v xdg-open &>/dev/null; then xdg-open frontend/index.html 2>/dev/null &
-elif command -v open &>/dev/null; then open frontend/index.html 2>/dev/null &
-else echo "  → Abre manualmente: frontend/index.html"; fi
+echo "  🌐 Abriendo dashboard en http://localhost:8000 …"
+if command -v xdg-open &>/dev/null; then xdg-open http://localhost:8000 2>/dev/null &
+elif command -v open &>/dev/null; then open http://localhost:8000 2>/dev/null &
+elif command -v start &>/dev/null; then start http://localhost:8000 2>/dev/null &
+else echo "  → Abre en el navegador: http://localhost:8000"; fi
 
 echo ""
 echo -e "${GREEN}  ══════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}  ✅  SIRGA v2 activo${NC}"
 echo -e "${GREEN}  ══════════════════════════════════════════════════${NC}"
 echo ""
-echo "  📊  Dashboard:       abre frontend/index.html"
+echo "  📊  Dashboard:       http://localhost:8000"
 echo "  🔌  API REST:        http://localhost:8000"
 echo "  📖  Documentación:   http://localhost:8000/docs"
 echo ""

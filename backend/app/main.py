@@ -1,9 +1,13 @@
 """OMAIRA v4 — Backend FastAPI"""
 import asyncio
 import json
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from app.api import riesgo, alertas, sensores, prediccion, configuracion
 from app.api.avanzado import router_irg, router_ia
@@ -88,11 +92,23 @@ async def ws_riesgo_live(websocket: WebSocket):
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
-@app.get("/")
-def root():
-    return {"status": "OMAIRA v4 Backend activo", "version": "4.1.0"}
-
-
 @app.get("/health")
 def health():
     return {"status": "ok", "sistema": "OMAIRA v4"}
+
+
+# ── Frontend estático ─────────────────────────────────────────────────────────
+# Sirve frontend/index.html en http://localhost:8000
+# Esto permite Google OAuth (origin http://localhost:8000 registrado en GCP).
+_FRONTEND = Path(__file__).parent.parent.parent / "frontend"
+
+if _FRONTEND.exists():
+    app.mount("/static", StaticFiles(directory=str(_FRONTEND)), name="static")
+
+    @app.get("/")
+    def serve_frontend():
+        return FileResponse(str(_FRONTEND / "index.html"))
+else:
+    @app.get("/")
+    def root():
+        return {"status": "OMAIRA v4 Backend activo", "version": "4.1.0"}
