@@ -351,9 +351,11 @@ def detener_backend():
         except Exception: pass
 
 # ── Abrir navegador ─────────────────────────────────────────
+FRONTEND_URL = 'https://arcilagiraldo.github.io/OMAIRA/'
+
 def abrir_browser():
     time.sleep(1.5)
-    webbrowser.open(f'http://localhost:{PORT_FRONTEND}')
+    webbrowser.open(FRONTEND_URL)
 
 # ── Señal de cierre ─────────────────────────────────────────
 def manejar_cierre(sig, frame):
@@ -413,7 +415,7 @@ def main():
     # Abrir navegador después de 1.5s
     threading.Thread(target=abrir_browser, daemon=True).start()
 
-    print(f'  🌐 Dashboard:  http://localhost:{PORT_FRONTEND}')
+    print(f'  🌐 Dashboard:  {FRONTEND_URL}')
     if BACKEND_DIR:
         print(f'  ⚙️  Backend API: http://localhost:{PORT_BACKEND}')
         print(f'  📖 API Docs:    http://localhost:{PORT_BACKEND}/docs')
