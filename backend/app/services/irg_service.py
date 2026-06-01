@@ -195,8 +195,8 @@ def calcular_irg(
             fuentes_usadas.append("ANSV")
 
         # REPS → congestion_emergencia (capacidad médica real de respuesta)
-        cobertura = _r.get("cobertura_medica", "")
-        _reps_map = {"ALTA": 0.15, "MEDIA_ALTA": 0.30, "MEDIA": 0.50, "BAJA": 0.70, "MUY_BAJA": 0.90}
+        cobertura = (_r.get("cobertura_medica") or "").upper()
+        _reps_map = {"MUY_ALTA": 0.08, "ALTA": 0.15, "MEDIA_ALTA": 0.30, "MEDIA": 0.50, "BAJA": 0.70, "MUY_BAJA": 0.90}
         if cobertura in _reps_map:
             congestion = min(1.0, congestion * 0.65 + _reps_map[cobertura] * 0.35)
             fuentes_usadas.append("REPS")
