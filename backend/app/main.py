@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import riesgo, alertas, sensores, prediccion, configuracion
 from app.api.avanzado import router_irg, router_ia
 from app.api.auth import router as router_auth
+from app.api.fuentes_externas import router as router_fuentes
 from app.services.websocket_manager import ConnectionManager
 from app.services.riesgo_service import generar_alertas
 from app.services.database import init_pool, close_pool
@@ -37,6 +38,7 @@ app.include_router(router_irg,             prefix="/api/v1/irg")
 app.include_router(router_ia,              prefix="/api/v1/ia")
 app.include_router(configuracion.router,   prefix="/api/v1/config")
 app.include_router(router_auth,            prefix="/api/v1/auth")
+app.include_router(router_fuentes,         prefix="/api/v1/fuentes")
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 manager = ConnectionManager()

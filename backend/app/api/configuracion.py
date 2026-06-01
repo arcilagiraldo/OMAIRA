@@ -32,6 +32,13 @@ FUENTES_DISPONIBLES = [
     {"id": "CORNARE", "nombre": "CORNARE", "descripcion": "Monitoreo ambiental regional", "tipo": "ambiental", "disponible": True},
     {"id": "DAGRAN", "nombre": "DAGRAN / UNGRD", "descripcion": "Histórico de desastres y vulnerabilidad", "tipo": "historico", "disponible": True},
     {"id": "COPERNICUS", "nombre": "Copernicus / Sentinel", "descripcion": "Imágenes satelitales SAR y ópticas", "tipo": "satelital", "disponible": True},
+    # Fuentes externas integradas (datos.gov.co / APIs públicas)
+    {"id": "DANE", "nombre": "DANE", "descripcion": "Indicadores sociodemográficos: NBI, población, vulnerabilidad (Censo 2018)", "tipo": "socioeconomico", "disponible": True, "endpoint": "/api/v1/fuentes/dane/{zona_id}"},
+    {"id": "REPS", "nombre": "REPS — MinSalud", "descripcion": "Prestadores de servicios de salud habilitados por municipio", "tipo": "salud", "disponible": True, "endpoint": "/api/v1/fuentes/reps/{zona_id}"},
+    {"id": "ANSV", "nombre": "ANSV — Siniestralidad Vial", "descripcion": "Sectores críticos de accidentalidad vial (rutas de evacuación)", "tipo": "vial", "disponible": True, "endpoint": "/api/v1/fuentes/ansv/{zona_id}"},
+    {"id": "SIVIGILA", "nombre": "SIVIGILA — INS", "descripcion": "Vigilancia epidemiológica y eventos de salud pública", "tipo": "epidemiologico", "disponible": True, "endpoint": "/api/v1/fuentes/sivigila/{zona_id}"},
+    {"id": "SISAIRE", "nombre": "SISAIRE — IDEAM", "descripcion": "Índice de Calidad del Aire (ICA) — estaciones Antioquia", "tipo": "ambiental", "disponible": True, "endpoint": "/api/v1/fuentes/sisaire/{zona_id}"},
+    {"id": "HERE", "nombre": "HERE Technologies", "descripcion": "Tráfico en tiempo real y rutas de evacuación (requiere API key)", "tipo": "vial", "disponible": False, "endpoint": "/api/v1/fuentes/here/{zona_id}", "requiere_clave": True},
 ]
 
 

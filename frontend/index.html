@@ -886,6 +886,20 @@ main{flex:1;display:flex;overflow:hidden}
     </div>
   </div>
 
+  <!-- ── DATOS EN VIVO — Fuentes Externas Backend ─────────────── -->
+  <div class="card" style="margin-bottom:10px" id="card-fuentes-externas">
+    <div class="ctit" style="margin-bottom:8px">🔴 Datos en vivo — Fuentes externas integradas
+      <span id="fuentes-ext-badge" style="font-size:9px;font-weight:400;color:var(--text3);margin-left:8px">cargando…</span>
+    </div>
+    <div id="fuentes-ext-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;min-height:60px">
+      <div style="color:var(--text3);font-size:9px;padding:12px;text-align:center">Consultando fuentes…</div>
+    </div>
+    <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+      <button onclick="cargarFuentesExternas()" style="padding:4px 12px;border-radius:5px;background:var(--az);color:#fff;border:none;font-size:9px;cursor:pointer">↻ Actualizar</button>
+      <span style="font-size:8px;color:var(--text3)" id="fuentes-ext-ts"></span>
+    </div>
+  </div>
+
   <!-- ── CONFIGURACIÓN DETALLADA ────────────────────────────── -->
   <div class="card" style="margin-bottom:10px">
     <div class="ctit">⚙️ Configuración de fuentes</div>
@@ -1757,6 +1771,21 @@ const FUENTES_CONF=[
    desc:'Pronóstico de inundaciones 15-30 días en ríos Cauca, Magdalena y Porce. Sistema europeo Copernicus de alarma temprana. Mayor impacto en precisión IRG.',
    key_label:'CDS API Key (Copernicus Climate Data Store)',url:'https://cds.climate.copernicus.eu',
    instrucciones:'GloFAS requiere acceso a través de la API CDS de Copernicus (Python).\nSe recomienda activar en el backend de OMAIRA:\n1. cds.climate.copernicus.eu → Registrarse (gratis)\n2. Mi perfil → API Key → Copiar\n3. Aceptar términos GloFAS dataset\n4. Configurar en backend/app/services/\n\nContacto soporte: copernicus-support@ecmwf.int'},
+  // ── Fuentes externas integradas en backend v4.2 ─────────────────────────
+  {id:'DANE_CENSO',n:'DANE — Censo CNPV 2018 + Proyecciones',ico:'👥',estado:'ok',tipo:'SIN_KEY',
+   desc:'NBI, población y vulnerabilidad social por municipio (datos.gov.co). Mejora el factor V del modelo H×E×V. Sin registro ni clave — acceso automático.'},
+  {id:'REPS_MINSALUD',n:'REPS — Prestadores de Salud (MinSalud)',ico:'🏥',estado:'ok',tipo:'SIN_KEY',
+   desc:'Registro Especial de Prestadores habilitados por municipio. Indica capacidad de respuesta médica ante emergencias. Sin registro ni clave — acceso automático via datos.gov.co.'},
+  {id:'ANSV_VIAL',n:'ANSV — Siniestralidad Vial Nacional',ico:'🚦',estado:'ok',tipo:'SIN_KEY',
+   desc:'Sectores críticos de accidentalidad en vías nacionales (INVIAS/ANI). Identifica tramos peligrosos en rutas de evacuación de Antioquia. Sin clave — automático.'},
+  {id:'SIVIGILA_INS',n:'SIVIGILA — Vigilancia Epidemiológica (INS)',ico:'🦠',estado:'ok',tipo:'SIN_KEY',
+   desc:'Eventos de salud pública reportados al Instituto Nacional de Salud. Mide riesgo sanitario post-desastre (inundaciones, deslizamientos). Sin clave — automático.'},
+  {id:'SISAIRE_OPENMETEO',n:'SISAIRE — Open-Meteo Air Quality (Copernicus)',ico:'🌫️',estado:'ok',tipo:'SIN_KEY',
+   desc:'PM2.5, PM10, NO2, O3 y CO en μg/m³ + ICA europeo y US para cada zona. Fuente: Copernicus CAMS vía Open-Meteo. Sin clave ni registro — automático.'},
+  {id:'HERE_TRAFICO',n:'HERE Technologies — Tráfico y Rutas',ico:'🗺️',estado:'nd',tipo:'KEY_GRATIS',
+   desc:'Incidentes de tráfico en tiempo real y condiciones de rutas de evacuación. HERE ofrece 30.000 transacciones/mes gratuitas.',
+   key_label:'HERE API Key',url:'https://developer.here.com/',
+   instrucciones:'1. developer.here.com → Registrarse (gratis)\n2. Crear proyecto → API Keys → Generar\n3. Plan gratuito: 30.000 transacciones/mes\n4. Configurar HERE_API_KEY en backend/.env'},
 ];
 
 // ═══════════════════════════════════════════════════════════
@@ -5010,6 +5039,57 @@ function renderFuentesTabla(){
   if(badge)badge.textContent=FUENTES_CONF.length+' integradas';
 }
 
+// ── Fuentes externas — datos en vivo desde el backend ─────────────────────
+async function cargarFuentesExternas(){
+  const grid=document.getElementById('fuentes-ext-grid');
+  const badge=document.getElementById('fuentes-ext-badge');
+  const ts=document.getElementById('fuentes-ext-ts');
+  if(!grid)return;
+  const zona=zonaActual||'medellin';
+  const BASE=(window.OMAIRA_API_URL||'http://127.0.0.1:8000')+'/api/v1/fuentes';
+  const defs=[
+    {id:'dane',     ico:'👥',  n:'DANE',          campo: d=>`NBI ${d.nbi?.total_pct}% · Pob. ${(d.poblacion_2024||0).toLocaleString()}`},
+    {id:'reps',     ico:'🏥',  n:'REPS',          campo: d=>`${d.total_prestadores} prestadores · ${d.cobertura_medica}`},
+    {id:'ansv',     ico:'🚦',  n:'ANSV',          campo: d=>`${d.total_sectores_criticos} sectores · ${d.total_fallecidos_registrados} fallecidos`},
+    {id:'sivigila', ico:'🦠',  n:'SIVIGILA',       campo: d=>`${d.total_casos_reportados} casos · ${d.total_eventos_distintos} eventos`},
+    {id:'sisaire',  ico:'🌫️', n:'SISAIRE',        campo: d=>`AQI ${d.ica} (${d.categoria_ica}) · PM2.5 ${d.contaminantes?.pm25_ug_m3}μg/m³`},
+    {id:'here',     ico:'🗺️', n:'HERE',           campo: d=>d.disponible?`${d.incidentes_viales} incidentes`:'Sin API key'},
+  ];
+
+  if(badge)badge.textContent='consultando…';
+  grid.innerHTML=defs.map(f=>`
+    <div id="fext-${f.id}" style="background:var(--bg3);border-radius:8px;padding:10px;border:1px solid var(--border2)">
+      <div style="font-size:11px;margin-bottom:4px">${f.ico} <strong>${f.n}</strong>
+        <span id="fext-${f.id}-badge" style="float:right;font-size:7.5px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--text3)">…</span>
+      </div>
+      <div id="fext-${f.id}-val" style="font-size:9px;color:var(--text2);min-height:14px">consultando…</div>
+    </div>`).join('');
+
+  let activas=0;
+  await Promise.allSettled(defs.map(async f=>{
+    const el=document.getElementById(`fext-${f.id}-val`);
+    const badgeEl=document.getElementById(`fext-${f.id}-badge`);
+    try{
+      const r=await fetch(`${BASE}/${f.id}/${zona}`,{signal:AbortSignal.timeout(20000)});
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      const real=d.fuente_real??d.disponible??false;
+      if(el)el.textContent=f.campo(d);
+      if(badgeEl){
+        badgeEl.textContent=real?'REAL':'SIN DATOS';
+        badgeEl.style.background=real?'#14532d44':'#44444444';
+        badgeEl.style.color=real?'var(--v)':'var(--text3)';
+      }
+      if(real)activas++;
+    }catch(e){
+      if(el)el.textContent=`Error: ${e.message}`;
+      if(badgeEl){badgeEl.textContent='ERROR';badgeEl.style.color='var(--a)';}
+    }
+  }));
+  if(badge)badge.textContent=`${activas}/${defs.length} con datos reales`;
+  if(ts)ts.textContent=`Actualizado: ${new Date().toLocaleTimeString()}`;
+}
+
 function renderFuentesPanel(){
   // Tabla resumen — siempre primero para que el operario vea todas las fuentes
   setTimeout(renderFuentesTabla, 30);
@@ -5501,7 +5581,7 @@ function go(p){
   if(p==='irg')renderIRGDet();
   if(p==='ia-analisis'){renderIASel();document.getElementById('ia-cfg-area').innerHTML=IA_CFG['local'];}
   if(p==='notif')renderConts();
-  if(p==='fuentes')renderFuentesPanel();
+  if(p==='fuentes'){renderFuentesPanel();setTimeout(cargarFuentesExternas,200);}
   if(p==='capas')renderCapas();
   if(p==='config'){const cz=document.getElementById('cfg-zona');if(cz)cz.textContent=D?.muni||'—';}
 }
