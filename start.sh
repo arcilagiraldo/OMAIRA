@@ -49,13 +49,13 @@ fi
 
 cd ..
 
-# Abrir frontend — siempre via HTTP (file:// rompe Google OAuth)
+# Abrir frontend
 echo ""
-echo "  🌐 Abriendo dashboard en http://localhost:8000 …"
-if command -v xdg-open &>/dev/null; then xdg-open http://localhost:8000 2>/dev/null &
-elif command -v open &>/dev/null; then open http://localhost:8000 2>/dev/null &
-elif command -v start &>/dev/null; then start http://localhost:8000 2>/dev/null &
-else echo "  → Abre en el navegador: http://localhost:8000"; fi
+echo "  🌐 Abriendo dashboard …"
+if command -v xdg-open &>/dev/null; then xdg-open frontend/index.html 2>/dev/null &
+elif command -v open &>/dev/null; then open frontend/index.html 2>/dev/null &
+elif command -v start &>/dev/null; then start frontend/index.html 2>/dev/null &
+else echo "  → Abre en el navegador: frontend/index.html"; fi
 
 echo ""
 echo -e "${GREEN}  ══════════════════════════════════════════════════${NC}"
