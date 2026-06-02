@@ -537,79 +537,228 @@ def _cache_set(key: str, data: Dict):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. DANE — Indicadores sociodemográficos
 # ═══════════════════════════════════════════════════════════════════════════════
-# Mapeo municipio_id → nombre de búsqueda en Wikipedia/Wikidata (español)
+# Mapeo municipio_id → título exacto del artículo en Wikipedia Español
+# Se usa para consultar Wikidata (que contiene datos estructurados DANE).
+# Misma fuente que aparece en Google/búsquedas de internet.
 MUNICIPIO_WIKIPEDIA: Dict[str, str] = {
-    "guatape": "Guatapé (Antioquia)",
+    # Valle de Aburrá
     "medellin": "Medellín",
-    "rionegro": "Rionegro (Antioquia)",
-    "marinilla": "Marinilla",
-    "el_carmen": "El Carmen de Viboral",
-    "la_ceja": "La Ceja",
-    "el_penol": "El Peñol (Antioquia)",
-    "santa_rosa": "Santa Rosa de Osos",
-    "yarumal": "Yarumal",
-    "caucasia": "Caucasia (Antioquia)",
-    "el_bagre": "El Bagre",
-    "santa_fe": "Santa Fe de Antioquia",
-    "turbo": "Turbo (Antioquia)",
-    "apartado": "Apartadó",
-    "chigorodo": "Chigorodó",
-    "carepa": "Carepa (Antioquia)",
-    "ituango": "Ituango",
     "bello": "Bello (Antioquia)",
     "itagui": "Itagüí",
     "envigado": "Envigado",
     "sabaneta": "Sabaneta (Antioquia)",
-    "caldas": "Caldas (Antioquia)",
-    "barbosa": "Barbosa (Antioquia)",
+    "la_estrella": "La Estrella (Antioquia)",
     "copacabana": "Copacabana (Antioquia)",
     "girardota": "Girardota",
-    "la_estrella": "La Estrella (Antioquia)",
-    "andes": "Andes (Antioquia)",
-    "segovia": "Segovia (Antioquia)",
-    "urrao": "Urrao",
+    "caldas": "Caldas (Antioquia)",
+    "barbosa": "Barbosa (Antioquia)",
+    "amaga": "Amagá",
+    # Oriente
+    "guatape": "Guatapé (Antioquia)",
+    "el_penol": "El Peñol (Antioquia)",
+    "rionegro": "Rionegro (Antioquia)",
+    "marinilla": "Marinilla",
+    "el_carmen": "El Carmen de Viboral",
+    "la_ceja": "La Ceja",
+    "el_retiro": "El Retiro (Antioquia)",
+    "san_vicente": "San Vicente Ferrer",
+    "la_union": "La Unión (Antioquia)",
+    "sonson": "Sonsón",
+    "abejorral": "Abejorral",
+    "santuario": "Santuario (Antioquia)",
+    "cocorna": "Cocorná",
+    "san_francisco": "San Francisco (Antioquia)",
+    "san_luis": "San Luis (Antioquia)",
+    "granada": "Granada (Antioquia)",
+    "alejandria": "Alejandría (Antioquia)",
+    "concepcion": "Concepción (Antioquia)",
+    "argelia": "Argelia (Antioquia)",
     "guarne": "Guarne",
+    "san_carlos": "San Carlos (Antioquia)",
+    "narino_ant": "Nariño (Antioquia)",
+    # Norte
+    "santa_rosa": "Santa Rosa de Osos",
+    "yarumal": "Yarumal",
+    "don_matias": "Don Matías",
+    "entrerrios": "Entrerríos",
+    "ituango": "Ituango",
+    "angostura": "Angostura (Antioquia)",
+    "guadalupe": "Guadalupe (Antioquia)",
+    "valdivia": "Valdivia (Antioquia)",
+    "taraza": "Tarazá",
+    "caceres": "Cáceres (Antioquia)",
+    "zaragoza": "Zaragoza (Antioquia)",
+    "anori": "Anorí",
+    "campamento": "Campamento (Antioquia)",
+    "belmira": "Belmira",
+    "san_jose_mt": "San José de la Montaña",
+    "san_andres_c": "San Andrés de Cuerquia",
+    "san_andres_cuerquia": "San Andrés de Cuerquia",
+    "toledo": "Toledo (Antioquia)",
+    "gomez_plata": "Gómez Plata",
+    "san_pedro_milagros": "San Pedro de los Milagros",
+    # Nordeste
+    "segovia": "Segovia (Antioquia)",
+    "remedios": "Remedios (Antioquia)",
+    "vegachi": "Vegachí",
+    "yali": "Yalí",
+    "yolombo": "Yolombó",
+    "amalfi": "Amalfi (Antioquia)",
+    "cisneros": "Cisneros (Antioquia)",
+    "caracoli": "Caracolí",
+    "maceo": "Maceo (Antioquia)",
+    # Bajo Cauca
+    "el_bagre": "El Bagre",
+    "caucasia": "Caucasia (Antioquia)",
+    "nechi": "Nechí",
+    # Occidente
+    "santa_fe": "Santa Fe de Antioquia",
+    "santa_fe_antioquia": "Santa Fe de Antioquia",
+    "sopetran": "Sopetrán",
+    "olaya": "Olaya (Antioquia)",
+    "liborina": "Liborina",
+    "sabanalarga": "Sabanalarga (Antioquia)",
+    "peque": "Peque (Antioquia)",
+    "caicedo": "Caicedo (Antioquia)",
+    "anza": "Anzá",
+    "armenia_a": "Armenia (Antioquia)",
+    "ebejico": "Ebéjico",
+    "san_jeronimo": "San Jerónimo (Antioquia)",
+    "heliconia": "Heliconia (Antioquia)",
+    "angelopolis": "Angélpolis",
+    "venecia": "Venecia (Antioquia)",
+    "buritica": "Buriticá",
+    "giraldo": "Giraldo (Antioquia)",
+    "frontino": "Frontino",
+    "abriaqui": "Abriaquí",
+    # Suroeste
+    "andes": "Andes (Antioquia)",
+    "jerico": "Jericó (Antioquia)",
+    "fredonia": "Fredonia (Antioquia)",
+    "tarso": "Tarso (Antioquia)",
+    "pueblorrico": "Pueblorrico",
+    "ciudad_bolivar": "Ciudad Bolívar (Antioquia)",
+    "betania": "Betania (Antioquia)",
+    "concordia": "Concordia (Antioquia)",
+    "betulia": "Betulia (Antioquia)",
+    "salgar": "Salgar",
+    "urrao": "Urrao",
+    "jardin": "Jardín (Antioquia)",
+    "la_pintada": "La Pintada (Antioquia)",
+    "montebello": "Montebello (Antioquia)",
+    "santa_barbara": "Santa Bárbara (Antioquia)",
+    "tamesis": "Támesis",
+    "valparaiso": "Valparaíso (Antioquia)",
+    # Urabá
+    "turbo": "Turbo (Colombia)",
+    "apartado": "Apartadó",
+    "carepa": "Carepa (Antioquia)",
+    "chigorodo": "Chigorodó",
+    "necocli": "Necoclí",
+    "arboletes": "Arboletes",
+    "san_juan_u": "San Juan de Urabá",
+    "san_pedro_u": "San Pedro de Urabá",
+    "dabeiba": "Dabeiba",
+    "vigia_f": "Vigía del Fuerte",
+    "vigia_fuerte": "Vigía del Fuerte",
+    "murindo": "Murindó",
+    # Magdalena Medio
+    "yondo": "Yondó",
 }
 
-async def _fetch_poblacion_wikipedia(municipio_nombre: str) -> Optional[int]:
+
+async def _fetch_poblacion_wikidata(wiki_titulo: str) -> Optional[int]:
     """
-    Obtiene la población del municipio desde la API REST de Wikipedia en español.
-    Wikipedia cita proyecciones DANE — misma fuente que aparece en búsquedas de internet.
-    Cache interno: 24 horas.
+    Obtiene la población desde Wikidata usando el título del artículo de Wikipedia ES.
+    Wikidata contiene datos estructurados de DANE — exactamente los mismos valores que
+    aparecen en Google, Wikipedia y búsquedas de internet.
+
+    Usa la claim P1082 (población) con calificador P585 (fecha/año).
+    Retorna el valor más reciente o el marcado como 'preferred'.
+    Cache: 24 horas (datos cambian anualmente con nueva proyección DANE).
     """
-    cache_key = f"wiki_pop:{municipio_nombre}"
+    cache_key = f"wikidata_pop:{wiki_titulo}"
     cached = _cache_get(cache_key)
     if cached:
         return cached.get("pop")
 
-    import re
     try:
-        url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{municipio_nombre.replace(' ', '_')}"
+        # Obtener entidad Wikidata a partir del artículo de Wikipedia ES
+        url = "https://www.wikidata.org/w/api.php"
+        params = {
+            "action": "wbgetentities",
+            "sites": "eswiki",
+            "titles": wiki_titulo,
+            "format": "json",
+            "props": "claims",
+            "formatversion": "2",
+        }
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8), ssl=False) as resp:
+            async with session.get(
+                url, params=params,
+                timeout=aiohttp.ClientTimeout(total=10),
+                ssl=False,
+                headers={"User-Agent": "OMAIRA/5.0 (sistema de gestión de riesgos Colombia)"}
+            ) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.json(content_type=None)
-                # El resumen de Wikipedia puede contener la población en el extracto
-                extract = data.get("extract", "")
-                # Buscar patrón "X habitantes" o "población de X"
-                for pattern in [
-                    r"(\d[\d\s.]{3,8})(?:\s+)?hab",
-                    r"población[^0-9]*(\d[\d\s.]{3,8})",
-                    r"(\d[\d\s.]{3,8})\s+personas",
-                ]:
-                    m = re.search(pattern, extract, re.IGNORECASE)
-                    if m:
-                        num_str = re.sub(r"[\s.]", "", m.group(1))
-                        try:
-                            pop = int(num_str)
-                            if 1000 < pop < 15_000_000:
-                                _cache_set(cache_key, {"pop": pop})
-                                return pop
-                        except ValueError:
-                            pass
+
+        entities = data.get("entities", [])
+        if not entities:
+            return None
+        entity = entities[0] if isinstance(entities, list) else next(iter(entities.values()), {})
+        if entity.get("id") == "-1" or "missing" in entity:
+            return None
+
+        # P1082 = población
+        pop_claims = entity.get("claims", {}).get("P1082", [])
+        if not pop_claims:
+            return None
+
+        best_pop: Optional[int] = None
+        best_year: int = 0
+
+        for claim in pop_claims:
+            if claim.get("rank") == "deprecated":
+                continue
+            snak = claim.get("mainsnak", {})
+            if snak.get("snaktype") != "value":
+                continue
+            val = snak.get("datavalue", {}).get("value", {})
+            try:
+                pop_val = int(str(val.get("amount", "0")).lstrip("+").split(".")[0])
+            except (ValueError, AttributeError):
+                continue
+            if pop_val < 500:
+                continue
+
+            # Extraer año del calificador P585 (fecha de referencia)
+            year = 0
+            for q in claim.get("qualifiers", {}).get("P585", []):
+                time_str = q.get("datavalue", {}).get("value", {}).get("time", "")
+                if time_str and len(time_str) >= 5:
+                    try:
+                        year = int(time_str[1:5])
+                    except ValueError:
+                        pass
+
+            # Preferido = usar directamente; sino, el más reciente
+            if claim.get("rank") == "preferred":
+                best_pop = pop_val
+                best_year = year
+                break
+            if year > best_year or best_pop is None:
+                best_pop = pop_val
+                best_year = year
+
+        if best_pop and best_pop > 0:
+            _cache_set(cache_key, {"pop": best_pop, "year": best_year})
+            logger.info(f"Wikidata pop OK '{wiki_titulo}': {best_pop:,} (año ref: {best_year})")
+            return best_pop
+
     except Exception as e:
-        logger.debug(f"Wikipedia pop fetch error para {municipio_nombre}: {e}")
+        logger.debug(f"Wikidata fetch error para '{wiki_titulo}': {e}")
     return None
 
 
@@ -628,23 +777,24 @@ async def obtener_dane(zona_id: str) -> Dict:
     en_catalogo = zona_id in DANE_ESTATICO
     base = DANE_ESTATICO.get(zona_id) or DANE_ESTATICO.get("medellin")
 
-    # Población — intentar Wikipedia primero (valores que coinciden con internet/DANE)
+    # Población — Wikidata primero (datos estructurados DANE = mismos que internet/Google)
     pop_real: Optional[int] = None
-    pop_fuente = "Catálogo DANE — puede diferir de proyecciones recientes"
+    pop_año: Optional[int] = None
+    pop_fuente = "Catálogo DANE estático"
     pop_verificada = False
 
     wiki_nombre = MUNICIPIO_WIKIPEDIA.get(zona_id)
     if wiki_nombre:
-        pop_wiki = await _fetch_poblacion_wikipedia(wiki_nombre)
-        if pop_wiki:
-            pop_real = pop_wiki
-            pop_fuente = f"Wikipedia ES — proyección DANE (coincide con búsquedas de internet)"
+        pop_wikidata = await _fetch_poblacion_wikidata(wiki_nombre)
+        if pop_wikidata and pop_wikidata > 0:
+            pop_real = pop_wikidata
+            pop_fuente = "Wikidata / Proyección DANE (misma fuente que Google e internet)"
             pop_verificada = True
-            logger.info(f"Wikipedia pop OK para {zona_id}: {pop_real:,}")
 
+    # Fallback: catálogo estático (solo si Wikidata no responde)
     if pop_real is None and en_catalogo:
         pop_real = base["poblacion_2024"]
-        pop_fuente = "Catálogo DANE estático — verificar en dane.gov.co"
+        pop_fuente = "Catálogo DANE estático — puede no coincidir con búsquedas actuales"
 
     resultado = {
         "fuente": "DANE — Censo CNPV 2018 + Proyecciones",

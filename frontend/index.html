@@ -3971,9 +3971,12 @@ function calcIRG(s,hora,m){
 function calcRiesgos(z,s,irg,m){
   const pen={'montañoso':25,'ondulado':15,'plano':5,'plana_tropical':3,'costera':4,'plano_humedo':4,'selva_humeda':8,'selva':10,'calido_seco':12,'calido':10}[m.rel]||15;
   const tR=(m.agua||'').includes('rio')||(m.agua||'')==='rios',tE=(m.agua||'').includes('embalse');
+  // Población: usa dato real de Wikidata/DANE si disponible (misma fuente que internet)
+  // Fallback: valor del array MUNICIPIOS (referencia, puede ser estimado)
+  const pop_real=(_fuentesExt?.dane?.poblacion_2024>0)?_fuentesExt.dane.poblacion_2024:m.pop;
   // E: densidad exposición — incluye DANE (NBI/IPM) como factor de vulnerabilidad social
   const dane_e=s.ipm_dane>0?Math.min(0.12,s.ipm_dane/100*.12):0;
-  const E=Math.max(0.30,Math.min(1,(m.pop/50000)*.30+(pen/45)*.58+dane_e));
+  const E=Math.max(0.30,Math.min(1,(pop_real/50000)*.30+(pen/45)*.58+dane_e));
   // V: vulnerabilidad por pendiente + altitud (terreno inestable)
   const V=Math.min(1,(pen/45)*.55+(m.alt/3000)*.25+.20);
   const F=s.enso||1.04;
