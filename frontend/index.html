@@ -664,6 +664,12 @@ main{flex:1;display:flex;overflow:hidden}
             <div style="font-size:8px;color:var(--text3);margin-bottom:5px">Mapa visual completo con capas Waze.</div>
             <button onclick="go('fuentes')" style="padding:3px 10px;border-radius:4px;background:var(--az);color:#fff;border:none;font-size:9px;cursor:pointer">Configurar Google Maps</button>
           </div>
+          <!-- Waze Live Map — acceso directo sin API -->
+          <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:left">
+            <div style="font-size:10px;font-weight:700;margin-bottom:3px">🚗 Waze Live Map <span style="font-size:8px;color:var(--v);font-weight:400">— Gratis, sin API key</span></div>
+            <div style="font-size:8px;color:var(--text3);margin-bottom:5px">Ver tráfico en tiempo real reportado por conductores para este municipio.</div>
+            <button onclick="abrirWaze()" id="btn-waze" style="padding:3px 10px;border-radius:4px;background:#33ccff;color:#000;border:none;font-size:9px;cursor:pointer;font-weight:600">🚗 Abrir Waze Live Map</button>
+          </div>
         </div>
       </div>
       <div id="trafico-map" style="display:none;height:420px;border-radius:8px;overflow:hidden"></div>
@@ -6021,7 +6027,15 @@ function go(p){
   if(p==='prediccion'){renderTL();renderPredAll();renderChartPred();renderComp();renderInc();const pz=document.getElementById('pz');if(pz)pz.textContent=D?.muni||'—';}
   if(p==='movilidad')renderMovilidad();
   if(p==='alertas'){renderAlertas('afull');renderSismos('sismos-full');renderIncendios('incendios-full');const az=document.getElementById('az');if(az)az.textContent=D?.muni||'—';}
-  if(p==='monitor-web'){const mwz=document.getElementById('mw-zona-lbl');if(mwz)mwz.textContent=D?.muni||'este municipio';}
+  if(p==='monitor-web'){
+    const mwz=document.getElementById('mw-zona-lbl');if(mwz)mwz.textContent=D?.muni||'este municipio';
+    // Auto-arrancar búsqueda al entrar a la pantalla
+    const yaHayResultados=document.getElementById('mw-resultados')?.querySelector('[style*="border-left"]');
+    if(!yaHayResultados)buscarAlertas();
+    // Activar auto-actualización por defecto
+    const autoChk=document.getElementById('mw-auto');
+    if(autoChk&&!autoChk.checked){autoChk.checked=true;toggleMonitorAuto(true);}
+  }
   if(p==='irg')renderIRGDet();
   if(p==='ia-analisis'){renderIASel();document.getElementById('ia-cfg-area').innerHTML=IA_CFG['local'];}
   if(p==='notif')renderConts();
@@ -7762,7 +7776,8 @@ async function cargarUsuarios(){
   const elU=document.getElementById('usuarios-lista');
   if(!elP||!elU)return;
   try{
-    const r=await fetch(API+'/auth/users',{headers:{'X-Admin-Email':_getAdminToken()}});
+    // Usa query param para evitar CORS preflight con headers personalizados
+    const r=await fetch(API+'/auth/users?admin='+encodeURIComponent(_getAdminToken()),{signal:AbortSignal.timeout(10000)});
     if(r.status===403){
       elP.innerHTML='<div style="font-size:9px;color:var(--text3);padding:6px">Solo el propietario puede ver esta lista.</div>';
       elU.innerHTML='';
@@ -7802,23 +7817,33 @@ async function agregarUsuario(){
   if(!email||!email.includes('@')){if(errEl)errEl.textContent='Ingresa un correo válido.';return;}
   if(errEl)errEl.textContent='';
   try{
-    const r=await fetch(API+'/auth/users',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Email':_getAdminToken()},body:JSON.stringify({email})});
-    if(r.status===403){if(errEl)errEl.textContent='Solo el administrador puede agregar usuarios.';return;}
+    const adm=encodeURIComponent(_getAdminToken());
+    const r=await fetch(API+'/auth/users?admin='+adm,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email,admin_email:_getAdminToken()}),
+      signal:AbortSignal.timeout(12000)
+    });
+    if(r.status===403){if(errEl)errEl.textContent='Solo el propietario puede agregar usuarios.';return;}
     if(!r.ok){const d=await r.json().catch(()=>({}));if(errEl)errEl.textContent=d.detail||'Error al agregar.';return;}
     sirga('ok','✅ Acceso otorgado a '+email);
     if(input)input.value='';
     cargarUsuarios();
-  }catch(e){if(errEl)errEl.textContent='Error de conexión.';}
+  }catch(e){if(errEl)errEl.textContent='Sin respuesta del servidor. Comprueba tu conexión e intenta de nuevo.';}
 }
 
 async function quitarUsuario(email){
   if(!confirm('¿Quitar acceso a '+email+'?'))return;
   try{
-    const r=await fetch(API+'/auth/users/'+encodeURIComponent(email),{method:'DELETE',headers:{'X-Admin-Email':_getAdminToken()}});
-    if(r.status===403){sirga('warn','Solo el administrador puede quitar usuarios.');return;}
+    const adm=encodeURIComponent(_getAdminToken());
+    const r=await fetch(API+'/auth/users/'+encodeURIComponent(email)+'?admin='+adm,{
+      method:'DELETE',signal:AbortSignal.timeout(12000)
+    });
+    if(r.status===403){sirga('warn','Solo el propietario puede quitar usuarios.');return;}
+    if(!r.ok){const d=await r.json().catch(()=>({}));sirga('err',d.detail||'Error al quitar usuario.');return;}
     sirga('ok','Acceso retirado a '+email);
     cargarUsuarios();
-  }catch(e){sirga('err','Error al conectar con el servidor.');}
+  }catch(e){sirga('err','Sin respuesta del servidor.');}
 }
 
 // Cargar usuarios cuando se va a Config
@@ -9331,6 +9356,14 @@ function eliminarFuenteCustom(idx){
 function abrirNavMob(){document.getElementById('mob-nav-menu').style.display='block';}
 function cerrarNavMob(){document.getElementById('mob-nav-menu').style.display='none';}
 
+function abrirWaze(){
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  // Waze Live Map con coordenadas del municipio activo
+  const url=`https://www.waze.com/live-map/?zoom=12&lat=${m.lat}&lon=${m.lon}`;
+  window.open(url,'_blank','noopener');
+  sirga('info','🚗 Abriendo Waze Live Map para '+m.n+' — muestra incidentes y alertas reportadas por conductores en tiempo real.');
+}
+
 function cerrarDetModal(){document.getElementById('det-modal').style.display='none';}
 
 // ═══════════════════════════════════════════════════════════
@@ -9350,145 +9383,166 @@ async function buscarAlertas(silencioso=false){
   const keywords=(document.getElementById('mw-keywords')?.value||'').trim();
   const fuente=document.getElementById('mw-fuente')?.value||'todas';
   const muni=D?.muni||'Antioquia';
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
   if(btn){btn.textContent='⏳ Buscando…';btn.disabled=true;}
-  if(!silencioso&&el)el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:20px;text-align:center">⏳ Consultando fuentes de internet…</div>';
+  if(!silencioso&&el)el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:20px;text-align:center">⏳ Consultando internet, redes sociales y fuentes oficiales…</div>';
 
   const resultados=[];
   const errores=[];
+  const kw=keywords||'emergencia inundación deslizamiento incendio alerta';
+  const termMuni=`${muni} ${kw}`;
+  const termAnt=`Antioquia Colombia ${kw}`;
 
-  // Términos de búsqueda: municipio + palabras clave del usuario
-  const terminos=`${muni} ${keywords||'emergencia inundación deslizamiento incendio'}`;
-  const termAnt=`Antioquia ${keywords||'emergencia desastre alerta'}`;
-
-  try{
-    // ── GDACS (ya integrado en datos, reutilizamos) ────────────────────
-    if(fuente==='todas'||fuente==='gdacs'){
-      const gdacs=D?.gdacs||_fuentesExt?.gdacs||null;
-      if(gdacs?.eventos?.length){
-        gdacs.eventos.forEach(ev=>{
-          resultados.push({
-            fuente:'GDACS · ONU',
-            ico:'🌍',
-            titulo:ev.nombre||'Alerta GDACS',
-            desc:`Nivel: ${ev.alerta?.toUpperCase()||'—'} · Tipo: ${ev.tipo||'—'}`,
-            nivel:ev.alerta==='red'?'critico':ev.alerta==='orange'?'alto':'medio',
-            fecha:ev.fecha||'Reciente',
-            url:'https://www.gdacs.org',
-            fuente_id:'gdacs'
-          });
-        });
-      }
-    }
-
-    // ── ReliefWeb OCHA Colombia (ya integrado) ─────────────────────────
-    if(fuente==='todas'||fuente==='reliefweb'){
-      const rw=D?.reliefweb||null;
-      if(rw?.items?.length){
-        rw.items.slice(0,5).forEach(ev=>{
-          resultados.push({
-            fuente:'ReliefWeb · OCHA',
-            ico:'🆘',
-            titulo:ev.nombre?.slice(0,100)||'Reporte humanitario',
-            desc:'Colombia · Reporte oficial OCHA/ONU',
-            nivel:'medio',
-            fecha:'Reciente',
-            url:ev.url||'https://reliefweb.int',
-            fuente_id:'reliefweb'
-          });
-        });
-      }
-    }
-
-    // ── USGS sismos significativos ─────────────────────────────────────
-    if(fuente==='todas'||fuente==='ideam'){
-      const sismos=D?.sismos||[];
-      sismos.filter(s=>s.mag>=4).slice(0,3).forEach(s=>{
-        resultados.push({
-          fuente:'USGS Earthquakes',
-          ico:'🌋',
-          titulo:`Sismo M${s.mag} — ${s.lugar||'Colombia'}`,
-          desc:`Profundidad: ${s.prof||'?'}km · Magnitud ${s.mag>=5?'SIGNIFICATIVA':'moderada'}`,
-          nivel:s.mag>=5.5?'alto':s.mag>=4.5?'medio':'bajo',
-          fecha:'Últimas 72h',
-          url:`https://earthquake.usgs.gov`,
-          fuente_id:'usgs'
-        });
+  // ── 1. GDACS — alertas ONU (en datos ya cargados) ─────────────────────────
+  if(fuente==='todas'||fuente==='gdacs'){
+    const gdacs=D?.gdacs||null;
+    if(gdacs?.eventos?.length){
+      gdacs.eventos.forEach(ev=>{
+        resultados.push({fuente:'GDACS · ONU',ico:'🌍',
+          titulo:ev.nombre||'Alerta GDACS',
+          desc:`Nivel ${ev.alerta?.toUpperCase()||'—'} · ${ev.tipo||'Amenaza'}`,
+          nivel:ev.alerta==='red'?'critico':ev.alerta==='orange'?'alto':'medio',
+          fecha:'Ahora',url:'https://www.gdacs.org',fuente_id:'gdacs'});
       });
     }
+  }
 
-    // ── Google News via Railway backend ────────────────────────────────
-    if(fuente==='todas'||fuente==='noticias'){
-      try{
-        const newsUrl=`${API}/monitor/noticias?q=${encodeURIComponent(termAnt)}&zona=${zona}`;
-        const r=await fetch(newsUrl,{signal:AbortSignal.timeout(8000)});
-        if(r.ok){
-          const nd=await r.json();
-          (nd.noticias||[]).forEach(n=>{
-            resultados.push({
-              fuente:n.fuente||'Noticias Colombia',
-              ico:'📰',
-              titulo:n.titulo?.slice(0,120)||'—',
-              desc:n.desc||n.resumen||'',
-              nivel:n.nivel||'info',
-              fecha:n.fecha||'Reciente',
-              url:n.url||'#',
-              fuente_id:'noticias'
-            });
-          });
-        }
-      }catch(e){errores.push('Noticias: '+e.message);}
-    }
-
-    // ── UNGRD via datos.gov.co (ya en datos) ──────────────────────────
-    if((fuente==='todas'||fuente==='ungrd')&&D?.ungrd?.emergencias?.length){
-      D.ungrd.emergencias.slice(0,5).forEach(ev=>{
-        resultados.push({
-          fuente:'UNGRD Colombia',
-          ico:'🇨🇴',
-          titulo:ev.descripcion?.slice(0,100)||'Emergencia registrada',
-          desc:`${ev.municipio||'Antioquia'} · ${ev.tipo_evento||'Desastre'}`,
-          nivel:ev.nivel||'medio',
-          fecha:ev.fecha||'Reciente',
-          url:'https://portal.gestiondelriesgo.gov.co',
-          fuente_id:'ungrd'
-        });
+  // ── 2. ReliefWeb — OCHA Colombia (en datos ya cargados) ───────────────────
+  if(fuente==='todas'||fuente==='reliefweb'){
+    const rw=D?.reliefweb||null;
+    if(rw?.items?.length){
+      rw.items.slice(0,4).forEach(ev=>{
+        resultados.push({fuente:'ReliefWeb · OCHA',ico:'🆘',
+          titulo:ev.nombre?.slice(0,110)||'Reporte humanitario Colombia',
+          desc:'Reporte oficial ONU/OCHA',nivel:'medio',
+          fecha:'Reciente',url:ev.url||'https://reliefweb.int',fuente_id:'reliefweb'});
       });
     }
+  }
 
-  }catch(e){errores.push(e.message);}
+  // ── 3. USGS — sismos significativos (en datos) ────────────────────────────
+  if((fuente==='todas'||fuente==='ideam')&&D?.sismos?.length){
+    D.sismos.filter(s=>s.mag>=4).slice(0,3).forEach(s=>{
+      resultados.push({fuente:'USGS Earthquakes',ico:'🌋',
+        titulo:`Sismo M${s.mag} — ${s.lugar||'Colombia'}`,
+        desc:`Prof: ${s.prof||'?'}km · ${s.mag>=5?'SIGNIFICATIVO':'Moderado'}`,
+        nivel:s.mag>=5.5?'alto':s.mag>=4?'medio':'bajo',
+        fecha:'Últimas 72h',url:'https://earthquake.usgs.gov/earthquakes/map',fuente_id:'usgs'});
+    });
+  }
 
-  // Renderizar resultados
-  const nc=NCV||((n)=>n==='critico'?'#ef4444':n==='alto'?'#f97316':n==='medio'?'#f59e0b':'#3b82f6');
+  // ── 4. NASA FIRMS — focos de incendio (en datos) ──────────────────────────
+  if((fuente==='todas')&&(D?.s?.focos_incendio>0||D?.incendios?.length>0)){
+    const nf=D?.incendios?.length||D?.s?.focos_incendio||0;
+    resultados.push({fuente:'NASA FIRMS · Real',ico:'🔥',
+      titulo:`${nf} foco(s) de calor activos — ${muni} y región`,
+      desc:'Datos satelitales VIIRS en tiempo real',
+      nivel:nf>5?'alto':nf>2?'medio':'bajo',
+      fecha:'Tiempo real',url:'https://firms.modaps.eosdis.nasa.gov/map/',fuente_id:'firms'});
+  }
+
+  // ── 5. UNGRD — emergencias Antioquia (en datos) ───────────────────────────
+  if((fuente==='todas'||fuente==='ungrd')&&D?.ungrd?.emergencias?.length){
+    D.ungrd.emergencias.slice(0,4).forEach(ev=>{
+      resultados.push({fuente:'UNGRD Colombia',ico:'🇨🇴',
+        titulo:ev.descripcion?.slice(0,100)||'Emergencia registrada',
+        desc:`${ev.municipio||muni} · ${ev.tipo_evento||'Desastre'}`,
+        nivel:ev.nivel||'medio',fecha:ev.fecha||'Reciente',
+        url:'https://portal.gestiondelriesgo.gov.co',fuente_id:'ungrd'});
+    });
+  }
+
+  // ── 6. SIVIGILA — alertas epidemiológicas (datos ext.) ────────────────────
+  if(fuente==='todas'&&_fuentesExt?.sivigila?.alerta_epidemiologica){
+    const sv=_fuentesExt.sivigila;
+    resultados.push({fuente:'SIVIGILA · INS',ico:'🦠',
+      titulo:`Alerta epidemiológica — ${sv.total_casos_reportados||'?'} casos · Sem.${sv.semana_datos||'—'}`,
+      desc:`${sv.total_eventos_distintos||0} eventos distintos · Nivel ${sv.nivel_alerta||'—'}`,
+      nivel:sv.nivel_alerta==='alto'?'alto':'medio',
+      fecha:`Semana ${sv.semana_epidemiologica_actual||'—'}`,
+      url:'https://www.ins.gov.co/buscador-eventos/Paginas/sivicap.aspx',fuente_id:'sivigila'});
+  }
+
+  // ── 7. Google News + Reddit via Railway backend ────────────────────────────
+  if(fuente==='todas'||fuente==='noticias'){
+    try{
+      const newsUrl=`${API}/monitor/noticias?q=${encodeURIComponent(termAnt)}&zona=${zona}`;
+      const r=await fetch(newsUrl,{signal:AbortSignal.timeout(10000)});
+      if(r.ok){
+        const nd=await r.json();
+        (nd.noticias||[]).slice(0,8).forEach(n=>{
+          resultados.push({fuente:n.fuente||'Noticias',ico:'📰',
+            titulo:n.titulo?.slice(0,120)||'—',desc:n.desc||'',
+            nivel:n.nivel||'info',fecha:n.fecha||'Reciente',
+            url:n.url||'#',fuente_id:'noticias'});
+        });
+      }
+    }catch(e){errores.push('Noticias web: sin respuesta');}
+  }
+
+  // ── 8. Reddit Colombia — red social pública ───────────────────────────────
+  if(fuente==='todas'||fuente==='noticias'){
+    try{
+      const rdq=encodeURIComponent(`${muni} OR Antioquia emergencia inundación deslizamiento ${keywords||''}`);
+      const rdUrl=`https://www.reddit.com/search.json?q=${rdq}&sort=new&t=week&limit=5&type=link`;
+      const rrd=await fetch(rdUrl,{headers:{'User-Agent':'OMAIRA-Monitor/1.0'},signal:AbortSignal.timeout(8000)});
+      if(rrd.ok){
+        const rdData=await rrd.json();
+        (rdData.data?.children||[]).slice(0,4).forEach(p=>{
+          const pd=p.data;
+          const txt=(pd.title||'').toLowerCase();
+          const esRelevante=['emergencia','inundaci','deslizamiento','incendio','alerta','sismo','avalancha','evacuaci','rio','quebrada'].some(w=>txt.includes(w));
+          if(esRelevante){
+            resultados.push({fuente:'Reddit r/'+pd.subreddit,ico:'💬',
+              titulo:pd.title?.slice(0,120)||'Post Reddit',
+              desc:`${pd.ups||0} votos · ${pd.num_comments||0} comentarios`,
+              nivel:'info',
+              fecha:pd.created_utc?new Date(pd.created_utc*1000).toLocaleDateString('es-CO'):'Reciente',
+              url:`https://reddit.com${pd.permalink}`,fuente_id:'reddit'});
+          }
+        });
+      }
+    }catch(e){/* Reddit no siempre permite CORS desde todos los navegadores */}
+  }
+
+  // ── Renderizar ─────────────────────────────────────────────────────────────
+  const alertasAltas=resultados.filter(r=>['critico','alto'].includes(r.nivel)).length;
+  const badgeW=document.getElementById('badge-web');
+  if(badgeW){
+    if(alertasAltas>0){badgeW.style.display='';badgeW.textContent=alertasAltas;}
+    else badgeW.style.display='none';
+  }
+
   if(!resultados.length){
-    el.innerHTML=`<div style="font-size:9px;color:var(--text3);padding:16px;text-align:center">
-      ${errores.length?'⚠️ '+errores[0]+'<br><br>':''}
-      Sin alertas activas encontradas para <strong>${muni}</strong>.
-      <div style="margin-top:6px">Las fuentes integradas no reportan emergencias activas en este momento.</div>
+    if(el)el.innerHTML=`<div style="font-size:9px;color:var(--v);padding:16px;text-align:center">
+      ✅ Sin alertas ni emergencias encontradas para <strong>${muni}</strong> en este momento.<br>
+      <span style="color:var(--text3)">El monitor revisará de nuevo automáticamente. Última revisión: ${new Date().toLocaleTimeString('es-CO')}</span>
     </div>`;
   }else{
-    // Actualizar badge en navbar
-    const badgeW=document.getElementById('badge-web');
-    if(badgeW){badgeW.style.display='';badgeW.textContent=resultados.length;}
-    el.innerHTML=`<div style="font-size:8px;color:var(--text3);margin-bottom:8px">${resultados.length} resultado(s) encontrados para ${muni} — haz clic en cualquiera para ver la fuente original</div>`+
-    resultados.map(r=>{
-      const nc2=r.nivel==='critico'?'#ef4444':r.nivel==='alto'?'#f97316':r.nivel==='medio'?'#f59e0b':r.nivel==='bajo'?'#22c55e':'#3b82f6';
-      return`<div style="background:var(--bg3);border-radius:7px;padding:9px 11px;margin-bottom:6px;border-left:3px solid ${nc2};cursor:pointer" onclick="window.open('${r.url}','_blank')">
-        <div style="display:flex;align-items:flex-start;gap:8px">
-          <span style="font-size:16px;flex-shrink:0">${r.ico}</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:2px">${r.titulo}</div>
-            ${r.desc?`<div style="font-size:8px;color:var(--text3);margin-bottom:3px">${r.desc}</div>`:''}
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:${nc2}22;color:${nc2}">${(r.nivel||'INFO').toUpperCase()}</span>
-              <span style="font-size:7px;color:var(--text3)">${r.fuente}</span>
-              <span style="font-size:7px;color:var(--text3)">${r.fecha}</span>
-              <span style="font-size:7px;color:var(--az);margin-left:auto">🔗 Ver fuente →</span>
+    if(el)el.innerHTML=
+      `<div style="font-size:8px;color:var(--text3);margin-bottom:8px;display:flex;justify-content:space-between">
+        <span>${resultados.length} resultado(s) · ${alertasAltas} alerta(s) alta/crítica · Clic para ver fuente</span>
+        <span>${new Date().toLocaleTimeString('es-CO')}</span>
+      </div>`+
+      resultados.map(r=>{
+        const c2=r.nivel==='critico'?'#ef4444':r.nivel==='alto'?'#f97316':r.nivel==='medio'?'#f59e0b':r.nivel==='bajo'?'#22c55e':'#3b82f6';
+        return`<div style="background:var(--bg3);border-radius:7px;padding:9px 11px;margin-bottom:5px;border-left:3px solid ${c2};cursor:pointer;transition:opacity .15s" onclick="window.open('${r.url.replace(/'/g,"\\'")}','_blank')" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span style="font-size:16px;flex-shrink:0">${r.ico}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:10px;font-weight:600;color:var(--text);line-height:1.4;margin-bottom:2px">${r.titulo}</div>
+              ${r.desc?`<div style="font-size:8px;color:var(--text3);margin-bottom:3px">${r.desc}</div>`:''}
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+                <span style="font-size:7px;font-weight:700;padding:1px 5px;border-radius:3px;background:${c2}22;color:${c2}">${(r.nivel==='info'?'INFO':r.nivel||'INFO').toUpperCase()}</span>
+                <span style="font-size:7px;color:var(--text3)">${r.fuente}</span>
+                <span style="font-size:7px;color:var(--text3)">${r.fecha}</span>
+                <span style="font-size:7px;color:var(--az);margin-left:auto">🔗 Ver fuente →</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>`;
-    }).join('')+
-    (errores.length?`<div style="font-size:8px;color:var(--text3);margin-top:6px">ℹ️ Algunas fuentes no respondieron: ${errores.join(', ')}</div>`:'');
+        </div>`;
+      }).join('')+
+      (errores.length?`<div style="font-size:8px;color:var(--text3);margin-top:6px;padding:4px 8px;background:var(--bg3);border-radius:5px">ℹ️ Fuentes sin respuesta: ${errores.join(', ')}</div>`:'');
   }
   if(tsEl)tsEl.textContent=new Date().toLocaleTimeString('es-CO');
   if(btn){btn.textContent='🔍 Buscar ahora';btn.disabled=false;}

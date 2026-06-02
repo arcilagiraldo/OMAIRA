@@ -4,10 +4,14 @@ Autenticación con Google OAuth y gestión de usuarios autorizados.
 Roles:
   - Propietario: emails en AUTHORIZED_EMAILS (env var). Único que puede gestionar usuarios.
   - Usuario: emails agregados por el propietario, guardados en la base de datos.
+
+Nota sobre CORS: Los endpoints de gestión de usuarios aceptan el email del admin
+como query param (?admin=email) en lugar de header personalizado, para evitar
+problemas de CORS preflight en navegadores.
 """
 import os
 import httpx
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Query
 from pydantic import BaseModel
 from typing import Optional
 
@@ -16,16 +20,14 @@ router = APIRouter()
 GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo"
 
 
-# ── Helpers de emails ─────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _emails_propietario() -> list[str]:
-    """Emails del propietario — configurados en AUTHORIZED_EMAILS (Railway Variables)."""
     raw = os.getenv("AUTHORIZED_EMAILS", "arcilagiraldo@gmail.com")
     return [e.strip().lower() for e in raw.split(",") if e.strip()]
 
 
 async def _emails_usuarios_db() -> list[dict]:
-    """Usuarios agregados dinámicamente (guardados en PostgreSQL)."""
     try:
         from app.services.database import _pool
         if _pool is None:
@@ -40,7 +42,6 @@ async def _emails_usuarios_db() -> list[dict]:
 
 
 async def _emails_autorizados() -> list[str]:
-    """Todos los emails que pueden acceder: propietario + usuarios DB."""
     propietario = _emails_propietario()
     usuarios_db = await _emails_usuarios_db()
     extra = [u["email"] for u in usuarios_db]
@@ -49,6 +50,11 @@ async def _emails_autorizados() -> list[str]:
 
 def _es_propietario(email: str) -> bool:
     return email.strip().lower() in _emails_propietario()
+
+
+def _get_admin(header_val: Optional[str], query_val: Optional[str]) -> str:
+    """Acepta admin email desde header O query param (evita CORS preflight)."""
+    return ((query_val or header_val or "")).strip().lower()
 
 
 # ── Modelos ───────────────────────────────────────────────────────────────────
@@ -60,13 +66,13 @@ class TokenRequest(BaseModel):
 class EmailRequest(BaseModel):
     email: str
     nombre: Optional[str] = None
+    admin_email: Optional[str] = None  # alternativa a query param
 
 
-# ── Endpoints de autenticación ────────────────────────────────────────────────
+# ── Auth ──────────────────────────────────────────────────────────────────────
 
 @router.post("/verify")
 async def verify_google_token(req: TokenRequest):
-    """Verifica el token de Google. Retorna datos del usuario o 403."""
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             r = await client.get(f"{GOOGLE_TOKEN_INFO_URL}?id_token={req.credential}")
@@ -95,39 +101,40 @@ async def verify_google_token(req: TokenRequest):
     }
 
 
-# ── Endpoints de gestión de usuarios ─────────────────────────────────────────
+# ── Gestión de usuarios ───────────────────────────────────────────────────────
 
 @router.get("/users")
-async def get_users(x_admin_email: Optional[str] = Header(None)):
-    """Lista de usuarios. Solo el propietario puede consultarla."""
-    if not _es_propietario((x_admin_email or "").lower()):
+async def get_users(
+    admin: Optional[str] = Query(None, description="Email del propietario"),
+    x_admin_email: Optional[str] = Header(None),
+):
+    """Lista propietarios y usuarios. Solo el propietario puede consultarla."""
+    admin_email = _get_admin(x_admin_email, admin)
+    if not _es_propietario(admin_email):
         raise HTTPException(403, "Solo el propietario puede gestionar usuarios")
-
-    propietario_emails = _emails_propietario()
-    usuarios_db = await _emails_usuarios_db()
 
     propietarios = [
         {"email": e, "rol": "propietario", "nombre": None, "agregado_por": None}
-        for e in propietario_emails
+        for e in _emails_propietario()
     ]
+    usuarios_db = await _emails_usuarios_db()
     usuarios = [
-        {
-            "email": u["email"],
-            "rol": "usuario",
-            "nombre": u.get("nombre"),
-            "agregado_por": u.get("agregado_por"),
-        }
+        {"email": u["email"], "rol": "usuario",
+         "nombre": u.get("nombre"), "agregado_por": u.get("agregado_por")}
         for u in usuarios_db
     ]
-
     return {"propietarios": propietarios, "usuarios": usuarios}
 
 
 @router.post("/users")
-async def add_user(req: EmailRequest, x_admin_email: Optional[str] = Header(None)):
-    """Agrega un usuario. Solo el propietario puede hacerlo."""
-    admin = (x_admin_email or "").strip().lower()
-    if not _es_propietario(admin):
+async def add_user(
+    req: EmailRequest,
+    admin: Optional[str] = Query(None),
+    x_admin_email: Optional[str] = Header(None),
+):
+    """Agrega un usuario autorizado."""
+    admin_email = _get_admin(x_admin_email, admin) or (req.admin_email or "").lower()
+    if not _es_propietario(admin_email):
         raise HTTPException(403, "Solo el propietario puede agregar usuarios")
 
     email = req.email.strip().lower()
@@ -141,11 +148,11 @@ async def add_user(req: EmailRequest, x_admin_email: Optional[str] = Header(None
     try:
         from app.services.database import _pool
         if _pool is None:
-            raise HTTPException(503, "Base de datos no disponible. Contacta al administrador del servidor.")
+            raise HTTPException(503, "Base de datos no disponible")
         async with _pool.acquire() as conn:
             await conn.execute(
                 "INSERT INTO usuarios_autorizados (email, nombre, agregado_por) VALUES ($1, $2, $3)",
-                email, req.nombre or email.split("@")[0], admin
+                email, req.nombre or email.split("@")[0], admin_email
             )
     except HTTPException:
         raise
@@ -156,10 +163,14 @@ async def add_user(req: EmailRequest, x_admin_email: Optional[str] = Header(None
 
 
 @router.delete("/users/{email:path}")
-async def remove_user(email: str, x_admin_email: Optional[str] = Header(None)):
-    """Retira acceso a un usuario. No se puede quitar al propietario."""
-    admin = (x_admin_email or "").strip().lower()
-    if not _es_propietario(admin):
+async def remove_user(
+    email: str,
+    admin: Optional[str] = Query(None),
+    x_admin_email: Optional[str] = Header(None),
+):
+    """Retira acceso a un usuario."""
+    admin_email = _get_admin(x_admin_email, admin)
+    if not _es_propietario(admin_email):
         raise HTTPException(403, "Solo el propietario puede quitar usuarios")
 
     email = email.strip().lower()
@@ -175,7 +186,7 @@ async def remove_user(email: str, x_admin_email: Optional[str] = Header(None)):
                 "DELETE FROM usuarios_autorizados WHERE email = $1", email
             )
             if result == "DELETE 0":
-                raise HTTPException(404, f"{email} no encontrado en la lista")
+                raise HTTPException(404, f"{email} no encontrado")
     except HTTPException:
         raise
     except Exception as e:
