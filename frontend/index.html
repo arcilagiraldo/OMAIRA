@@ -38,6 +38,17 @@ nav::-webkit-scrollbar{display:none}
 .chip-sim{color:var(--a);background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2)}
 .chip-sim::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--a)}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes rainbow-pulse{
+  0%  {color:#3b82f6;background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.5);box-shadow:0 0 8px rgba(59,130,246,.4)}
+  14% {color:#8b5cf6;background:rgba(139,92,246,.12);border-color:rgba(139,92,246,.5);box-shadow:0 0 8px rgba(139,92,246,.4)}
+  28% {color:#ec4899;background:rgba(236,72,153,.12);border-color:rgba(236,72,153,.5);box-shadow:0 0 8px rgba(236,72,153,.4)}
+  42% {color:#ef4444;background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.5);box-shadow:0 0 8px rgba(239,68,68,.4)}
+  57% {color:#f97316;background:rgba(249,115,22,.12);border-color:rgba(249,115,22,.5);box-shadow:0 0 8px rgba(249,115,22,.4)}
+  71% {color:#f59e0b;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.5);box-shadow:0 0 8px rgba(245,158,11,.4)}
+  85% {color:#22c55e;background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.5);box-shadow:0 0 8px rgba(34,197,94,.4)}
+  100%{color:#3b82f6;background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.5);box-shadow:0 0 8px rgba(59,130,246,.4)}
+}
+.chip-loading{border:1px solid;animation:rainbow-pulse 1.6s ease-in-out infinite;font-weight:600;}
 main{flex:1;display:flex;overflow:hidden}
 .sb{width:215px;min-width:160px;max-width:380px;background:var(--bg2);border-right:1px solid var(--border);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;flex-shrink:0;position:relative}
 /* Scrollbar visible pero discreta */
@@ -404,7 +415,7 @@ main{flex:1;display:flex;overflow:hidden}
       <button class="user-drop-btn" onclick="logout()">🚪 Cerrar sesión</button>
     </div>
   </div>
-<div class="chip chip-sim" id="chip">⏳ Iniciando…</div>
+<div class="chip chip-loading" id="chip">⟳ Iniciando…</div>
 </header>
 <main>
 <aside class="sb">
@@ -3570,10 +3581,10 @@ function calcIRGConPesos(s, hora, m, pw_dinamicos, api_val) {
 // 7. INCERTIDUMBRE ESPACIAL — por cobertura de sensores
 // ─────────────────────────────────────────────────────────────────────
 const INCERT_COB = {
-  alta:  {pct:10, desc:'±10% — SIATA+EPM+IDEAM+Open-Meteo',  color:'#22c55e', radio_mapa:4000},
-  media: {pct:20, desc:'±20% — IDEAM+SIATA parcial',          color:'#f59e0b', radio_mapa:7000},
-  baja:  {pct:30, desc:'±30% — IDEAM+Open-Meteo',             color:'#f97316', radio_mapa:10000},
-  sin:   {pct:45, desc:'±45% — Solo Open-Meteo (estimado)',   color:'#ef4444', radio_mapa:15000},
+  alta:  {pct:10, desc:'±10% — SIATA+EPM+IDEAM+Open-Meteo',  color:'#22c55e', radio_mapa:1500},
+  media: {pct:20, desc:'±20% — IDEAM+SIATA parcial',          color:'#f59e0b', radio_mapa:2500},
+  baja:  {pct:30, desc:'±30% — IDEAM+Open-Meteo',             color:'#f97316', radio_mapa:4000},
+  sin:   {pct:45, desc:'±45% — Solo Open-Meteo (estimado)',   color:'#ef4444', radio_mapa:5500},
 };
 function getIncertidumbre(cob){ return INCERT_COB[cob] || INCERT_COB['sin']; }
 
@@ -4435,29 +4446,64 @@ function factorHorizonte(riesgo_id, h){
   if(!D)return 0;
   const hi=HORIZONTES_INFO[h]||HORIZONTES_INFO['24h'];
   const horas=hi.horas;
-  const probs=D.riesgos||[];
-  const r=probs.find(x=>x.id===riesgo_id);
+  const r=(D.riesgos||[]).find(x=>x.id===riesgo_id);
   if(!r)return 0;
   const p_base=r.prob||0;
-  if(horas<=72){
-    const decay=horas<=1?1.0:horas<=6?0.95:horas<=24?0.88:0.80;
-    return Math.min(0.99,p_base*decay);
-  }
-  // Horizontes largos — climatología + ENSO
   const s=D.s||{};
+  const ext=_fuentesExt||{};
+  const rLl=['deslizamiento','movimiento_masa','lluvias_intensas','creciente_quebradas','inundacion','tormenta_electrica','saturacion_cuenca'];
+  const rSe=['sequia','incendio_forestal','golpe_calor','variabilidad_climatica'];
+  const rSis=['sismicidad_acumulada'];
+  const rSal=['salud_publica'];
+  const rVia=['accidente_transito','congestion_vial','vias_problemas'];
+
+  if(horas<=72){
+    // ── Corto plazo: Open-Meteo pronóstico real ──────────────────────────────
+    const pron=D.pronostico; // Datos reales Open-Meteo 16 días
+    let decay=horas<=1?1.0:horas<=6?.95:horas<=24?.88:.80;
+    if(pron&&horas>=6&&rLl.includes(riesgo_id)){
+      const dias=Math.ceil(horas/24);
+      const lluv=(pron.precipitation_sum||[]).slice(0,Math.max(1,dias));
+      const maxLl=Math.max(...lluv,0);
+      // Amplifica si hay lluvia pronosticada real (>10mm/día = relevante)
+      if(maxLl>10)decay*=Math.min(1.6,1+maxLl/60);
+    }
+    // Sismicidad: factor sísmico USGS real para todos los horizontes cortos
+    if(rSis.includes(riesgo_id)&&ext.sismicidad?.factor_sismico>0){
+      return Math.min(.99,p_base*.5+ext.sismicidad.factor_sismico*.5);
+    }
+    return Math.min(.99,p_base*decay);
+  }
+
+  // ── Largo plazo: climatología + ENSO backend + fuentes externas ──────────
   const mes=new Date().getMonth()+1;
-  const eLl=[3,4,5,9,10,11].includes(mes);
-  const esNiña=(s.enso||1.04)<0.92;
-  const esNiño=(s.enso||1.04)>1.08;
-  let p=p_base*0.5;
-  const rLl=['deslizamiento','movimiento_masa','lluvias_intensas','creciente_quebradas','inundacion','tormenta_electrica'];
-  const rSe=['sequia','incendio_forestal','golpe_calor'];
-  if(eLl){if(rLl.includes(riesgo_id))p*=1.3; else if(rSe.includes(riesgo_id))p*=0.7;}
-  else{if(rSe.includes(riesgo_id))p*=1.4; if(rLl.includes(riesgo_id))p*=0.7;}
-  if(esNiña){if(rLl.includes(riesgo_id))p*=1.3; if(rSe.includes(riesgo_id))p*=0.5;}
-  if(esNiño){if(rSe.includes(riesgo_id))p*=1.4; if(rLl.includes(riesgo_id))p*=0.6;}
-  if(horas>=720)p=p*0.7+0.1;
-  return Math.min(0.99,Math.max(0,p));
+  const eLl=[3,4,5,9,10,11].includes(mes); // Temporada lluvias Colombia
+  // ENSO: usar backend (más preciso) o sensor local como fallback
+  const enso_fase=ext.enso?.fase_enso||'Neutro';
+  const enso_f=ext.enso?.factor_clima||s.enso||1.04;
+  const esNiña=enso_fase==='La Niña'||enso_f<0.94;
+  const esNiño=enso_fase==='El Niño'||enso_f>1.06;
+  let p=p_base*.50;
+  if(eLl){if(rLl.includes(riesgo_id))p*=1.3; if(rSe.includes(riesgo_id))p*=.70;}
+  else{if(rSe.includes(riesgo_id))p*=1.4; if(rLl.includes(riesgo_id))p*=.70;}
+  if(esNiña){if(rLl.includes(riesgo_id))p*=1+(enso_f-1)*.8; if(rSe.includes(riesgo_id))p*=.50;}
+  if(esNiño){if(rSe.includes(riesgo_id))p*=1+(1-enso_f)*.8+.4; if(rLl.includes(riesgo_id))p*=.60;}
+  // Sismicidad: usa factor USGS real
+  if(rSis.includes(riesgo_id)&&ext.sismicidad?.factor_sismico>0){
+    p=p_base*.4+ext.sismicidad.factor_sismico*.6;
+  }
+  // Salud pública: persiste si hay alerta epidemiológica activa (SIVIGILA)
+  if(rSal.includes(riesgo_id)){
+    const siviF=ext.sivigila?.alerta_epidemiologica?.8:.5;
+    p=Math.min(.99,p_base*siviF);
+  }
+  // Vialidad: peso del riesgo ANSV real en proyección
+  if(rVia.includes(riesgo_id)&&ext.ansv?.nivel_riesgo_vial){
+    const ansv_f={'critico':1.3,'alto':1.15,'moderado':1.0,'bajo':.85}[ext.ansv.nivel_riesgo_vial]||1.0;
+    p*=ansv_f;
+  }
+  if(horas>=720)p=p*.70+.10; // Muy largo plazo: regresión a media
+  return Math.min(.99,Math.max(0,p));
 }
 
 function renderPredAll(){
@@ -4548,7 +4594,7 @@ const CAPAS_MAPA={
   osm:{url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'© OpenStreetMap'},
   sat:{url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'© Esri'},
   topo:{url:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',attr:'© OpenTopoMap'},
-  dark:{url:'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png',attr:'© Stadia Maps'},
+  dark:{url:'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',attr:'© CartoDB'},
 };
 const COB_COLOR={alta:'#22c55e',media:'#f59e0b',baja:'#f97316',sin:'#6b7280'};
 
@@ -4583,7 +4629,7 @@ function _dibujarMuniEnLayer(m, g, destacado=false) {
   L.marker([m.lat,m.lon],{icon:ic}).bindPopup(popup,{maxWidth:210}).addTo(g);
   const incert=getIncertidumbre(m.cob||'sin');
   L.circle([m.lat,m.lon],{
-    radius:destacado?incert.radio_mapa*1.4:incert.radio_mapa,
+    radius:incert.radio_mapa,
     color:(['alto','muy_alto','critico'].includes(m.nv||'bajo'))||destacado?rColor:incert.color,
     fillColor:(['alto','muy_alto','critico'].includes(m.nv||'bajo'))||destacado?rColor:incert.color,
     fillOpacity:destacado?.10:.05,weight:destacado?1.5:1,
@@ -4707,15 +4753,42 @@ function _capaIncendios(g){
 // ── 4. VUELOS ADS-B ───────────────────────────────────────────────────────────
 function _capaVuelos(g){
   const vs=D?.vuelos||[];
-  if(!vs.length){sirga('info','✈️ Sin vuelos detectados en radio 200km.');return;}
-  vs.forEach(v=>{
-    if(!v.lat||!v.lon)return;
-    const ic=L.divIcon({className:'',html:`<div style="font-size:18px;filter:drop-shadow(0 0 4px #3b82f6)">✈️</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  if(!vs.length){
+    // Show info circle even with no flights
+    L.circle([m.lat,m.lon],{radius:180000,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.03,weight:1,dashArray:'8 8'})
+      .bindPopup('<b>✈️ ADS-B Exchange — Radio 200km</b><br>Sin vuelos detectados en este momento.<br><span style="font-size:8px;color:#888">El espacio aéreo puede estar tranquilo o ADS-B no disponible.</span>')
+      .addTo(g);
+    sirga('info','✈️ Sin vuelos en radio 200km ahora mismo (ADS-B).');
+    return;
+  }
+  // Area circle showing coverage
+  L.circle([m.lat,m.lon],{radius:180000,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.02,weight:1,dashArray:'8 8'}).addTo(g);
+  const con_pos=vs.filter(v=>v.lat&&v.lon);
+  con_pos.forEach(v=>{
+    const alt_km=v.alt?Math.round(v.alt/3280.84*10)/10:0;
+    const vel_kmh=v.vel?Math.round(v.vel*1.852):0;
+    const isComercial=v.vuelo&&v.vuelo.length>=3;
+    const ic=L.divIcon({
+      className:'',
+      html:`<div style="font-size:${isComercial?20:16}px;filter:drop-shadow(0 0 4px #3b82f6);line-height:1">✈️</div>
+            <div style="font-size:7px;color:#3b82f6;font-weight:700;text-align:center;margin-top:-2px;text-shadow:0 0 4px #000;white-space:nowrap">${v.vuelo||v.hex||'?'}</div>`,
+      iconSize:[40,28],iconAnchor:[20,14]
+    });
     L.marker([v.lat,v.lon],{icon:ic})
-      .bindPopup(`<div style="min-width:155px"><b>✈️ ${v.vuelo||v.hex||'—'}</b><br>Altitud: ${v.alt?(+v.alt).toLocaleString()+' ft':'—'}<br>Velocidad: ${v.vel?Math.round(v.vel)+' kt':'—'}<br><span style="font-size:7.5px;color:#555">ADS-B Exchange — Tiempo real</span></div>`)
+      .bindPopup(`<div style="min-width:170px">
+        <b>✈️ Vuelo ${v.vuelo||v.hex||'Sin ID'}</b><br>
+        Altitud: ${alt_km>0?alt_km+' km ('+v.alt+' ft)':'—'}<br>
+        Velocidad: ${vel_kmh>0?vel_kmh+' km/h':'—'}<br>
+        Tipo aeronave: ${v.tipo||'—'}<br>
+        <span style="font-size:7.5px;color:#555">ADS-B Exchange — Tiempo real</span>
+      </div>`)
       .addTo(g);
   });
-  sirga('ok','✈️ '+vs.length+' vuelos en el mapa (ADS-B)');
+  // Label with count
+  const ic2=L.divIcon({className:'',html:`<div style="background:#3b82f6;color:#fff;font-size:8px;font-weight:800;padding:2px 7px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${vs.length} vuelo(s)</div>`,iconSize:[80,20],iconAnchor:[40,10]});
+  L.marker([m.lat+1.5,m.lon],{icon:ic2}).addTo(g);
+  sirga('ok',`✈️ ${vs.length} vuelo(s) detectados. ${vs.length-con_pos.length>0?'('+(vs.length-con_pos.length)+' sin posición GPS)':''}`);
 }
 
 // ── 5. CALIDAD DEL AIRE ───────────────────────────────────────────────────────
@@ -6329,7 +6402,7 @@ function cambiarZona(z){
     D=_cached;
     renderAll();
     const _chip=document.getElementById('chip');
-    if(_chip){_chip.className='chip chip-sim';_chip.textContent='⏳ Actualizando…';}
+    if(_chip){_chip.className='chip chip-loading';_chip.textContent='⟳ Actualizando…';}
   }
   actualizarDatos();
   poblarSel();
@@ -6353,7 +6426,7 @@ function cambiarZona(z){
 // ═══════════════════════════════════════════════════════════
 async function actualizarDatos(){
   const lupd=document.getElementById('lupd');if(lupd)lupd.textContent='⏳ Cargando datos reales…';
-  const chip=document.getElementById('chip');if(chip){chip.className='chip chip-sim';chip.textContent='⏳ Conectando…';}
+  const chip=document.getElementById('chip');if(chip){chip.className='chip chip-loading';chip.textContent='⟳ Conectando…';}
   try{
     // Timeout global de 20 segundos para evitar cuelgue indefinido
     const _timeout = new Promise((_, rej) =>
