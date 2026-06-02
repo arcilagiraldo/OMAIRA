@@ -1246,7 +1246,7 @@ main{flex:1;display:flex;overflow:hidden}
       <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
         <span class="pill pa">municipios activos</span>
         <span class="pill pv">IA multi-modelo</span>
-        <span class="pill pp">23 tipos de riesgo</span>
+        <span class="pill pp">24 tipos de riesgo</span>
         <span class="pill pn">Datos reales RT</span>
         <span class="pill" style="background:rgba(245,158,11,.15);color:#f59e0b;padding:2px 7px;border-radius:10px;font-size:8px">Credibilidad probabilística</span>
         <span class="pill" style="background:rgba(139,92,246,.15);color:#8b5cf6;padding:2px 7px;border-radius:10px;font-size:8px">Marco Sendai 2030</span>
@@ -1341,9 +1341,23 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>sequía</strong></td><td>max(0,(ENSO-1.05)/0.15)×0.55 + max(0,0.40-hum)×0.45</td><td>NOAA ONI · DB 30 días</td></tr>
       <tr><td><strong>deslizamiento</strong></td><td>(pendiente×0.45 + lluvia×0.40 + humedad×0.15) × E×V×F</td><td>Open-Meteo · SAMA</td></tr>
       <tr><td><strong>nivel_rio</strong> (cuando disponible)</td><td>Dato real SAMA normalizado / 5</td><td>SAMA RT (máxima prioridad)</td></tr>
+      <tr><td><strong>incendio_forestal</strong></td><td>(hum×0.35 + viento×0.25 + precip×0.25 + focos_FIRMS×0.15) × E</td><td>Open-Meteo · <strong>NASA FIRMS real</strong></td></tr>
+      <tr><td><strong>contaminacion_aire</strong></td><td>ICA×0.65 + (viento×temp)×0.35 — usa ICA real si disponible</td><td><strong>OpenAQ · WAQI · SIATA · Tomorrow.io</strong></td></tr>
+      <tr><td><strong>accidente_transito</strong></td><td>movilidad×0.33 + niebla×0.27 + vias×0.22 + TomTom×0.10 + ANSV×0.08</td><td>TomTom · <strong>ANSV real</strong></td></tr>
+      <tr><td><strong>salud_publica</strong> (riesgo 24)</td><td>(cobertura_REPS×0.55 + alerta_SIVIGILA×0.45) × F_pobreza</td><td><strong>REPS MinSalud · SIVIGILA INS · DANE</strong></td></tr>
+      <tr><td><strong>E (exposición)</strong></td><td>(pop/50k)×0.30 + (pendiente/45)×0.58 + NBI_DANE×0.12</td><td>DANE · IGAC · municipio</td></tr>
     </table>
 
-    <h3>4. Memoria hidrológica acumulativa</h3>
+    <h3>4. Salud pública — REPS y SIVIGILA en el modelo</h3>
+    <div class="fbx">RIESGO_SALUD = (cob_hospitalaria × 0.55 + alerta_sivigila × 0.45) × F_pobreza<br>
+      <span class="cm">// cob_hospitalaria: función inversa de cobertura REPS (muy_alta→0.05, muy_baja→0.50)</span><br>
+      <span class="cm">// alerta_sivigila: proporcional a casos reportados + bandera alerta activa</span><br>
+      <span class="cm">// F_pobreza: 1 + max(0, NBI-30)/70×0.30 — municipios pobres = mayor vulnerabilidad</span><br>
+      <span class="cm">// REPS también ajusta E (exposición) del resto de riesgos vía V_salud</span>
+    </div>
+    <p>La cobertura hospitalaria (número de IPS, camas estimadas, tipo de prestadores) modifica directamente la vulnerabilidad post-desastre: menos capacidad médica disponible = mayor consecuencia de cualquier evento. Las alertas epidemiológicas de SIVIGILA amplifican el riesgo sanitario acumulado.</p>
+
+    <h3>5. Memoria hidrológica acumulativa</h3>
     <p>El sistema guarda en IndexedDB los últimos 90 días de lluvia por municipio. Esto permite calcular el Antecedent Precipitation Index (API) real acumulado, la sequía por déficit real vs climatología normal de cada subregión, y mejorar la predicción de crecientes con suelo saturado. El modelo mejora automáticamente con el tiempo sin requerir intervención.</p>
 
     <h3>5. Prioridad de fuentes en los sensores</h3>
@@ -1453,7 +1467,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;margin-top:10px;border:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v5.0 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
     <div style="font-size:8px;color:var(--text3);line-height:17px">
-      125 municipios · 23 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
+      125 municipios · 24 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
       Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score
     </div>
@@ -1678,6 +1692,9 @@ const R18=[
    desc:'Acumulación de sismos M≥2.5 en 72h. Puede preceder evento mayor.'},
   {id:'heladas',n:'Heladas',e:'❄️',cat:'n',
    desc:'Temperatura <4°C en municipios >2500m. Pérdida cultivos e hipotermia.'},
+  // ── Riesgo sanitario: REPS (capacidad hospitalaria) + SIVIGILA (epidemiología) ──
+  {id:'salud_publica',n:'Riesgo sanitario / Salud pública',e:'🏥',cat:'a',
+   desc:'Capacidad hospitalaria REPS + alertas epidemiológicas SIVIGILA. Vulnerabilidad post-desastre.'},
 ];
 
 // ── SENSORES con flag real/estimado ───────────────────────
@@ -3410,7 +3427,9 @@ function calcIRGConPesos(s, hora, m, pw_dinamicos, api_val) {
   const puen=Math.min(1,crec*.6+ln*.4);
   const derb=Math.min(1,(hn*.4+ln*.4+(s.lluvia>50?.2:0))*fApi); // API amplifica derrumbes
   const cong=Math.min(1,tv*.4+vias*.4+mv*.2);
-  const cont=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
+  const ica_n=s.ica>0?Math.min(1,s.ica/150):0;
+  const cont_base=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
+  const cont=ica_n>0?Math.min(1,ica_n*.65+cont_base*.35):cont_base;
   const nebv=Math.min(1,neb*.7+hn*.3);
   const rest=Math.min(1,vn*.4+neb*.3+torn*.3);
   const dens=Math.min(1,tv*.5+mv*.5);
@@ -3838,7 +3857,9 @@ function calcIRG(s,hora,m){
   const puen=Math.min(1,crec*.6+ln*.4);
   const derb=Math.min(1,hn*.4+ln*.4+(s.lluvia>50?.2:0));
   const cong=Math.min(1,tv*.4+vias*.4+mv*.2);
-  const cont=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
+  const ica_n=s.ica>0?Math.min(1,s.ica/150):0;
+  const cont_base=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
+  const cont=ica_n>0?Math.min(1,ica_n*.65+cont_base*.35):cont_base;
   const nebv=Math.min(1,neb*.7+hn*.3);
   const rest=Math.min(1,vn*.4+neb*.3+torn*.3);
   const dens=Math.min(1,tv*.5+mv*.5);
@@ -3888,9 +3909,9 @@ function calcIRG(s,hora,m){
 function calcRiesgos(z,s,irg,m){
   const pen={'montañoso':25,'ondulado':15,'plano':5,'plana_tropical':3,'costera':4,'plano_humedo':4,'selva_humeda':8,'selva':10,'calido_seco':12,'calido':10}[m.rel]||15;
   const tR=(m.agua||'').includes('rio')||(m.agua||'')==='rios',tE=(m.agua||'').includes('embalse');
-  // E: densidad exposición en zona de riesgo (NO población total)
-  // Municipio pequeño en ladera tiene alta exposición territorial
-  const E=Math.max(0.30,Math.min(1,(m.pop/50000)*.35+(pen/45)*.65));
+  // E: densidad exposición — incluye DANE (NBI/IPM) como factor de vulnerabilidad social
+  const dane_e=s.ipm_dane>0?Math.min(0.12,s.ipm_dane/100*.12):0;
+  const E=Math.max(0.30,Math.min(1,(m.pop/50000)*.30+(pen/45)*.58+dane_e));
   // V: vulnerabilidad por pendiente + altitud (terreno inestable)
   const V=Math.min(1,(pen/45)*.55+(m.alt/3000)*.25+.20);
   const F=s.enso||1.04;
@@ -3938,8 +3959,17 @@ function calcRiesgos(z,s,irg,m){
     movimiento_masa:Math.min(.99,
       (pen/45*.50 + iv.humedad_suelo.v*.35 + iv.precipitacion.v*.15) * E*V*F
     ),
-    incendio_forestal:Math.min(.99,((1-iv.humedad_suelo.v)*.4+iv.viento.v*.3+Math.max(0,1-iv.precipitacion.v-.2)*.3)*E),
-    accidente_transito:Math.min(.99,iv.movilidad.v*.4+iv.neblina_vial.v*.3+iv.vias_problemas.v*.3),
+    // INCENDIO FORESTAL: añade focos reales NASA FIRMS cuando disponibles
+    incendio_forestal:Math.min(.99,(()=>{
+      const focos_f=s.focos_incendio>0?Math.min(1,s.focos_incendio/15):0;
+      return((1-iv.humedad_suelo.v)*.35+iv.viento.v*.25+Math.max(0,1-iv.precipitacion.v-.2)*.25+focos_f*.15)*E;
+    })()),
+    // ACCIDENTE TRÁNSITO: añade velocidad real TomTom + factor ANSV
+    accidente_transito:Math.min(.99,(()=>{
+      const tm_f=s.velocidad_via>0?Math.min(.10,Math.max(0,1-s.velocidad_via/60)*.10):0;
+      const ansv_f=(_fuentesExt?.ansv?.nivel_riesgo_vial==='critico'?.12:_fuentesExt?.ansv?.nivel_riesgo_vial==='alto'?.08:0);
+      return iv.movilidad.v*.33+iv.neblina_vial.v*.27+iv.vias_problemas.v*.22+tm_f+ansv_f;
+    })()),
     congestion_vial:Math.min(.99,iv.congestion_emergencia.v),
     // ZONA_RIESGO_OCUPADA: riesgo ESTÁTICO territorial
     // Calibrado por tipo de relieve. Solo sube con lluvia MUY intensa (>50mm/h)
@@ -3988,6 +4018,19 @@ function calcRiesgos(z,s,irg,m){
       Math.max(0,(6-s.temp)/10) *
       (m.alt>2500?.9:m.alt>2000?.5:.05)
     ),
+    // SALUD PÚBLICA: REPS (capacidad hospitalaria) + SIVIGILA (epidemiología)
+    // Riesgo base por cobertura médica insuficiente, amplificado por alertas epidemiológicas
+    salud_publica:Math.min(.99,(()=>{
+      const reps=_fuentesExt?.reps||{};
+      const sivi=_fuentesExt?.sivigila||{};
+      const cobF={'muy_alta':.05,'alta':.10,'media':.20,'baja':.35,'muy_baja':.50}[reps.cobertura_medica]||0.18;
+      const siviF=sivi.alerta_epidemiologica
+        ?Math.min(.40,Math.max(.15,(sivi.total_casos_reportados||0)/1500*.25+.10))
+        :Math.min(.10,(sivi.total_casos_reportados||0)/3000*.08);
+      // Amplificado por pobreza (DANE) y factor climático
+      const daneMult=s.ipm_dane>30?1+Math.min(.3,(s.ipm_dane-30)/70*.3):1;
+      return Math.min(.99,(cobF*.55+siviF*.45)*daneMult);
+    })()),
   };
   return R18.map(r=>({...r,prob:+(probs[r.id]||0).toFixed(4),nivel:nv(probs[r.id]||0),
     prob_h1:+Math.min(.99,(probs[r.id]||0)*.75).toFixed(4),
@@ -4764,25 +4807,58 @@ async function llamarAPIExterna(modelo, key) {
   const m = MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
   const irg = D.irg;
   const topR = D.riesgos.reduce((mx,r)=>r.prob>mx.prob?r:mx);
-  const prompt = `Eres un experto en gestión del riesgo de desastres en Colombia.
-Analiza la siguiente situación y responde ÚNICAMENTE en este JSON (sin texto fuera del JSON):
+  const _ext=_fuentesExt||{};
+  const _sivi=_ext.sivigila||{};
+  const _reps=_ext.reps||{};
+  const _ansv=_ext.ansv||{};
+  const _enso=_ext.enso||{};
+  const _sis=_ext.sisaire||{};
+  const _riesgosAltos=D.riesgos.filter(r=>['alto','muy_alto','critico'].includes(r.nivel))
+    .map(r=>`${r.n}(${(r.prob*100).toFixed(0)}%)`).join(', ')||'ninguno';
+  const _top5Risks=D.riesgos.slice().sort((a,b)=>b.prob-a.prob).slice(0,5)
+    .map(r=>`${r.e}${r.n}: ${(r.prob*100).toFixed(0)}%`).join(' | ');
+  const prompt = `Eres un experto en gestión del riesgo de desastres en Colombia, especializado en Antioquia.
+Analiza la situación actual y responde ÚNICAMENTE en este JSON (sin texto fuera del JSON):
 {
-  "diagnostico": "diagnóstico actual en 2-3 oraciones",
-  "pronostico": "pronóstico para las próximas 6-12 horas",
-  "explicacion_experta": "explicación técnica del riesgo",
-  "recomendaciones": ["acción 1", "acción 2", "acción 3"]
+  "diagnostico": "diagnóstico actual en 2-3 oraciones técnicas y concretas",
+  "pronostico": "pronóstico para las próximas 6-12 horas con datos específicos",
+  "explicacion_experta": "análisis técnico multiamenaza considerando salud, clima, infraestructura",
+  "recomendaciones": ["acción urgente 1", "acción preventiva 2", "coordinación institucional 3", "comunicación 4"]
 }
 
-DATOS ACTUALES (${D.datos_reales?'datos reales':'estimados'}):
-- Municipio: ${D.muni} (${D.sub}, ${m.rel.replace(/_/g,' ')})
-- IRG: ${(irg.irg*100).toFixed(1)}% — nivel: ${irg.nivel}
-- Lluvia: ${D.s.lluvia}mm/h | Temp: ${D.s.temp}°C | Viento: ${D.s.viento}m/s
-- Humedad suelo: ${D.s.hum}% | ${D.agua?.includes('embalse')?'Embalse: '+D.s.embalse+'% | ':''} Presión: ${D.s.presion}hPa
-- Turismo: ${irg.contexto.turismo_nivel} (${irg.contexto.turismo_pct}%) | Hora: ${irg.contexto.hora}h
-- Riesgo dominante: ${topR.n} al ${(topR.prob*100).toFixed(1)}%
-- Top factores IRG: ${irg.top5.slice(0,3).map(([k,c,n])=>n+'('+( c*100).toFixed(1)+'%)').join(', ')}
-- Sismos recientes: ${D.sismos?.length||0} eventos
-- Fuentes activas: ${D.fuentes_activas.join(', ')||'solo estimaciones locales'}`;
+═══ MUNICIPIO Y CONTEXTO ════════════════════════════
+Municipio: ${D.muni} | Subregión: ${D.sub} | Relieve: ${m.rel.replace(/_/g,' ')}
+Altitud: ${m.alt}m | Población: ${(m.pop||0).toLocaleString()} hab. | Agua: ${(D.agua||'').replace(/_/g,' ')}
+IRG: ${(irg.irg*100).toFixed(1)}% — NIVEL ${irg.nivel.toUpperCase()} | Fuente datos: ${D.datos_reales?'REAL ('+D.fuentes_activas.length+' fuentes)':'ESTIMADO'}
+
+═══ SENSORES METEOROLÓGICOS ═════════════════════════
+Lluvia: ${D.s.lluvia}mm/h${D.real_flags?.lluvia?' [REAL]':' [EST]'} | Temp: ${D.s.temp}°C | Viento: ${D.s.viento}m/s
+Humedad suelo: ${D.s.hum}% | Presión: ${D.s.presion}hPa | Visibilidad: ${D.s.visib}m
+UV: ${D.s.uv} | API acumulado: ${D.api_valor?.toFixed(0)||'—'}mm (memoria hidrológica 90d)
+${D.agua?.includes('embalse')?'Embalse: '+D.s.embalse+'%'+( D.s.embalse>88?' ⚠️ ALTO':'')+' | ':''
+}Calidad aire ICA: ${D.s.ica||'—'} | PM2.5: ${D.s.pm25||'—'}μg/m³
+
+═══ 24 RIESGOS CALCULADOS ══════════════════════════
+Top 5: ${_top5Risks}
+Alertas activas (>45%): ${_riesgosAltos||'ninguna'}
+
+═══ CONTEXTO CLIMÁTICO GLOBAL (NOAA/USGS) ══════════
+ENSO: ${_enso.fase_enso||'Neutro'} · ONI=${_enso.indice_oni?.toFixed(2)||'—'} · Factor clima ×${(_enso.factor_clima||1.04).toFixed(2)}
+Sismicidad 7d: ${_ext.sismicidad?.sismos_7_dias||0} sismos M≥3 | Nivel: ${_ext.sismicidad?.nivel_sismico||'bajo'}
+Focos incendio (NASA FIRMS): ${D.s.focos_incendio||0} activos
+
+═══ SALUD PÚBLICA Y CAPACIDAD DE RESPUESTA ════════
+Hospitales/IPS (REPS): ${_reps.total_prestadores||'N/D'} prestadores · Cobertura: ${(_reps.cobertura_medica||'—').replace(/_/g,' ').toUpperCase()} · Camas: ${_reps.capacidad_camas_estimada||'N/D'}
+Epidemiología SIVIGILA: ${_sivi.alerta_epidemiologica?'⚠️ ALERTA ACTIVA · ':'Sin alerta · '}${_sivi.total_casos_reportados||0} casos · ${_sivi.total_eventos_distintos||0} eventos (Sem.${_sivi.semana_datos||'—'})
+${_sivi.top_eventos?.length?'Eventos principales: '+_sivi.top_eventos.slice(0,3).map(e=>e.evento+' '+e.casos+'c').join(', '):''}
+Vulnerabilidad social (DANE NBI): ${D.s.ipm_dane||'—'}%
+
+═══ VIALIDAD Y MOVILIDAD ═══════════════════════════
+Turismo: ${irg.contexto.turismo_nivel} (${irg.contexto.turismo_pct}%) | Hora: ${irg.contexto.hora}h
+TomTom velocidad vías: ${D.s.velocidad_via>0?D.s.velocidad_via+'km/h':'no disponible'}
+ANSV riesgo vial: ${_ansv.nivel_riesgo_vial||'—'} · Sectores críticos: ${_ansv.total_sectores_criticos||0}
+Sismos: ${D.sismos?.length||0} recientes | Incendios: ${D.incendios?.length||0} focos
+Fuentes activas: ${D.fuentes_activas.join(', ')||'solo estimaciones'}`;
 
   if (modelo === 'claude') {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
