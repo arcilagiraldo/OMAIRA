@@ -1203,18 +1203,33 @@ main{flex:1;display:flex;overflow:hidden}
 
   <!-- GESTIÓN DE USUARIOS -->
   <div class="card" style="margin-top:10px">
-    <div class="ctit" style="margin-bottom:10px">👥 Usuarios con acceso a OMAIRA</div>
-    <div style="font-size:9px;color:var(--text2);margin-bottom:10px;line-height:1.6">
-      Solo los correos de Google listados aquí pueden iniciar sesión. Como administrador puedes agregar o quitar accesos.
+    <div class="ctit" style="margin-bottom:6px">👥 Control de acceso</div>
+    <div style="font-size:9px;color:var(--text2);margin-bottom:12px;line-height:1.6;background:var(--bg3);border-radius:6px;padding:8px">
+      Solo cuentas de Google autorizadas aquí pueden entrar a OMAIRA. Como <strong style="color:var(--pu)">propietario</strong> puedes invitar o retirar acceso a otras personas cuando quieras.
     </div>
-    <div id="usuarios-lista" style="margin-bottom:10px">
-      <div style="font-size:9px;color:var(--text3);padding:8px;text-align:center">Cargando usuarios…</div>
+
+    <!-- Propietario -->
+    <div style="font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Propietario</div>
+    <div id="propietarios-lista" style="margin-bottom:12px">
+      <div style="font-size:9px;color:var(--text3);padding:6px">Cargando…</div>
     </div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <input id="nuevo-usuario-email" type="email" placeholder="nuevo@gmail.com" style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:5px;font-size:10px">
-      <button onclick="agregarUsuario()" style="padding:7px 14px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">+ Agregar</button>
+
+    <!-- Usuarios invitados -->
+    <div style="font-size:8px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Usuarios con acceso</div>
+    <div id="usuarios-lista" style="margin-bottom:12px;min-height:30px">
+      <div style="font-size:9px;color:var(--text3);padding:6px">Cargando…</div>
     </div>
-    <div id="usuarios-err" style="font-size:9px;color:var(--r);margin-top:6px;min-height:14px"></div>
+
+    <!-- Agregar usuario -->
+    <div style="background:var(--bg3);border-radius:7px;padding:10px">
+      <div style="font-size:9px;font-weight:600;color:var(--text2);margin-bottom:7px">➕ Invitar a alguien</div>
+      <div style="display:flex;gap:6px">
+        <input id="nuevo-usuario-email" type="email" placeholder="correo@gmail.com" style="flex:1;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:5px;font-size:10px">
+        <button onclick="agregarUsuario()" style="padding:7px 16px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">Invitar</button>
+      </div>
+      <div style="font-size:8px;color:var(--text3);margin-top:5px">La persona podrá iniciar sesión con esa cuenta de Google inmediatamente.</div>
+      <div id="usuarios-err" style="font-size:9px;color:var(--r);margin-top:5px;min-height:14px"></div>
+    </div>
   </div>
 </div>
 
@@ -7607,15 +7622,41 @@ function _getAdminToken(){
 }
 
 async function cargarUsuarios(){
-  const el=document.getElementById('usuarios-lista');if(!el)return;
+  const elP=document.getElementById('propietarios-lista');
+  const elU=document.getElementById('usuarios-lista');
+  if(!elP||!elU)return;
   try{
     const r=await fetch(API+'/auth/users',{headers:{'X-Admin-Email':_getAdminToken()}});
-    if(r.status===403){el.innerHTML='<div style="font-size:9px;color:var(--a);padding:8px">Solo el administrador puede ver la lista de usuarios.</div>';return;}
+    if(r.status===403){
+      elP.innerHTML='<div style="font-size:9px;color:var(--text3);padding:6px">Solo el propietario puede ver esta lista.</div>';
+      elU.innerHTML='';
+      return;
+    }
+    if(!r.ok){elU.innerHTML='<div style="font-size:9px;color:var(--a);padding:6px">Error al cargar usuarios.</div>';return;}
     const d=await r.json();
-    const emails=d.emails||[];
-    if(!emails.length){el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:8px">Sin usuarios configurados.</div>';return;}
-    el.innerHTML=emails.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:10px"><span style="color:var(--text2)">${e}</span><button onclick="quitarUsuario('${e}')" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;line-height:1;padding:0 4px" title="Quitar acceso">×</button></div>`).join('');
-  }catch(e){el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:8px">No se pudo conectar con el servidor.</div>';}
+    // Propietarios
+    const props=d.propietarios||[];
+    elP.innerHTML=props.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px">
+      <span style="font-size:14px">👑</span>
+      <div style="flex:1"><div style="font-size:10px;font-weight:600;color:var(--text)">${p.email}</div><div style="font-size:8px;color:var(--pu)">Propietario — acceso permanente</div></div>
+    </div>`).join('');
+    // Usuarios invitados
+    const users=d.usuarios||[];
+    if(!users.length){
+      elU.innerHTML='<div style="font-size:9px;color:var(--text3);padding:6px;font-style:italic">Sin usuarios invitados aún.</div>';
+    }else{
+      elU.innerHTML=users.map(u=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px">
+        <span style="font-size:14px">👤</span>
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text)">${u.email}</div>
+          ${u.agregado_por?`<div style="font-size:8px;color:var(--text3)">Invitado por ${u.agregado_por}</div>`:''}
+        </div>
+        <button onclick="quitarUsuario('${u.email}')" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--r);cursor:pointer;font-size:9px;border-radius:4px;padding:3px 8px" title="Quitar acceso">Quitar</button>
+      </div>`).join('');
+    }
+  }catch(e){
+    elU.innerHTML='<div style="font-size:9px;color:var(--text3);padding:6px">No se pudo conectar con el servidor.</div>';
+  }
 }
 
 async function agregarUsuario(){

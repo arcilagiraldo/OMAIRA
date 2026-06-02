@@ -1,10 +1,12 @@
 """
-Autenticación con Google OAuth — verificación de token y lista de emails autorizados.
+Autenticación con Google OAuth y gestión de usuarios autorizados.
+
+Roles:
+  - Propietario: emails en AUTHORIZED_EMAILS (env var). Único que puede gestionar usuarios.
+  - Usuario: emails agregados por el propietario, guardados en la base de datos.
 """
 import os
-import json
 import httpx
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
@@ -12,52 +14,59 @@ from typing import Optional
 router = APIRouter()
 
 GOOGLE_TOKEN_INFO_URL = "https://oauth2.googleapis.com/tokeninfo"
-USERS_FILE = Path("/app/data/authorized_users.json")
 
 
-def _emails_base() -> list[str]:
-    """Emails configurados en variable de entorno (admin fijo)."""
+# ── Helpers de emails ─────────────────────────────────────────────────────────
+
+def _emails_propietario() -> list[str]:
+    """Emails del propietario — configurados en AUTHORIZED_EMAILS (Railway Variables)."""
     raw = os.getenv("AUTHORIZED_EMAILS", "arcilagiraldo@gmail.com")
     return [e.strip().lower() for e in raw.split(",") if e.strip()]
 
 
-def _emails_extra() -> list[str]:
-    """Emails adicionales gestionados dinámicamente."""
+async def _emails_usuarios_db() -> list[dict]:
+    """Usuarios agregados dinámicamente (guardados en PostgreSQL)."""
     try:
-        if USERS_FILE.exists():
-            return [e.lower() for e in json.loads(USERS_FILE.read_text()) if e]
+        from app.services.database import _pool
+        if _pool is None:
+            return []
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT email, nombre, agregado_por, created_at FROM usuarios_autorizados ORDER BY created_at"
+            )
+            return [dict(r) for r in rows]
     except Exception:
-        pass
-    return []
+        return []
 
 
-def _emails_autorizados() -> list[str]:
-    return list(set(_emails_base() + _emails_extra()))
+async def _emails_autorizados() -> list[str]:
+    """Todos los emails que pueden acceder: propietario + usuarios DB."""
+    propietario = _emails_propietario()
+    usuarios_db = await _emails_usuarios_db()
+    extra = [u["email"] for u in usuarios_db]
+    return list(set(propietario + extra))
 
 
-def _guardar_extra(emails: list[str]):
-    USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USERS_FILE.write_text(json.dumps(list(set(e.lower() for e in emails if e))))
+def _es_propietario(email: str) -> bool:
+    return email.strip().lower() in _emails_propietario()
 
 
-def _es_admin(email: str) -> bool:
-    return email.lower() in _emails_base()
-
+# ── Modelos ───────────────────────────────────────────────────────────────────
 
 class TokenRequest(BaseModel):
-    credential: str  # JWT token de Google Identity Services
+    credential: str
 
 
 class EmailRequest(BaseModel):
     email: str
+    nombre: Optional[str] = None
 
+
+# ── Endpoints de autenticación ────────────────────────────────────────────────
 
 @router.post("/verify")
 async def verify_google_token(req: TokenRequest):
-    """
-    Verifica el token de Google y comprueba si el email está autorizado.
-    Retorna {ok: true, email, nombre} o lanza 403.
-    """
+    """Verifica el token de Google. Retorna datos del usuario o 403."""
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             r = await client.get(f"{GOOGLE_TOKEN_INFO_URL}?id_token={req.credential}")
@@ -73,7 +82,8 @@ async def verify_google_token(req: TokenRequest):
     if not email:
         raise HTTPException(401, "Token sin email")
 
-    if email not in _emails_autorizados():
+    autorizados = await _emails_autorizados()
+    if email not in autorizados:
         raise HTTPException(403, f"Acceso no autorizado para {email}")
 
     return {
@@ -81,50 +91,99 @@ async def verify_google_token(req: TokenRequest):
         "email": email,
         "nombre": info.get("name", email.split("@")[0]),
         "foto": info.get("picture", ""),
+        "rol": "propietario" if _es_propietario(email) else "usuario",
     }
 
 
+# ── Endpoints de gestión de usuarios ─────────────────────────────────────────
+
 @router.get("/users")
 async def get_users(x_admin_email: Optional[str] = Header(None)):
-    """Lista de emails autorizados — solo para administradores."""
-    admin = (x_admin_email or "").lower()
-    if not _es_admin(admin):
-        raise HTTPException(403, "Solo el administrador puede ver los usuarios")
-    return {"emails": _emails_autorizados()}
+    """Lista de usuarios. Solo el propietario puede consultarla."""
+    if not _es_propietario((x_admin_email or "").lower()):
+        raise HTTPException(403, "Solo el propietario puede gestionar usuarios")
+
+    propietario_emails = _emails_propietario()
+    usuarios_db = await _emails_usuarios_db()
+
+    propietarios = [
+        {"email": e, "rol": "propietario", "nombre": None, "agregado_por": None}
+        for e in propietario_emails
+    ]
+    usuarios = [
+        {
+            "email": u["email"],
+            "rol": "usuario",
+            "nombre": u.get("nombre"),
+            "agregado_por": u.get("agregado_por"),
+        }
+        for u in usuarios_db
+    ]
+
+    return {"propietarios": propietarios, "usuarios": usuarios}
 
 
 @router.post("/users")
 async def add_user(req: EmailRequest, x_admin_email: Optional[str] = Header(None)):
-    """Agrega un email a la lista de autorizados."""
-    admin = (x_admin_email or "").lower()
-    if not _es_admin(admin):
-        raise HTTPException(403, "Solo el administrador puede agregar usuarios")
+    """Agrega un usuario. Solo el propietario puede hacerlo."""
+    admin = (x_admin_email or "").strip().lower()
+    if not _es_propietario(admin):
+        raise HTTPException(403, "Solo el propietario puede agregar usuarios")
+
     email = req.email.strip().lower()
     if not email or "@" not in email:
-        raise HTTPException(400, "Email inválido")
-    extra = _emails_extra()
-    if email in _emails_autorizados():
+        raise HTTPException(400, "Correo inválido")
+
+    autorizados = await _emails_autorizados()
+    if email in autorizados:
         raise HTTPException(400, f"{email} ya tiene acceso")
-    extra.append(email)
-    _guardar_extra(extra)
-    return {"ok": True, "email": email, "total": len(_emails_autorizados())}
+
+    try:
+        from app.services.database import _pool
+        if _pool is None:
+            raise HTTPException(503, "Base de datos no disponible. Contacta al administrador del servidor.")
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO usuarios_autorizados (email, nombre, agregado_por) VALUES ($1, $2, $3)",
+                email, req.nombre or email.split("@")[0], admin
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Error al guardar usuario: {e}")
+
+    return {"ok": True, "email": email, "rol": "usuario"}
 
 
-@router.delete("/users/{email}")
+@router.delete("/users/{email:path}")
 async def remove_user(email: str, x_admin_email: Optional[str] = Header(None)):
-    """Retira acceso a un email (no puede eliminar los del env var)."""
-    admin = (x_admin_email or "").lower()
-    if not _es_admin(admin):
-        raise HTTPException(403, "Solo el administrador puede quitar usuarios")
+    """Retira acceso a un usuario. No se puede quitar al propietario."""
+    admin = (x_admin_email or "").strip().lower()
+    if not _es_propietario(admin):
+        raise HTTPException(403, "Solo el propietario puede quitar usuarios")
+
     email = email.strip().lower()
-    if email in _emails_base():
-        raise HTTPException(400, "No se puede quitar el acceso al administrador principal")
-    extra = [e for e in _emails_extra() if e != email]
-    _guardar_extra(extra)
+    if _es_propietario(email):
+        raise HTTPException(400, "No se puede quitar el acceso al propietario")
+
+    try:
+        from app.services.database import _pool
+        if _pool is None:
+            raise HTTPException(503, "Base de datos no disponible")
+        async with _pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM usuarios_autorizados WHERE email = $1", email
+            )
+            if result == "DELETE 0":
+                raise HTTPException(404, f"{email} no encontrado en la lista")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Error al quitar usuario: {e}")
+
     return {"ok": True, "email": email}
 
 
 @router.get("/me")
 async def check_session():
-    """Endpoint de prueba — la sesión real se guarda en el frontend."""
     return {"status": "auth-activo"}

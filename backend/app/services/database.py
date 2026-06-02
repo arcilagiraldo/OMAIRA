@@ -68,6 +68,14 @@ CREATE TABLE IF NOT EXISTS consultas_ia (
     timestamp TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS usuarios_autorizados (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(300) UNIQUE NOT NULL,
+    nombre VARCHAR(200),
+    agregado_por VARCHAR(300),
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
 INSERT INTO zonas (zona_id, municipio) VALUES
     ('guatape', 'Guatapé'),
     ('medellin', 'Medellín'),
