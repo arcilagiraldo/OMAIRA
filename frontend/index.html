@@ -1200,6 +1200,22 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
 
   <button class="btn btp" style="width:100%;padding:12px;font-size:12px" onclick="guardarConfiguracion()">💾 Guardar configuración</button>
+
+  <!-- GESTIÓN DE USUARIOS -->
+  <div class="card" style="margin-top:10px">
+    <div class="ctit" style="margin-bottom:10px">👥 Usuarios con acceso a OMAIRA</div>
+    <div style="font-size:9px;color:var(--text2);margin-bottom:10px;line-height:1.6">
+      Solo los correos de Google listados aquí pueden iniciar sesión. Como administrador puedes agregar o quitar accesos.
+    </div>
+    <div id="usuarios-lista" style="margin-bottom:10px">
+      <div style="font-size:9px;color:var(--text3);padding:8px;text-align:center">Cargando usuarios…</div>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <input id="nuevo-usuario-email" type="email" placeholder="nuevo@gmail.com" style="flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:5px;font-size:10px">
+      <button onclick="agregarUsuario()" style="padding:7px 14px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">+ Agregar</button>
+    </div>
+    <div id="usuarios-err" style="font-size:9px;color:var(--r);margin-top:6px;min-height:14px"></div>
+  </div>
 </div>
 
 <!-- ACERCA -->
@@ -1210,7 +1226,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--border)">
     <div style="width:56px;height:56px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);border-radius:14px;display:grid;place-items:center;font-size:26px;flex-shrink:0;box-shadow:0 4px 12px rgba(59,130,246,.3)">🛰️</div>
     <div>
-      <div style="font-size:19px;font-weight:900;letter-spacing:-0.5px">OMAIRA v4.1</div>
+      <div style="font-size:19px;font-weight:900;letter-spacing:-0.5px">OMAIRA v5.0</div>
       <div style="font-size:10px;color:var(--text2);margin-top:2px">Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
       <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
         <span class="pill pa">municipios activos</span>
@@ -1404,11 +1420,26 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
 
   <!-- PIE -->
+  <!-- DESPLIEGUE Y ACCESO -->
+  <div class="ac-s">
+    <h2>☁️ Despliegue, acceso y seguridad</h2>
+    <table class="vtab">
+      <tr><th>Componente</th><th>Tecnología</th><th>Descripción</th></tr>
+      <tr><td><strong>Frontend</strong></td><td>GitHub Pages</td><td>App web estática sin servidor propio. Acceso desde cualquier dispositivo con navegador.</td></tr>
+      <tr><td><strong>Backend / APIs externas</strong></td><td>Railway (FastAPI + Python)</td><td>Servidor en la nube que integra REPS, SIVIGILA, ENSO, SISAIRE, DANE, ANSV y las sirve con un solo endpoint optimizado.</td></tr>
+      <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 7 días.</td></tr>
+      <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
+      <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
+      <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos. 3 reportes del mismo tipo en la misma zona activan una alerta automática confirmada.</td></tr>
+    </table>
+  </div>
+
+  <!-- PIE -->
   <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;margin-top:10px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v4.1 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v5.0 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
     <div style="font-size:8px;color:var(--text3);line-height:17px">
-      municipios activos · 23 tipos de riesgo · 17 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
-      Colombia · Mayo 2026 · Desarrollado por Arcil Ríos<br>
+      125 municipios · 23 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
+      Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score
     </div>
   </div>
@@ -1969,6 +2000,10 @@ let mapa=null,capaM=null;
 let cPred=null,cInc=null,cMov=null;
 let capaMet='temp';
 let cache={},cacheTTL=15*60*1000;
+// Caché por zona en localStorage — render instantáneo al cambiar municipio
+const _ZC='omaira_zc_',_ZC_TTL=12*60*1000;
+function _guardarCacheZona(z,d){try{const{dr_raw,...slim}=d;localStorage.setItem(_ZC+z,JSON.stringify({d:slim,ts:Date.now()}));}catch(e){}}
+function _leerCacheZona(z){try{const r=localStorage.getItem(_ZC+z);if(!r)return null;const{d,ts}=JSON.parse(r);if(Date.now()-ts<_ZC_TTL)return d;}catch(e){}return null;}
 // Contactos — editar en pantalla Notificaciones con los números reales
 let contactos={
   wa:[{num:'+57 300 000 0001',nom:'Alcalde Municipal'},{num:'+57 300 000 0002',nom:'Dir. DAGRAN'}],
@@ -5801,7 +5836,7 @@ function go(p){
     };
     setTimeout(_esperarD,200);
   }
-  if(p==='config')cargarConfigUI();
+  if(p==='config'){cargarConfigUI();setTimeout(cargarUsuarios,300);}
   if(p==='ia-analisis'){
     // Restaurar keys guardadas en los inputs de IA al abrir la pantalla
     setTimeout(()=>{
@@ -5849,6 +5884,14 @@ function go(p){
 function cambiarZona(z){
   zona=z;
   guardarZona(z);
+  // Render instantáneo con caché localStorage — el usuario ve datos al instante
+  const _cached=_leerCacheZona(z);
+  if(_cached){
+    D=_cached;
+    renderAll();
+    const _chip=document.getElementById('chip');
+    if(_chip){_chip.className='chip chip-sim';_chip.textContent='⏳ Actualizando…';}
+  }
   actualizarDatos();
   poblarSel();
   const sel=document.getElementById('zsel');
@@ -5876,6 +5919,7 @@ async function actualizarDatos(){
     D=await Promise.race([cargarDatos(zona), _timeout]);
     // Guardar último dato conocido en memoria para modo offline
     if(D)window._ultimoDatoConocido={data:D,ts:Date.now(),zona};
+    if(D)_guardarCacheZona(zona,D);
     // Exponer dr_raw en D para outcomes automáticos
     if(D && !D.dr_raw) D.dr_raw = D.dr || {};
     const m=MUNICIPIOS.find(x=>x.id===zona);if(m)m.nv=D.irg.nivel;
@@ -7557,6 +7601,50 @@ document.addEventListener('click', function(e) {
   if (btn && !btn.contains(e.target)) document.getElementById('user-drop').classList.remove('open');
 });
 
+// ── GESTIÓN DE USUARIOS AUTORIZADOS ────────────────────────────────────
+function _getAdminToken(){
+  try{const s=JSON.parse(localStorage.getItem(LS_AUTH)||'{}');return s.email||'';}catch(e){return '';}
+}
+
+async function cargarUsuarios(){
+  const el=document.getElementById('usuarios-lista');if(!el)return;
+  try{
+    const r=await fetch(API+'/auth/users',{headers:{'X-Admin-Email':_getAdminToken()}});
+    if(r.status===403){el.innerHTML='<div style="font-size:9px;color:var(--a);padding:8px">Solo el administrador puede ver la lista de usuarios.</div>';return;}
+    const d=await r.json();
+    const emails=d.emails||[];
+    if(!emails.length){el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:8px">Sin usuarios configurados.</div>';return;}
+    el.innerHTML=emails.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:10px"><span style="color:var(--text2)">${e}</span><button onclick="quitarUsuario('${e}')" style="background:none;border:none;color:var(--r);cursor:pointer;font-size:14px;line-height:1;padding:0 4px" title="Quitar acceso">×</button></div>`).join('');
+  }catch(e){el.innerHTML='<div style="font-size:9px;color:var(--text3);padding:8px">No se pudo conectar con el servidor.</div>';}
+}
+
+async function agregarUsuario(){
+  const input=document.getElementById('nuevo-usuario-email');
+  const errEl=document.getElementById('usuarios-err');
+  const email=(input?.value||'').trim().toLowerCase();
+  if(!email||!email.includes('@')){if(errEl)errEl.textContent='Ingresa un correo válido.';return;}
+  if(errEl)errEl.textContent='';
+  try{
+    const r=await fetch(API+'/auth/users',{method:'POST',headers:{'Content-Type':'application/json','X-Admin-Email':_getAdminToken()},body:JSON.stringify({email})});
+    if(r.status===403){if(errEl)errEl.textContent='Solo el administrador puede agregar usuarios.';return;}
+    if(!r.ok){const d=await r.json().catch(()=>({}));if(errEl)errEl.textContent=d.detail||'Error al agregar.';return;}
+    sirga('ok','✅ Acceso otorgado a '+email);
+    if(input)input.value='';
+    cargarUsuarios();
+  }catch(e){if(errEl)errEl.textContent='Error de conexión.';}
+}
+
+async function quitarUsuario(email){
+  if(!confirm('¿Quitar acceso a '+email+'?'))return;
+  try{
+    const r=await fetch(API+'/auth/users/'+encodeURIComponent(email),{method:'DELETE',headers:{'X-Admin-Email':_getAdminToken()}});
+    if(r.status===403){sirga('warn','Solo el administrador puede quitar usuarios.');return;}
+    sirga('ok','Acceso retirado a '+email);
+    cargarUsuarios();
+  }catch(e){sirga('err','Error al conectar con el servidor.');}
+}
+
+// Cargar usuarios cuando se va a Config
 // Sobrescribir alert global para que use toast
 const _alertOriginal = window.alert;
 window.alert = function(msg){
