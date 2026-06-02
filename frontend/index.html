@@ -536,6 +536,19 @@ main{flex:1;display:flex;overflow:hidden}
       <button class="mbtn" id="mb-dark" onclick="setCapa('dark')">Oscuro</button>
       <span style="margin-left:auto;font-size:8px;color:var(--text3)">Punto = riesgo · Borde = cobertura sensores</span>
     </div>
+    <!-- Capas de datos — activar/desactivar individualmente -->
+    <div style="display:flex;gap:3px;padding:5px 8px;background:var(--bg3);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center">
+      <span style="font-size:7.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:4px;white-space:nowrap">Capas de datos:</span>
+      <button class="mbtn" id="ml-irg"        onclick="toggleCapaMapa('irg')">🗺️ IRG calor</button>
+      <button class="mbtn" id="ml-sismos"     onclick="toggleCapaMapa('sismos')">🌋 Sismos</button>
+      <button class="mbtn" id="ml-incendios"  onclick="toggleCapaMapa('incendios')">🔥 Incendios</button>
+      <button class="mbtn" id="ml-vuelos"     onclick="toggleCapaMapa('vuelos')">✈️ Vuelos</button>
+      <button class="mbtn" id="ml-aire"       onclick="toggleCapaMapa('aire')">💨 Calidad aire</button>
+      <button class="mbtn" id="ml-hospitales" onclick="toggleCapaMapa('hospitales')">🏥 Hospitales</button>
+      <button class="mbtn" id="ml-gdacs"      onclick="toggleCapaMapa('gdacs')">🌍 Alertas ONU</button>
+      <button class="mbtn" id="ml-ansv"       onclick="toggleCapaMapa('ansv')">🚦 Vías críticas</button>
+      <button class="mbtn" id="ml-tomtom"     onclick="toggleCapaMapa('tomtom')">🚗 Tráfico</button>
+    </div>
     <div id="mapa-lf"></div>
   </div>
   <!-- Leyenda + estadísticas rápidas del mapa -->
@@ -4555,6 +4568,199 @@ function initMapa(){
     }).addTo(mapa);
   });
 }
+// ═══════════════════════════════════════════════════════════
+// CAPAS DE DATOS EN EL MAPA — sistema de toggle
+// ═══════════════════════════════════════════════════════════
+const _ML={}; // LayerGroup activos por id de capa
+
+function toggleCapaMapa(id){
+  if(!mapa){initMapa();}
+  const btn=document.getElementById('ml-'+id);
+  if(_ML[id]){
+    mapa.removeLayer(_ML[id]);
+    _ML[id]=null;
+    if(btn)btn.classList.remove('on');
+  }else{
+    const g=L.layerGroup().addTo(mapa);
+    _ML[id]=g;
+    if(btn)btn.classList.add('on');
+    ({irg:_capaIRG,sismos:_capaSismos,incendios:_capaIncendios,
+      vuelos:_capaVuelos,aire:_capaAire,hospitales:_capaHospitales,
+      gdacs:_capaGDACS,ansv:_capaANSV,tomtom:_capaTomTom})[id]?.(g);
+  }
+}
+
+// ── 1. CAPA IRG CALOR — coropleta de riesgo por municipio ─────────────────────
+function _capaIRG(g){
+  MUNICIPIOS.forEach(m=>{
+    const nv=m.nv||'muy_bajo';
+    const c=NCV(nv);
+    const alpha={muy_bajo:.04,bajo:.08,medio:.18,alto:.32,muy_alto:.48,critico:.62}[nv]||.08;
+    const ri=R18.find(r=>r.id===m.rp)||{n:'—',e:'⚠️'};
+    L.circle([m.lat,m.lon],{radius:14000,color:c,fillColor:c,fillOpacity:alpha,weight:alpha>.2?1.5:0.5})
+      .bindPopup(`<div style="min-width:150px"><b style="color:${c}">${ri.e} ${m.n}</b><br><span style="font-size:9px">IRG: <b>${nv.replace(/_/g,' ').toUpperCase()}</b></span><br><span style="font-size:8px;color:#888">${m.sub}</span></div>`)
+      .addTo(g);
+  });
+  sirga('ok','🗺️ Capa de calor IRG activada — '+MUNICIPIOS.length+' municipios');
+}
+
+// ── 2. SISMOS USGS — círculos proporcionales a magnitud ───────────────────────
+function _capaSismos(g){
+  const ss=D?.sismos||[];
+  if(!ss.length){sirga('info','🌋 Sin sismos M≥2 en área. Actualiza los datos.');return;}
+  ss.forEach(s=>{
+    if(!s.lat||!s.lon)return;
+    const c=s.mag>=5?'#ef4444':s.mag>=4?'#f97316':s.mag>=3?'#f59e0b':'#a78bfa';
+    const r=Math.max(4000,s.mag*12000);
+    L.circle([s.lat,s.lon],{radius:r,color:c,fillColor:c,fillOpacity:.18,weight:2})
+      .bindPopup(`<div style="min-width:170px"><b style="color:${c}">🌋 Sismo M${s.mag}</b><br>Profundidad: ${(s.prof||0).toFixed(0)} km<br><span style="font-size:9px;color:#888">${s.lugar||''}</span><br><span style="font-size:8px;color:#888">${s.tiempo||''}</span><br><span style="font-size:7.5px;color:#555">USGS FDSNWS — Tiempo real</span></div>`)
+      .addTo(g);
+    L.circleMarker([s.lat,s.lon],{radius:5,color:c,fillColor:c,fillOpacity:.9,weight:2}).addTo(g);
+  });
+  sirga('ok','🌋 '+ss.length+' sismos en el mapa (USGS)');
+}
+
+// ── 3. INCENDIOS NASA FIRMS ───────────────────────────────────────────────────
+function _capaIncendios(g){
+  const incs=D?.incendios||[];
+  if(!incs.length){sirga('warn','🔥 Sin focos activos. Activa NASA FIRMS en Fuentes de datos para datos en tiempo real.');return;}
+  incs.forEach(f=>{
+    if(!f.lat||!f.lon)return;
+    const c=f.brillo>420?'#ef4444':f.brillo>370?'#f97316':'#f59e0b';
+    const sz=(f.brillo>420)?22:(f.brillo>370?17:13);
+    const ic=L.divIcon({className:'',html:`<div style="font-size:${sz}px;filter:drop-shadow(0 0 5px ${c})">🔥</div>`,iconSize:[sz+4,sz+4],iconAnchor:[(sz+4)/2,(sz+4)/2]});
+    L.marker([f.lat,f.lon],{icon:ic})
+      .bindPopup(`<div style="min-width:150px"><b>🔥 Foco de calor</b><br>Brillo radiativo: ${f.brillo}<br>Fecha: ${f.fecha||'—'}<br><span style="font-size:7.5px;color:#555">NASA FIRMS VIIRS — Satelital RT</span></div>`)
+      .addTo(g);
+  });
+  sirga('ok','🔥 '+incs.length+' focos de incendio en el mapa (NASA FIRMS)');
+}
+
+// ── 4. VUELOS ADS-B ───────────────────────────────────────────────────────────
+function _capaVuelos(g){
+  const vs=D?.vuelos||[];
+  if(!vs.length){sirga('info','✈️ Sin vuelos detectados en radio 200km.');return;}
+  vs.forEach(v=>{
+    if(!v.lat||!v.lon)return;
+    const ic=L.divIcon({className:'',html:`<div style="font-size:18px;filter:drop-shadow(0 0 4px #3b82f6)">✈️</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+    L.marker([v.lat,v.lon],{icon:ic})
+      .bindPopup(`<div style="min-width:155px"><b>✈️ ${v.vuelo||v.hex||'—'}</b><br>Altitud: ${v.alt?(+v.alt).toLocaleString()+' ft':'—'}<br>Velocidad: ${v.vel?Math.round(v.vel)+' kt':'—'}<br><span style="font-size:7.5px;color:#555">ADS-B Exchange — Tiempo real</span></div>`)
+      .addTo(g);
+  });
+  sirga('ok','✈️ '+vs.length+' vuelos en el mapa (ADS-B)');
+}
+
+// ── 5. CALIDAD DEL AIRE ───────────────────────────────────────────────────────
+function _capaAire(g){
+  const sis=_fuentesExt?.sisaire||{};
+  const aqi=sis.ica||0;
+  const col=sis.color_ica||'#00e400';
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  if(aqi>0){
+    L.circle([m.lat,m.lon],{radius:30000,color:col,fillColor:col,fillOpacity:.18,weight:2,dashArray:'6 4'})
+      .bindPopup(`<div style="min-width:180px"><b>💨 Calidad del Aire — ${m.n}</b><br>AQI: <b style="color:${col}">${aqi} — ${sis.categoria_ica||''}</b><br>PM2.5: ${sis.contaminantes?.pm25_ug_m3||'—'} μg/m³<br>PM10: ${sis.contaminantes?.pm10_ug_m3||'—'} μg/m³<br>NO₂: ${sis.contaminantes?.no2_ug_m3||'—'} μg/m³<br><span style="font-size:7.5px;color:#555">Copernicus CAMS — Horario</span></div>`)
+      .addTo(g);
+    const ic=L.divIcon({className:'',html:`<div style="background:${col};color:#000;font-size:9px;font-weight:800;padding:2px 6px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.4)">AQI ${aqi}</div>`,iconSize:[60,20],iconAnchor:[30,10]});
+    L.marker([m.lat,m.lon],{icon:ic}).addTo(g);
+    sirga('ok',`💨 AQI ${aqi} — ${sis.categoria_ica||'—'} (${m.n})`);
+  }else{
+    // Show neutral circle indicating no data
+    L.circle([m.lat,m.lon],{radius:30000,color:'#666',fillColor:'#666',fillOpacity:.06,weight:1,dashArray:'6 4'})
+      .bindPopup(`<b>💨 Calidad del Aire</b><br>Sin datos AQI disponibles para ${m.n}<br><span style="font-size:8px;color:#888">Activa CAMS/SISAIRE para datos reales</span>`)
+      .addTo(g);
+    sirga('warn','💨 Sin datos de calidad de aire para este municipio');
+  }
+}
+
+// ── 6. HOSPITALES REPS ────────────────────────────────────────────────────────
+function _capaHospitales(g){
+  const reps=_fuentesExt?.reps||{};
+  const muestra=(reps.prestadores_muestra||[]).filter(p=>p.nombreprestador);
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  const cobCol={'muy_alta':'#22c55e','alta':'#22c55e','media':'#f59e0b','baja':'#f97316','muy_baja':'#ef4444','sin datos':'#666'}[reps.cobertura_medica]||'#f59e0b';
+  // Cobertura circle
+  L.circle([m.lat,m.lon],{radius:10000,color:cobCol,fillColor:cobCol,fillOpacity:.08,weight:1.5,dashArray:'5 4'})
+    .bindPopup(`<div style="min-width:180px"><b>🏥 Capacidad hospitalaria — ${m.n}</b><br>Cobertura: <b style="color:${cobCol}">${(reps.cobertura_medica||'—').replace(/_/g,' ').toUpperCase()}</b><br>${reps.total_prestadores||0} prestadores habilitados<br>${reps.instituciones_ips||0} IPS/hospitales<br>~${(reps.capacidad_camas_estimada||0).toLocaleString()} camas<br><span style="font-size:7.5px;color:#555">REPS MinSalud — datos.gov.co</span></div>`)
+    .addTo(g);
+  // Individual markers around center
+  if(muestra.length){
+    muestra.forEach((p,i)=>{
+      const ang=(i/muestra.length)*2*Math.PI;
+      const lat=m.lat+0.018*Math.sin(ang);
+      const lon=m.lon+0.018*Math.cos(ang);
+      const ic=L.divIcon({className:'',html:`<div style="font-size:16px;filter:drop-shadow(0 0 3px #22c55e)">🏥</div>`,iconSize:[20,20],iconAnchor:[10,10]});
+      L.marker([lat,lon],{icon:ic})
+        .bindPopup(`<div style="min-width:170px"><b>🏥 ${p.nombreprestador}</b><br>${p.tipoprestador||'Prestador'}<br>📍 ${p.municipio||m.n}<br><span style="font-size:7.5px;color:#555">REPS MinSalud</span></div>`)
+        .addTo(g);
+    });
+    sirga('ok','🏥 '+muestra.length+' prestadores de salud en el mapa (REPS)');
+  }else{
+    sirga('info','🏥 Carga los datos de fuentes externas para ver hospitales.');
+  }
+}
+
+// ── 7. ALERTAS GDACS / ONU ────────────────────────────────────────────────────
+function _capaGDACS(g){
+  const evts=(D?.gdacs?.eventos||[]).filter(ev=>ev.alerta==='red'||ev.alerta==='orange');
+  if(!evts.length){sirga('info','🌍 Sin alertas GDACS activas para Colombia.');return;}
+  evts.forEach(ev=>{
+    const lat=ev.lat||6.0,lon=ev.lon||-75.0;
+    const c=ev.alerta==='red'?'#ef4444':'#f97316';
+    L.circle([lat,lon],{radius:80000,color:c,fillColor:c,fillOpacity:.12,weight:2,dashArray:'4 4'}).addTo(g);
+    const ic=L.divIcon({className:'',html:`<div style="background:${c};color:#fff;font-size:8px;font-weight:800;padding:3px 7px;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,.5);white-space:nowrap">🌍 ${(ev.alerta||'ALERT').toUpperCase()}</div>`,iconSize:[80,20],iconAnchor:[40,10]});
+    L.marker([lat,lon],{icon:ic})
+      .bindPopup(`<div style="min-width:180px"><b style="color:${c}">🌍 GDACS — ${ev.nombre||'Alerta'}</b><br>Tipo: ${ev.tipo||'—'}<br>Nivel: <b style="color:${c}">${(ev.alerta||'').toUpperCase()}</b><br><span style="font-size:7.5px;color:#555">GDACS/ONU — Tiempo real</span></div>`)
+      .addTo(g);
+  });
+  sirga('ok','🌍 '+evts.length+' alerta(s) GDACS en el mapa');
+}
+
+// ── 8. VÍAS CRÍTICAS ANSV ────────────────────────────────────────────────────
+function _capaANSV(g){
+  const ansv=_fuentesExt?.ansv||{};
+  const sectores=ansv.sectores_mas_criticos||[];
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  const nvCol={bajo:'#22c55e',moderado:'#f59e0b',alto:'#f97316',critico:'#ef4444'}[ansv.nivel_riesgo_vial]||'#f59e0b';
+  L.circle([m.lat,m.lon],{radius:13000,color:nvCol,fillColor:nvCol,fillOpacity:.12,weight:2,dashArray:'3 5'})
+    .bindPopup(`<div style="min-width:180px"><b>🚦 Siniestralidad Vial — ${m.n}</b><br>Nivel: <b style="color:${nvCol}">${(ansv.nivel_riesgo_vial||'—').toUpperCase()}</b><br>Sectores críticos: ${ansv.total_sectores_criticos||0}<br>Fallecidos reg.: ${ansv.total_fallecidos_registrados||0}<br>${sectores.slice(0,2).map(s=>`<div style="font-size:8px">⚠️ ${s.tramo||'Tramo'} — ${s.fallecidos} fall.</div>`).join('')}<br><span style="font-size:7.5px;color:#555">ANSV Colombia — datos.gov.co</span></div>`)
+    .addTo(g);
+  const ic=L.divIcon({className:'',html:`<div style="font-size:18px">🚦</div>`,iconSize:[22,22],iconAnchor:[11,11]});
+  L.marker([m.lat,m.lon],{icon:ic}).addTo(g);
+  sirga('ok','🚦 Riesgo vial '+( ansv.nivel_riesgo_vial||'—').toUpperCase());
+}
+
+// ── 9. TRÁFICO TOMTOM ────────────────────────────────────────────────────────
+function _capaTomTom(g){
+  const key=apiKeys['TOMTOM']||document.getElementById('fk-TOMTOM')?.value||'';
+  if(!key){
+    sirga('warn','🚗 TomTom requiere una API key gratuita. Configúrala en ⚙️ Sistema → Fuentes de datos.');
+    // Remove the layer group since we can't show anything
+    if(_ML['tomtom']){mapa.removeLayer(_ML['tomtom']);_ML['tomtom']=null;}
+    const btn=document.getElementById('ml-tomtom');if(btn)btn.classList.remove('on');
+    return;
+  }
+  // TomTom vector flow tile
+  L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key=${key}`,
+    {attribution:'TomTom Traffic',opacity:.7,maxZoom:18}).addTo(g);
+  L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/incidents/s3/{z}/{x}/{y}.png?key=${key}`,
+    {attribution:'TomTom Incidents',opacity:.8,maxZoom:18}).addTo(g);
+  sirga('ok','🚗 Capa de tráfico TomTom activada');
+}
+
+// Actualiza las capas activas cuando cambian los datos
+function _actualizarCapasActivas(){
+  Object.keys(_ML).forEach(id=>{
+    if(_ML[id]){
+      mapa.removeLayer(_ML[id]);
+      const g=L.layerGroup().addTo(mapa);
+      _ML[id]=g;
+      ({irg:_capaIRG,sismos:_capaSismos,incendios:_capaIncendios,
+        vuelos:_capaVuelos,aire:_capaAire,hospitales:_capaHospitales,
+        gdacs:_capaGDACS,ansv:_capaANSV,tomtom:_capaTomTom})[id]?.(g);
+    }
+  });
+}
+
 async function selMuni(id){
   const m=MUNICIPIOS.find(x=>x.id===id);if(!m)return;
   const tmpD=await cargarDatos(id);
@@ -6258,7 +6464,7 @@ function renderAll(){
   renderAllRisks();renderAlertas();renderSismos('sismos-dash');
   renderChip();renderDataStatus();
   renderPanelAPI();
-  if(pg==='mapa')renderMapaPanel();
+  if(pg==='mapa'){renderMapaPanel();_actualizarCapasActivas();}
   // Mostrar reportes ciudadanos activos en alertas
   const reps=getReportesActivos(zona||'guatape');
   const badge=document.getElementById('badge');
