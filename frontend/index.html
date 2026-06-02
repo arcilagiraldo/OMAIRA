@@ -534,7 +534,12 @@ main{flex:1;display:flex;overflow:hidden}
       <button class="mbtn" id="mb-sat" onclick="setCapa('sat')">Satélite</button>
       <button class="mbtn" id="mb-topo" onclick="setCapa('topo')">Topografía</button>
       <button class="mbtn" id="mb-dark" onclick="setCapa('dark')">Oscuro</button>
-      <span style="margin-left:auto;font-size:8px;color:var(--text3)">Punto = riesgo · Borde = cobertura sensores</span>
+      <div style="margin-left:auto;display:flex;gap:3px;align-items:center">
+        <span style="font-size:7.5px;color:var(--text3);margin-right:3px">Municipios:</span>
+        <button class="mbtn on" id="mm-todos"    onclick="setModoMunis('todos')"    title="Mostrar todos los municipios">👁️ Todos</button>
+        <button class="mbtn"    id="mm-activo"   onclick="setModoMunis('activo')"   title="Solo el municipio activo">📍 Solo activo</button>
+        <button class="mbtn"    id="mm-ninguno"  onclick="setModoMunis('ninguno')"  title="Ocultar municipios">🚫 Ninguno</button>
+      </div>
     </div>
     <!-- Capas de datos — activar/desactivar individualmente -->
     <div style="display:flex;gap:3px;padding:5px 8px;background:var(--bg3);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center">
@@ -2104,6 +2109,7 @@ let zona='guatape',D=null,pg='dashboard';
 let _fuentesExt=null; // últimos datos de fuentes externas (Railway backend)
 let modeloIA='local',iaRunning=false,motorRunning=false;
 let mapa=null,capaM=null;
+let _layerMuniTodos=null,_layerMuniSel=null,_modoMunis='todos';
 let cPred=null,cInc=null,cMov=null;
 let capaMet='temp';
 let cache={},cacheTTL=15*60*1000;
@@ -4546,27 +4552,89 @@ const CAPAS_MAPA={
 };
 const COB_COLOR={alta:'#22c55e',media:'#f59e0b',baja:'#f97316',sin:'#6b7280'};
 
+// ── Dibuja el marcador de un municipio en un LayerGroup ───────────────────────
+function _dibujarMuniEnLayer(m, g, destacado=false) {
+  const rColor=NCV(m.nv||'bajo'),cobColor=COB_COLOR[m.cob];
+  const ri=R18.find(r=>r.id===m.rp)||{e:'⚠️',n:'Riesgo'};
+  const cobDesc={alta:'SIATA+EPM+IDEAM+Open-Meteo',media:'IDEAM+SIATA parcial+Open-Meteo',baja:'IDEAM+Open-Meteo',sin:'Solo Open-Meteo (estimado)'}[m.cob];
+  const sz=destacado?20:12;
+  const html=destacado
+    ? `<div style="position:relative">
+        <div style="background:${rColor};border:3px solid ${cobColor};border-radius:50%;width:${sz}px;height:${sz}px;box-shadow:0 0 0 5px ${rColor}33,0 3px 10px rgba(0,0,0,.7);cursor:pointer;animation:blink 1.5s infinite"></div>
+        <div style="position:absolute;top:-18px;left:50%;transform:translateX(-50%);background:${rColor};color:#fff;font-size:7px;font-weight:800;padding:1px 5px;border-radius:3px;white-space:nowrap">${(m.nv||'bajo').replace(/_/g,' ').toUpperCase()}</div>
+      </div>`
+    : `<div style="background:${rColor};border:2px solid ${cobColor};border-radius:50%;width:${sz}px;height:${sz}px;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:pointer"></div>`;
+  const ic=L.divIcon({className:'',html,iconSize:[sz,sz],iconAnchor:[sz/2,sz/2]});
+  const popup=`<div style="min-width:175px">
+    <div style="font-weight:700;font-size:11px;margin-bottom:4px">${ri.e} ${m.n}</div>
+    <div style="font-size:8px;color:#888;margin-bottom:4px">${m.sub} · ${m.rel.replace(/_/g,' ')}</div>
+    <div style="display:flex;gap:3px;margin-bottom:4px">
+      <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${COB_COLOR[m.cob]}22;color:${COB_COLOR[m.cob]};border:1px solid ${COB_COLOR[m.cob]}44">${m.cob}</span>
+      <span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${rColor}22;color:${rColor};border:1px solid ${rColor}44">${(m.nv||'bajo').replace('_',' ')}</span>
+    </div>
+    <hr style="border:none;border-top:1px solid #333;margin:4px 0">
+    <div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Riesgo:</span><strong>${ri.n}</strong></div>
+    <div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Población:</span><strong>${(m.pop||0).toLocaleString('es-CO')}</strong></div>
+    <div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Altitud:</span><strong>${(m.alt||0).toLocaleString('es-CO')}m</strong></div>
+    <div style="font-size:8px;color:#888;margin-top:3px">${cobDesc}</div>
+    ${m.cob==='sin'?'<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:3px;padding:2px 5px;font-size:7px;color:#f59e0b;margin-top:3px">⚠ Sin sensores — estimado</div>':''}
+    <button onclick="selMuni('${m.id}')" style="width:100%;margin-top:6px;padding:3px;border-radius:4px;background:#3b82f6;color:#fff;border:none;font-size:8px;cursor:pointer">Ver análisis con datos reales</button>
+  </div>`;
+  L.marker([m.lat,m.lon],{icon:ic}).bindPopup(popup,{maxWidth:210}).addTo(g);
+  const incert=getIncertidumbre(m.cob||'sin');
+  L.circle([m.lat,m.lon],{
+    radius:destacado?incert.radio_mapa*1.4:incert.radio_mapa,
+    color:(['alto','muy_alto','critico'].includes(m.nv||'bajo'))||destacado?rColor:incert.color,
+    fillColor:(['alto','muy_alto','critico'].includes(m.nv||'bajo'))||destacado?rColor:incert.color,
+    fillOpacity:destacado?.10:.05,weight:destacado?1.5:1,
+    dashArray:m.cob==='sin'?'6 6':m.cob==='baja'?'4 4':m.cob==='media'?'3 3':'none'
+  }).addTo(g);
+}
+
 function initMapa(){
   if(mapa)return;
   const el=document.getElementById('mapa-lf');if(!el||typeof L==='undefined')return;
   mapa=L.map('mapa-lf',{zoomControl:true}).setView([6.5,-75.5],8);
   capaM=L.tileLayer(CAPAS_MAPA.osm.url,{attribution:CAPAS_MAPA.osm.attr,maxZoom:18}).addTo(mapa);
-  MUNICIPIOS.forEach(m=>{
-    const rColor=NCV(m.nv||'bajo'),cobColor=COB_COLOR[m.cob];
-    const ri=R18.find(r=>r.id===m.rp)||{e:'⚠️',n:'Riesgo'};
-    const cobDesc={alta:'SIATA+EPM+IDEAM+Open-Meteo',media:'IDEAM+SIATA parcial+Open-Meteo',baja:'IDEAM+Open-Meteo',sin:'Solo Open-Meteo (estimado)'}[m.cob];
-    const ic=L.divIcon({className:'',html:`<div style="background:${rColor};border:2px solid ${cobColor};border-radius:50%;width:12px;height:12px;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:pointer"></div>`,iconSize:[12,12],iconAnchor:[6,6]});
-    L.marker([m.lat,m.lon],{icon:ic}).addTo(mapa).bindPopup(`<div style="min-width:175px"><div style="font-weight:700;font-size:11px;margin-bottom:4px">${ri.e} ${m.n}</div><div style="font-size:8px;color:#888;margin-bottom:4px">${m.sub} · ${m.rel.replace(/_/g,' ')}</div><div style="display:flex;gap:3px;margin-bottom:4px"><span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${COB_COLOR[m.cob]}22;color:${COB_COLOR[m.cob]};border:1px solid ${COB_COLOR[m.cob]}44">${m.cob}</span><span style="font-size:7px;padding:1px 4px;border-radius:3px;background:${rColor}22;color:${rColor};border:1px solid ${rColor}44">${(m.nv||'bajo').replace('_',' ')}</span></div><hr style="border:none;border-top:1px solid #333;margin:4px 0"><div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Riesgo:</span><strong>${ri.n}</strong></div><div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Población:</span><strong>${(m.pop||0).toLocaleString('es-CO')}</strong></div><div style="font-size:9px;display:flex;justify-content:space-between;margin-bottom:2px"><span>Altitud:</span><strong>${(m.alt||0).toLocaleString('es-CO')}m</strong></div><div style="font-size:8px;color:#888;margin-top:3px">${cobDesc}</div>${m.cob==='sin'?'<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:3px;padding:2px 5px;font-size:7px;color:#f59e0b;margin-top:3px">⚠ Sin sensores — estimado por modelo</div>':''}<button onclick="selMuni(\'${m.id}\')" style="width:100%;margin-top:6px;padding:3px;border-radius:4px;background:#3b82f6;color:#fff;border:none;font-size:8px;cursor:pointer">Ver análisis con datos reales</button></div>`,{maxWidth:210});
-    // Radio del círculo refleja incertidumbre espacial — MEJORA 6
-    const incert=getIncertidumbre(m.cob||'sin');
-    L.circle([m.lat,m.lon],{
-      radius:incert.radio_mapa,
-      color:['alto','muy_alto','critico'].includes(m.nv||'bajo')?rColor:incert.color,
-      fillColor:['alto','muy_alto','critico'].includes(m.nv||'bajo')?rColor:incert.color,
-      fillOpacity:.05,weight:1,
-      dashArray:m.cob==='sin'?'6 6':m.cob==='baja'?'4 4':m.cob==='media'?'3 3':'none'
-    }).addTo(mapa);
+  // Todos los municipios en un LayerGroup controlable
+  _layerMuniTodos=L.layerGroup().addTo(mapa);
+  _layerMuniSel=L.layerGroup().addTo(mapa);
+  MUNICIPIOS.forEach(m=>_dibujarMuniEnLayer(m,_layerMuniTodos,false));
+  _actualizarMuniSel();
+}
+
+// ── Actualiza el marcador del municipio activo (más grande y destacado) ───────
+function _actualizarMuniSel(){
+  if(!mapa||!_layerMuniSel)return;
+  _layerMuniSel.clearLayers();
+  if(_modoMunis==='ninguno')return;
+  const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  _dibujarMuniEnLayer(m,_layerMuniSel,true);
+}
+
+// ── Cambia el modo de visualización de municipios ─────────────────────────────
+function setModoMunis(modo){
+  if(!mapa)return;
+  _modoMunis=modo;
+  // Actualizar botones
+  ['todos','activo','ninguno'].forEach(m=>{
+    const b=document.getElementById('mm-'+m);
+    if(b)b.classList.toggle('on',m===modo);
   });
+  // Aplicar modo
+  if(modo==='todos'){
+    if(_layerMuniTodos&&!mapa.hasLayer(_layerMuniTodos))_layerMuniTodos.addTo(mapa);
+    _actualizarMuniSel();
+    mapa.setView([6.5,-75.5],8);
+  }else if(modo==='activo'){
+    if(_layerMuniTodos&&mapa.hasLayer(_layerMuniTodos))mapa.removeLayer(_layerMuniTodos);
+    _actualizarMuniSel();
+    const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+    mapa.setView([m.lat,m.lon],12);
+  }else if(modo==='ninguno'){
+    if(_layerMuniTodos&&mapa.hasLayer(_layerMuniTodos))mapa.removeLayer(_layerMuniTodos);
+    if(_layerMuniSel)_layerMuniSel.clearLayers();
+  }
 }
 // ═══════════════════════════════════════════════════════════
 // CAPAS DE DATOS EN EL MAPA — sistema de toggle
@@ -6268,6 +6336,9 @@ function cambiarZona(z){
   const sel=document.getElementById('zsel');
   if(sel)sel.value=z;
   initTodosResizers();
+  // Actualizar marcador destacado en el mapa
+  _actualizarMuniSel();
+  if(_modoMunis==='activo'&&mapa){const _m=MUNICIPIOS.find(x=>x.id===z)||MUNICIPIOS[0];mapa.setView([_m.lat,_m.lon],12);}
   // Restaurar botón horizonte activo
   const hPref=horizonteActual||'24h';
   setTimeout(()=>{
