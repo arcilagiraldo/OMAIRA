@@ -65,7 +65,7 @@ DANE_ESTATICO: Dict[str, Dict] = {
     # ── VALLE DE ABURRÁ ──────────────────────────────────────────────────────
     "medellin": {
         "municipio": "Medellín",
-        "poblacion_2024": 2_527_831,   # DANE proyección 2024
+        "poblacion_2024": 2_526_795,   # DANE proyección 2024 (verificado por usuario)
         "nbi_pct": 4.1,
         "nbi_cabecera_pct": 3.9,
         "nbi_rural_pct": 8.4,
@@ -234,7 +234,7 @@ DANE_ESTATICO: Dict[str, Dict] = {
     },
     "rionegro": {
         "municipio": "Rionegro",
-        "poblacion_2024": 129_682,       # Proyección DANE 2024
+        "poblacion_2024": 151_872,       # Proyección DANE 2024 (verificado por usuario)
         "nbi_pct": 7.8,
         "nbi_cabecera_pct": 5.1,
         "nbi_rural_pct": 13.2,
@@ -348,7 +348,7 @@ DANE_ESTATICO: Dict[str, Dict] = {
     # ── BAJO CAUCA ──────────────────────────────────────────────────────────
     "caucasia": {
         "municipio": "Caucasia",
-        "poblacion_2024": 111_618,       # Proyección DANE 2024
+        "poblacion_2024": 93_843,        # Proyección DANE 2024 (verificado por usuario)
         "nbi_pct": 34.7,
         "nbi_cabecera_pct": 24.1,
         "nbi_rural_pct": 52.3,
@@ -537,47 +537,148 @@ def _cache_set(key: str, data: Dict):
 # ═══════════════════════════════════════════════════════════════════════════════
 # 1. DANE — Indicadores sociodemográficos
 # ═══════════════════════════════════════════════════════════════════════════════
+# Mapeo municipio_id → nombre de búsqueda en Wikipedia/Wikidata (español)
+MUNICIPIO_WIKIPEDIA: Dict[str, str] = {
+    "guatape": "Guatapé (Antioquia)",
+    "medellin": "Medellín",
+    "rionegro": "Rionegro (Antioquia)",
+    "marinilla": "Marinilla",
+    "el_carmen": "El Carmen de Viboral",
+    "la_ceja": "La Ceja",
+    "el_penol": "El Peñol (Antioquia)",
+    "santa_rosa": "Santa Rosa de Osos",
+    "yarumal": "Yarumal",
+    "caucasia": "Caucasia (Antioquia)",
+    "el_bagre": "El Bagre",
+    "santa_fe": "Santa Fe de Antioquia",
+    "turbo": "Turbo (Antioquia)",
+    "apartado": "Apartadó",
+    "chigorodo": "Chigorodó",
+    "carepa": "Carepa (Antioquia)",
+    "ituango": "Ituango",
+    "bello": "Bello (Antioquia)",
+    "itagui": "Itagüí",
+    "envigado": "Envigado",
+    "sabaneta": "Sabaneta (Antioquia)",
+    "caldas": "Caldas (Antioquia)",
+    "barbosa": "Barbosa (Antioquia)",
+    "copacabana": "Copacabana (Antioquia)",
+    "girardota": "Girardota",
+    "la_estrella": "La Estrella (Antioquia)",
+    "andes": "Andes (Antioquia)",
+    "segovia": "Segovia (Antioquia)",
+    "urrao": "Urrao",
+    "guarne": "Guarne",
+}
+
+async def _fetch_poblacion_wikipedia(municipio_nombre: str) -> Optional[int]:
+    """
+    Obtiene la población del municipio desde la API REST de Wikipedia en español.
+    Wikipedia cita proyecciones DANE — misma fuente que aparece en búsquedas de internet.
+    Cache interno: 24 horas.
+    """
+    cache_key = f"wiki_pop:{municipio_nombre}"
+    cached = _cache_get(cache_key)
+    if cached:
+        return cached.get("pop")
+
+    import re
+    try:
+        url = f"https://es.wikipedia.org/api/rest_v1/page/summary/{municipio_nombre.replace(' ', '_')}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8), ssl=False) as resp:
+                if resp.status != 200:
+                    return None
+                data = await resp.json(content_type=None)
+                # El resumen de Wikipedia puede contener la población en el extracto
+                extract = data.get("extract", "")
+                # Buscar patrón "X habitantes" o "población de X"
+                for pattern in [
+                    r"(\d[\d\s.]{3,8})(?:\s+)?hab",
+                    r"población[^0-9]*(\d[\d\s.]{3,8})",
+                    r"(\d[\d\s.]{3,8})\s+personas",
+                ]:
+                    m = re.search(pattern, extract, re.IGNORECASE)
+                    if m:
+                        num_str = re.sub(r"[\s.]", "", m.group(1))
+                        try:
+                            pop = int(num_str)
+                            if 1000 < pop < 15_000_000:
+                                _cache_set(cache_key, {"pop": pop})
+                                return pop
+                        except ValueError:
+                            pass
+    except Exception as e:
+        logger.debug(f"Wikipedia pop fetch error para {municipio_nombre}: {e}")
+    return None
+
+
 async def obtener_dane(zona_id: str) -> Dict:
     """
     Retorna indicadores DANE para la zona: NBI, población, vulnerabilidad.
-    Datos del Censo CNPV 2018 + proyecciones 2024 (fuente canónica DANE).
+    Población: primero intenta Wikipedia (fuente DANE, misma que aparece en internet),
+    si no disponible usa el valor estático del catálogo DANE_ESTATICO.
+    NBI: siempre desde DANE_ESTATICO (Censo CNPV 2018, no cambia frecuente).
     """
     cached = _cache_get(f"dane:{zona_id}")
     if cached:
         return cached
 
-    base = DANE_ESTATICO.get(zona_id, DANE_ESTATICO["medellin"])
+    # NBI y datos estructurales — desde catálogo estático (Censo 2018)
+    en_catalogo = zona_id in DANE_ESTATICO
+    base = DANE_ESTATICO.get(zona_id) or DANE_ESTATICO.get("medellin")
+
+    # Población — intentar Wikipedia primero (valores que coinciden con internet/DANE)
+    pop_real: Optional[int] = None
+    pop_fuente = "Catálogo DANE — puede diferir de proyecciones recientes"
+    pop_verificada = False
+
+    wiki_nombre = MUNICIPIO_WIKIPEDIA.get(zona_id)
+    if wiki_nombre:
+        pop_wiki = await _fetch_poblacion_wikipedia(wiki_nombre)
+        if pop_wiki:
+            pop_real = pop_wiki
+            pop_fuente = f"Wikipedia ES — proyección DANE (coincide con búsquedas de internet)"
+            pop_verificada = True
+            logger.info(f"Wikipedia pop OK para {zona_id}: {pop_real:,}")
+
+    if pop_real is None and en_catalogo:
+        pop_real = base["poblacion_2024"]
+        pop_fuente = "Catálogo DANE estático — verificar en dane.gov.co"
+
     resultado = {
-        "fuente": "DANE — Censo CNPV 2018 + Proyecciones 2024",
+        "fuente": "DANE — Censo CNPV 2018 + Proyecciones",
         "fuente_id": "DANE",
         "zona_id": zona_id,
         "municipio": base["municipio"],
-        "poblacion_2024": base["poblacion_2024"],
+        "poblacion_2024": pop_real,
+        "poblacion_verificada": pop_verificada,
+        "poblacion_fuente": pop_fuente,
         "nbi": {
-            "total_pct": base["nbi_pct"],
-            "cabecera_pct": base["nbi_cabecera_pct"],
-            "rural_pct": base["nbi_rural_pct"],
-            "hogares_afectados": base["hogares_con_nbi"],
+            "total_pct": base["nbi_pct"] if en_catalogo else None,
+            "cabecera_pct": base["nbi_cabecera_pct"] if en_catalogo else None,
+            "rural_pct": base["nbi_rural_pct"] if en_catalogo else None,
+            "hogares_afectados": base["hogares_con_nbi"] if en_catalogo else None,
             "componentes": {
-                "vivienda_inadecuada": base["componente_vivienda"],
-                "servicios_inadecuados": base["componente_servicios"],
-                "hacinamiento": base["componente_hacinamiento"],
-                "alta_dependencia_economica": base["componente_dependencia"],
-            },
+                "vivienda_inadecuada": base["componente_vivienda"] if en_catalogo else None,
+                "servicios_inadecuados": base["componente_servicios"] if en_catalogo else None,
+                "hacinamiento": base["componente_hacinamiento"] if en_catalogo else None,
+                "alta_dependencia_economica": base["componente_dependencia"] if en_catalogo else None,
+            } if en_catalogo else {},
         },
         "estructura_territorial": {
-            "rural_pct": base["rural_pct"],
-            "urbano_pct": round(100 - base["rural_pct"], 1),
+            "rural_pct": base["rural_pct"] if en_catalogo else None,
+            "urbano_pct": round(100 - base["rural_pct"], 1) if en_catalogo else None,
         },
-        "indice_vulnerabilidad_dane": base["indice_vulnerabilidad"],
-        "interpretacion": _interpretar_nbi(base["nbi_pct"]),
-        "fuente_real": True,
-        "modo_degradado": False,
+        "indice_vulnerabilidad_dane": base["indice_vulnerabilidad"] if en_catalogo else None,
+        "interpretacion": _interpretar_nbi(base["nbi_pct"]) if en_catalogo else "Sin datos NBI para este municipio",
+        "fuente_real": en_catalogo,
+        "modo_degradado": not en_catalogo,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
     _cache_set(f"dane:{zona_id}", resultado)
-    logger.info(f"DANE OK para {zona_id}: NBI={base['nbi_pct']}%, pob={base['poblacion_2024']:,}")
+    logger.info(f"DANE OK {zona_id}: NBI={'sí' if en_catalogo else 'no'}, pob={pop_real}")
     return resultado
 
 

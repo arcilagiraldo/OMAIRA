@@ -1600,10 +1600,10 @@ function setP(fid,lid,pct,lbl){const f=document.getElementById(fid),l=document.g
 
 // ── MUNICIPIOS (105 únicos) ───────────────────────────────
 const MUNS=[
-  ['medellin','Medellín',6.2442,-75.5812,'Valle de Aburrá',2527831,1495,'montañoso','rio_medellin','deslizamiento','alta'],
-  ['bello','Bello',6.3395,-75.5564,'Valle de Aburrá',614263,1475,'montañoso','rio_medellin','deslizamiento','alta'],
-  ['itagui','Itagüí',6.1845,-75.5992,'Valle de Aburrá',278461,1580,'montañoso','rio_medellin','inundacion','alta'],
-  ['envigado','Envigado',6.1667,-75.5833,'Valle de Aburrá',254682,1577,'montañoso','quebradas','deslizamiento','alta'],
+  ['medellin','Medellín',6.2442,-75.5812,'Valle de Aburrá',2526795,1495,'montañoso','rio_medellin','deslizamiento','alta'],
+  ['bello','Bello',6.3395,-75.5564,'Valle de Aburrá',609168,1475,'montañoso','rio_medellin','deslizamiento','alta'],
+  ['itagui','Itagüí',6.1845,-75.5992,'Valle de Aburrá',272592,1580,'montañoso','rio_medellin','inundacion','alta'],
+  ['envigado','Envigado',6.1667,-75.5833,'Valle de Aburrá',252836,1577,'montañoso','quebradas','deslizamiento','alta'],
   ['sabaneta','Sabaneta',6.1511,-75.6161,'Valle de Aburrá',61040,1557,'ondulado','rio_medellin','inundacion','alta'],
   ['la_estrella','La Estrella',6.1564,-75.6425,'Valle de Aburrá',70124,1830,'montañoso','quebradas','deslizamiento','alta'],
   ['copacabana','Copacabana',6.3508,-75.5064,'Valle de Aburrá',97175,1425,'montañoso','rio_medellin','deslizamiento','alta'],
@@ -1612,7 +1612,7 @@ const MUNS=[
   ['barbosa','Barbosa',6.4378,-75.3317,'Valle de Aburrá',57249,1300,'montañoso','rio_medellin','inundacion','alta'],
   ['guatape','Guatapé',6.2336,-75.1567,'Oriente',9842,1890,'montañoso','embalse_penol','inundacion','media'],
   ['el_penol','El Peñol',6.2131,-75.2367,'Oriente',24121,1850,'montañoso','embalse_penol','inundacion','media'],
-  ['rionegro','Rionegro',6.1546,-75.3769,'Oriente',129682,2125,'montañoso','rios','deslizamiento','alta'],
+  ['rionegro','Rionegro',6.1546,-75.3769,'Oriente',151872,2125,'montañoso','rios','deslizamiento','alta'],
   ['marinilla','Marinilla',6.1775,-75.3350,'Oriente',80682,2120,'ondulado','rios','deslizamiento','media'],
   ['el_carmen','El Carmen de Viboral',6.0844,-75.3305,'Oriente',52938,2150,'ondulado','quebradas','deslizamiento','media'],
   ['la_ceja','La Ceja',6.0278,-75.4397,'Oriente',59699,2200,'ondulado','quebradas','deslizamiento','media'],
@@ -1658,7 +1658,7 @@ const MUNS=[
   ['caracoli','Caracolí',6.4419,-74.9706,'Nordeste',4482,180,'montañoso','embalse','inundacion','baja'],
   ['maceo','Maceo',6.5433,-74.7983,'Nordeste',8902,250,'montañoso','embalse','inundacion','baja'],
   ['el_bagre','El Bagre',7.5961,-74.8083,'Bajo Cauca',56596,50,'calido_seco','rios','inundacion','baja'],
-  ['caucasia','Caucasia',7.9882,-75.1975,'Bajo Cauca',111618,150,'calido','rio_cauca','inundacion','media'],
+  ['caucasia','Caucasia',7.9882,-75.1975,'Bajo Cauca',93843,150,'calido','rio_cauca','inundacion','media'],
   ['nechi','Nechí',8.0942,-74.7683,'Bajo Cauca',30124,30,'plana_tropical','rios','inundacion','sin'],
   ['santa_fe','Santa Fe de Antioquia',6.5548,-75.8278,'Occidente',23598,550,'calido_seco','rio_cauca','incendio_forestal','media'],
   ['sopetran','Sopetrán',6.5044,-75.7461,'Occidente',18000,900,'calido_seco','rio_cauca','inundacion','media'],
@@ -9654,15 +9654,22 @@ function mostrarDetalle(fuente){
     const vulnCol=dane.indice_vulnerabilidad_dane>0.6?'var(--a)':dane.indice_vulnerabilidad_dane>0.35?'#f59e0b':'var(--v)';
     html=`
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        ${bigStat('Población 2024',dane.poblacion_2024?(dane.poblacion_2024).toLocaleString()+' hab.':'—')}
+        <div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center;grid-column:span 2">
+          <div style="font-size:8px;color:var(--text3);margin-bottom:3px">Población ${new Date().getFullYear()}</div>
+          <div style="font-size:22px;font-weight:800">${dane.poblacion_2024?(dane.poblacion_2024).toLocaleString():'—'}<span style="font-size:10px;font-weight:400;color:var(--text3)"> hab.</span></div>
+          ${dane.poblacion_verificada
+            ?`<div style="font-size:7px;color:var(--v);margin-top:3px">✅ Verificado — ${dane.poblacion_fuente||'Wikipedia/DANE'}</div>`
+            :`<div style="font-size:7px;color:var(--a);margin-top:3px">⚠️ Estimado — puede diferir de proyecciones DANE actuales</div>`}
+        </div>
         ${bigStat('Vulnerabilidad social',vulnPct+'/100',vulnCol)}
         ${bigStat('NBI total',(nbi.total_pct||0)+'%',nbi.total_pct>25?'var(--a)':nbi.total_pct>10?'#f59e0b':'var(--v)')}
         ${bigStat('Hogares con NBI',(nbi.hogares_afectados||0).toLocaleString())}
       </div>
-      <div style="margin-bottom:12px"><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Componentes NBI</div>${[['Vivienda inadecuada',comp.vivienda_inadecuada],['Servicios inadecuados',comp.servicios_inadecuados],['Hacinamiento',comp.hacinamiento],['Dependencia económica',comp.alta_dependencia_economica]].map(([lbl,pct])=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px"><span style="color:var(--text2)">${lbl}</span><span style="font-weight:700">${pct??'—'}%</span></div><div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct||0}%;height:100%;background:${(pct||0)>20?'var(--a)':(pct||0)>10?'#f59e0b':'var(--v)'};border-radius:3px"></div></div></div>`).join('')}</div>
-      <div style="background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:8px"><div style="font-size:9px;font-weight:700;color:var(--text3);margin-bottom:6px">Estructura territorial</div><div style="display:flex;gap:8px">${[['Rural',est.rural_pct],['Urbano',est.urbano_pct]].map(([l,v])=>`<div style="flex:1;text-align:center;background:var(--bg4);border-radius:5px;padding:8px"><div style="font-size:16px;font-weight:800">${v||0}%</div><div style="font-size:8px;color:var(--text3)">${l}</div></div>`).join('')}</div></div>
+      ${!dane.fuente_real?`<div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:8px;margin-bottom:10px;font-size:9px;color:var(--a)">⚠️ Datos NBI no disponibles para este municipio en el catálogo. Los valores de NBI son del Censo 2018 para un municipio de referencia similar.</div>`:''}
+      ${nbi.total_pct?`<div style="margin-bottom:12px"><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Componentes NBI</div>${[['Vivienda inadecuada',comp.vivienda_inadecuada],['Servicios inadecuados',comp.servicios_inadecuados],['Hacinamiento',comp.hacinamiento],['Dependencia económica',comp.alta_dependencia_economica]].map(([lbl,pct])=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px"><span style="color:var(--text2)">${lbl}</span><span style="font-weight:700">${pct??'—'}%</span></div><div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct||0}%;height:100%;background:${(pct||0)>20?'var(--a)':(pct||0)>10?'#f59e0b':'var(--v)'};border-radius:3px"></div></div></div>`).join('')}</div>`:''}
+      ${est.rural_pct?`<div style="background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:8px"><div style="font-size:9px;font-weight:700;color:var(--text3);margin-bottom:6px">Estructura territorial</div><div style="display:flex;gap:8px">${[['Rural',est.rural_pct],['Urbano',est.urbano_pct]].map(([l,v])=>`<div style="flex:1;text-align:center;background:var(--bg4);border-radius:5px;padding:8px"><div style="font-size:16px;font-weight:800">${v||0}%</div><div style="font-size:8px;color:var(--text3)">${l}</div></div>`).join('')}</div></div>`:''}
       ${dane.interpretacion?`<div style="font-size:9px;color:var(--text2);background:var(--bg3);border-radius:7px;padding:9px;line-height:1.5;font-style:italic;margin-bottom:8px">${dane.interpretacion}</div>`:''}
-      <div style="font-size:8px;color:var(--text3)">Fuente: DANE — Departamento Administrativo Nacional de Estadística · ${dane.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+      <div style="font-size:8px;color:var(--text3);line-height:1.5">Fuente: DANE — Departamento Administrativo Nacional de Estadística · NBI Censo CNPV 2018<br><a href="https://www.dane.gov.co/index.php/estadisticas-por-tema/demografia-y-poblacion/proyecciones-de-poblacion" target="_blank" style="color:var(--az)">Ver proyecciones oficiales dane.gov.co →</a></div>`;
 
   }else if(fuente==='ansv'){
     const ansv=d.ansv||{};
