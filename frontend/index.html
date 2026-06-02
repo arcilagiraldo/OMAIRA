@@ -1447,6 +1447,17 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
 </div>
 
+<!-- Modal de detalle para fuentes externas -->
+<div id="det-modal" onclick="if(event.target===this)cerrarDetModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9990;align-items:center;justify-content:center;padding:16px">
+  <div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;width:560px;max-width:96vw;max-height:88vh;overflow-y:auto;position:relative">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border2);position:sticky;top:0;background:var(--bg2);z-index:1;border-radius:12px 12px 0 0">
+      <div id="det-modal-titulo" style="font-size:13px;font-weight:700"></div>
+      <button onclick="cerrarDetModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;line-height:1;padding:0 4px">✕</button>
+    </div>
+    <div id="det-modal-body" style="padding:14px"></div>
+  </div>
+</div>
+
 <div class="ov" id="wiz" style="display:none" onclick="if(event.target===this)this.style.display='none'">
 <div class="wb"><div class="wsts" id="wst"></div><div id="wbd"></div>
   <div class="wbs"><button class="btn bts" id="wprev" onclick="wPrev()">← Atrás</button><button class="btn btp" id="wnext" onclick="wNext()">Siguiente →</button></div>
@@ -4135,16 +4146,17 @@ function renderAlertas(cid='adash'){
     const usgs=_fuentesExt.sismicidad||{};
     const sivi=_fuentesExt.sivigila||{};
     const sis=_fuentesExt.sisaire||{};
+    const verDet=(fuente)=>`<div class="a-acc" style="cursor:pointer;color:var(--az);margin-top:2px" onclick="mostrarDetalle('${fuente}')">📋 Ver detalle completo →</div>`;
     if(enso.fase_enso==='La Niña'&&(enso.factor_clima||1.0)>1.15)
-      extAlertas.push(`<div class="alerta" style="border-color:#3b82f6"><div class="at" style="color:#3b82f6">🌧️ ENSO · La Niña activa (ONI ${enso.indice_oni?.toFixed(2)}) — Factor clima ×${enso.factor_clima?.toFixed(2)}</div><div class="ad">${enso.descripcion||''}</div><div class="a-acc">Mayor probabilidad de deslizamientos e inundaciones en Antioquia</div></div>`);
+      extAlertas.push(`<div class="alerta" style="border-color:#3b82f6"><div class="at" style="color:#3b82f6">🌧️ ENSO · La Niña activa (ONI ${enso.indice_oni?.toFixed(2)}) — Factor clima ×${enso.factor_clima?.toFixed(2)}</div><div class="ad">${enso.descripcion||''}</div><div class="a-acc">Mayor probabilidad de deslizamientos e inundaciones en Antioquia</div>${verDet('enso')}</div>`);
     if(enso.fase_enso==='El Niño'&&(enso.factor_clima||1.0)<0.85)
-      extAlertas.push(`<div class="alerta" style="border-color:#f59e0b"><div class="at" style="color:#f59e0b">☀️ ENSO · El Niño activo (ONI ${enso.indice_oni?.toFixed(2)}) — Factor clima ×${enso.factor_clima?.toFixed(2)}</div><div class="ad">${enso.descripcion||''}</div><div class="a-acc">Mayor riesgo de incendios forestales, menor riesgo de inundaciones</div></div>`);
+      extAlertas.push(`<div class="alerta" style="border-color:#f59e0b"><div class="at" style="color:#f59e0b">☀️ ENSO · El Niño activo (ONI ${enso.indice_oni?.toFixed(2)}) — Factor clima ×${enso.factor_clima?.toFixed(2)}</div><div class="ad">${enso.descripcion||''}</div><div class="a-acc">Mayor riesgo de incendios forestales, menor riesgo de inundaciones</div>${verDet('enso')}</div>`);
     if(usgs.nivel_sismico==='alto')
-      extAlertas.push(`<div class="alerta" style="border-color:var(--a)"><div class="at" style="color:var(--a)">🌋 USGS · Sismicidad alta — M${usgs.magnitud_maxima} en radio 250 km</div><div class="ad">${usgs.sismos_7_dias} sismos M≥3 en los últimos 7 días. Factor sísmico: ${((usgs.factor_sismico||0)*100).toFixed(1)}%</div><div class="a-acc">Verificar integridad de estructuras y rutas de evacuación</div></div>`);
+      extAlertas.push(`<div class="alerta" style="border-color:var(--a)"><div class="at" style="color:var(--a)">🌋 USGS · Sismicidad alta — M${usgs.magnitud_maxima} en radio 250 km</div><div class="ad">${usgs.sismos_7_dias} sismos M≥3 en los últimos 7 días. Factor sísmico: ${((usgs.factor_sismico||0)*100).toFixed(1)}%</div><div class="a-acc">Verificar integridad de estructuras y rutas de evacuación</div>${verDet('sismicidad')}</div>`);
     if(sivi.alerta_epidemiologica)
-      extAlertas.push(`<div class="alerta" style="border-color:var(--a)"><div class="at" style="color:var(--a)">🦠 SIVIGILA · Alerta epidemiológica — ${sivi.total_casos_reportados} casos</div><div class="ad">${sivi.total_eventos_distintos} eventos distintos · Sem. ${sivi.semana_datos||sivi.semana_epidemiologica_actual}</div><div class="a-acc">Coordinar con equipos de salud pública y SIVIGILA departamental</div></div>`);
+      extAlertas.push(`<div class="alerta" style="border-color:var(--a)"><div class="at" style="color:var(--a)">🦠 SIVIGILA · Alerta epidemiológica — ${sivi.total_casos_reportados} casos</div><div class="ad">${sivi.total_eventos_distintos} eventos distintos · Sem. ${sivi.semana_datos||sivi.semana_epidemiologica_actual}</div><div class="a-acc">Coordinar con equipos de salud pública y SIVIGILA departamental</div>${verDet('sivigila')}</div>`);
     if((sis.ica||0)>150)
-      extAlertas.push(`<div class="alerta" style="border-color:var(--n)"><div class="at" style="color:var(--n)">🌫️ SISAIRE · Calidad del aire dañina — AQI ${sis.ica} (${sis.categoria_ica})</div><div class="ad">PM2.5: ${sis.contaminantes?.pm25_ug_m3} μg/m³</div><div class="a-acc">${sis.recomendacion||'Limitar actividades al aire libre'}</div></div>`);
+      extAlertas.push(`<div class="alerta" style="border-color:var(--n)"><div class="at" style="color:var(--n)">🌫️ SISAIRE · Calidad del aire dañina — AQI ${sis.ica} (${sis.categoria_ica})</div><div class="ad">PM2.5: ${sis.contaminantes?.pm25_ug_m3} μg/m³</div><div class="a-acc">${sis.recomendacion||'Limitar actividades al aire libre'}</div>${verDet('sisaire')}</div>`);
   }
 
   if(!ml.length&&!ia.length&&!extAlertas.length){el.innerHTML='<div style="color:var(--v);font-size:10px;padding:6px">✓ Sin alertas activas</div>';return;}
@@ -4190,13 +4202,13 @@ function renderIRGDet(){
     const enso=ext.enso||{};const usgs=ext.sismicidad||{};const reps=ext.reps||{};const sivi=ext.sivigila||{};const sis=ext.sisaire||{};
     const fc=enso.factor_clima??1.0;
     const ctxExt=[
-      enso.fase_enso?{l:'ENSO (NOAA)',v:`${enso.fase_enso} · ×${fc.toFixed(2)}`,col:fc>1.05?'var(--a)':fc<0.95?'var(--v)':null}:null,
-      usgs.nivel_sismico?{l:'Sismicidad 7d',v:`${usgs.sismos_7_dias??0} sismos · ${usgs.nivel_sismico}`,col:usgs.nivel_sismico==='alto'?'var(--a)':usgs.nivel_sismico==='medio'?'#f59e0b':null}:null,
-      reps.cobertura_medica?{l:'Hospitales (REPS)',v:`${reps.total_prestadores||0} · ${(reps.cobertura_medica||'').replace(/_/g,' ')}`,col:reps.cobertura_medica==='muy_baja'||reps.cobertura_medica==='baja'?'var(--a)':null}:null,
-      sivi.total_eventos_distintos>0?{l:'Epidemiología',v:sivi.alerta_epidemiologica?`⚠️ Alerta · ${sivi.total_casos_reportados} casos`:`${sivi.total_casos_reportados||0} casos · ${sivi.total_eventos_distintos} eventos`,col:sivi.alerta_epidemiologica?'var(--a)':null}:null,
-      sis.ica>0?{l:'AQI Aire (CAMS)',v:`${sis.ica} — ${sis.categoria_ica||''}`,col:sis.ica>150?'var(--a)':sis.ica>100?'#f59e0b':null}:null,
+      enso.fase_enso?{l:'ENSO (NOAA)',v:`${enso.fase_enso} · ×${fc.toFixed(2)}`,col:fc>1.05?'var(--a)':fc<0.95?'var(--v)':null,fuente:'enso'}:null,
+      usgs.nivel_sismico?{l:'Sismicidad 7d',v:`${usgs.sismos_7_dias??0} sismos · ${usgs.nivel_sismico}`,col:usgs.nivel_sismico==='alto'?'var(--a)':usgs.nivel_sismico==='medio'?'#f59e0b':null,fuente:'sismicidad'}:null,
+      reps.cobertura_medica?{l:'Hospitales (REPS)',v:`${reps.total_prestadores||0} · ${(reps.cobertura_medica||'').replace(/_/g,' ')}`,col:reps.cobertura_medica==='muy_baja'||reps.cobertura_medica==='baja'?'var(--a)':null,fuente:'reps'}:null,
+      sivi.total_eventos_distintos>0?{l:'Epidemiología',v:sivi.alerta_epidemiologica?`⚠️ Alerta · ${sivi.total_casos_reportados} casos`:`${sivi.total_casos_reportados||0} casos · ${sivi.total_eventos_distintos} eventos`,col:sivi.alerta_epidemiologica?'var(--a)':null,fuente:'sivigila'}:null,
+      sis.ica>0?{l:'AQI Aire (CAMS)',v:`${sis.ica} — ${sis.categoria_ica||''}`,col:sis.ica>150?'var(--a)':sis.ica>100?'#f59e0b':null,fuente:'sisaire'}:null,
     ].filter(Boolean);
-    const toCard=({l,v,col})=>`<div style="background:var(--bg4);border-radius:5px;padding:6px"><div style="font-size:7px;color:var(--text3)">${l}</div><div style="font-size:9px;font-weight:600${col?`;color:${col}`:''}">${v}</div></div>`;
+    const toCard=({l,v,col,fuente})=>`<div style="background:var(--bg4);border-radius:5px;padding:6px${fuente?';cursor:pointer':''}" ${fuente?`onclick="mostrarDetalle('${fuente}')" title="Ver detalle"`:''}><div style="font-size:7px;color:var(--text3)">${l}</div><div style="font-size:9px;font-weight:600${col?`;color:${col}`:''}">${v}</div>${fuente?`<div style="font-size:6px;color:var(--az);margin-top:2px">ver →</div>`:''}</div>`;
     ctx.innerHTML=[...ctxBase,...ctxExt].map(toCard).join('');
   }
   const tf=document.getElementById('top-fk');
@@ -5316,11 +5328,12 @@ function renderExtSumario(){
   const cobCol={'muy_alta':'var(--v)','alta':'#22c55e','media':'#f59e0b','baja':'var(--a)','muy_baja':'#ef4444'};
   const siviAlerta=sivi.alerta_epidemiologica;
 
-  const ficha=(ico,titulo,val,col)=>`<div style="background:var(--bg3);border-radius:7px;padding:7px 10px;border:1px solid var(--border2);display:flex;align-items:center;gap:7px;min-width:0">
+  const ficha=(ico,titulo,val,col,fuente='')=>`<div style="background:var(--bg3);border-radius:7px;padding:7px 10px;border:1px solid var(--border2);display:flex;align-items:center;gap:7px;min-width:0;${fuente?'cursor:pointer':''}${fuente?';transition:opacity .15s':''}" ${fuente?`onclick="mostrarDetalle('${fuente}')" title="Ver detalle de ${titulo}"`:''}onmouseover="${fuente?'this.style.opacity=\'.75\'':''}" onmouseout="${fuente?'this.style.opacity=\'1\'':''}">
     <span style="font-size:16px">${ico}</span>
-    <div style="min-width:0">
+    <div style="min-width:0;flex:1">
       <div style="font-size:7px;color:var(--text3);white-space:nowrap">${titulo}</div>
       <div style="font-size:10px;font-weight:700;color:${col||'var(--text)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${val}</div>
+      ${fuente?`<div style="font-size:7px;color:var(--az);margin-top:1px">ver detalle →</div>`:''}
     </div>
   </div>`;
 
@@ -5328,12 +5341,12 @@ function renderExtSumario(){
   el.innerHTML=`<div class="card" style="margin-bottom:0;padding:8px">
     <div style="font-size:8.5px;font-weight:700;color:var(--text2);margin-bottom:6px">🌐 Contexto externo en tiempo real <span style="font-weight:400;color:var(--text3)">— ${new Date().toLocaleTimeString()}</span></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">
-      ${ficha(faseIco[enso.fase_enso]||'🌤️','ENSO / Factor clima',`${enso.fase_enso||'Neutro'} · ×${fc.toFixed(2)}`,fc>1.05?'var(--a)':fc<0.95?'var(--v)':'var(--text)')}
-      ${ficha('🌋','Sismicidad (7d USGS)',`${usgs.sismos_7_dias??0} sismos · ${(usgs.nivel_sismico||'bajo').toUpperCase()}`,nisCol[usgs.nivel_sismico]||'var(--v)')}
-      ${ficha('🏥','Capacidad hospitalaria',`${reps.total_prestadores||0} prestadores · ${(reps.cobertura_medica||'').replace(/_/g,' ')}`,cobCol[reps.cobertura_medica]||'var(--text)')}
-      ${ficha('🦠','Epidemiología (SIVIGILA)',siviAlerta?`⚠️ Alerta · ${sivi.total_casos_reportados||0} casos`:`${sivi.total_casos_reportados||0} casos · ${sivi.total_eventos_distintos||0} eventos`,siviAlerta?'var(--a)':'var(--text)')}
-      ${ficha('🌫️','Calidad del aire (AQI)',`${aqi} — ${sis.categoria_ica||'—'}`,aqiCol)}
-      ${ficha('👥','Vulnerabilidad DANE',`NBI ${(d.dane?.nbi?.total_pct||0)}% · Vuln. ${((dane.indice_vulnerabilidad_dane||0)*100).toFixed(0)}/100`,dane.indice_vulnerabilidad_dane>0.5?'var(--a)':dane.indice_vulnerabilidad_dane>0.3?'#f59e0b':'var(--v)')}
+      ${ficha(faseIco[enso.fase_enso]||'🌤️','ENSO / Factor clima',`${enso.fase_enso||'Neutro'} · ×${fc.toFixed(2)}`,fc>1.05?'var(--a)':fc<0.95?'var(--v)':'var(--text)','enso')}
+      ${ficha('🌋','Sismicidad (7d USGS)',`${usgs.sismos_7_dias??0} sismos · ${(usgs.nivel_sismico||'bajo').toUpperCase()}`,nisCol[usgs.nivel_sismico]||'var(--v)','sismicidad')}
+      ${ficha('🏥','Capacidad hospitalaria',`${reps.total_prestadores||0} prestadores · ${(reps.cobertura_medica||'').replace(/_/g,' ')}`,cobCol[reps.cobertura_medica]||'var(--text)','reps')}
+      ${ficha('🦠','Epidemiología (SIVIGILA)',siviAlerta?`⚠️ Alerta · ${sivi.total_casos_reportados||0} casos`:`${sivi.total_casos_reportados||0} casos · ${sivi.total_eventos_distintos||0} eventos`,siviAlerta?'var(--a)':'var(--text)','sivigila')}
+      ${ficha('🌫️','Calidad del aire (AQI)',`${aqi} — ${sis.categoria_ica||'—'}`,aqiCol,'sisaire')}
+      ${ficha('👥','Vulnerabilidad DANE',`NBI ${(d.dane?.nbi?.total_pct||0)}% · Vuln. ${((dane.indice_vulnerabilidad_dane||0)*100).toFixed(0)}/100`,dane.indice_vulnerabilidad_dane>0.5?'var(--a)':dane.indice_vulnerabilidad_dane>0.3?'#f59e0b':'var(--v)','dane')}
     </div>
   </div>`;
 }
@@ -9052,6 +9065,152 @@ function eliminarFuenteCustom(idx){
 <script>
 function abrirNavMob(){document.getElementById('mob-nav-menu').style.display='block';}
 function cerrarNavMob(){document.getElementById('mob-nav-menu').style.display='none';}
+
+function cerrarDetModal(){document.getElementById('det-modal').style.display='none';}
+
+function mostrarDetalle(fuente){
+  if(!_fuentesExt){cargarFuentesExternas().then(()=>mostrarDetalle(fuente));sirga('info','Cargando datos…');return;}
+  const d=_fuentesExt;
+  const TITULOS={
+    enso:'🌊 ENSO — El Niño / La Niña (NOAA)',
+    sismicidad:'🌋 Sismicidad reciente — USGS',
+    reps:'🏥 Prestadores de Salud — REPS MinSalud',
+    sivigila:'🦠 Vigilancia Epidemiológica — SIVIGILA / INS',
+    sisaire:'🌫️ Calidad del Aire — SISAIRE / Copernicus CAMS',
+    dane:'👥 Censos y Vulnerabilidad — DANE',
+    ansv:'🚦 Siniestralidad Vial — ANSV',
+  };
+  let html='';
+  const rRow=(lbl,val)=>(val!=null&&val!=='')?`<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border2);font-size:10px"><span style="color:var(--text3)">${lbl}</span><span style="font-weight:600;color:var(--text)">${val}</span></div>`:'';
+  const bigStat=(lbl,val,col='var(--text)')=>`<div style="background:var(--bg3);border-radius:7px;padding:10px;text-align:center"><div style="font-size:8px;color:var(--text3);margin-bottom:3px">${lbl}</div><div style="font-size:20px;font-weight:800;color:${col}">${val}</div></div>`;
+
+  if(fuente==='reps'){
+    const reps=d.reps||{};
+    const porTipo=reps.por_tipo||{};
+    const muestra=reps.prestadores_muestra||[];
+    const cobCol={muy_alta:'#22c55e',alta:'#22c55e',media:'#f59e0b',baja:'#f97316',muy_baja:'#ef4444'};
+    const cob=cobCol[reps.cobertura_medica]||'var(--text)';
+    html=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Total prestadores',reps.total_prestadores||0)}
+        ${bigStat('Cobertura médica',(reps.cobertura_medica||'—').replace(/_/g,' ').toUpperCase(),cob)}
+        ${bigStat('IPS (hosp./clínicas)',reps.instituciones_ips||0)}
+        ${bigStat('Camas estimadas',(reps.capacidad_camas_estimada||0).toLocaleString())}
+      </div>
+      ${Object.keys(porTipo).length?`<div style="margin-bottom:12px"><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Desglose por tipo de prestador</div>${Object.entries(porTipo).map(([t,n])=>`<div style="display:flex;justify-content:space-between;padding:5px 9px;background:var(--bg3);border-radius:5px;margin-bottom:3px;font-size:10px"><span style="color:var(--text2)">${t}</span><span style="font-weight:700;background:var(--bg4);border-radius:3px;padding:1px 8px">${n}</span></div>`).join('')}</div>`:''}
+      ${muestra.filter(p=>p.nombreprestador).length?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">📋 Prestadores registrados en el municipio</div>${muestra.filter(p=>p.nombreprestador).map(p=>`<div style="background:var(--bg3);border-radius:6px;padding:8px 10px;margin-bottom:4px"><div style="font-size:10px;font-weight:600">${p.nombreprestador||'—'}</div>${p.municipio?`<div style="font-size:8px;color:var(--text3);margin-top:1px">📍 ${p.municipio}</div>`:''} ${p.tipoprestador?`<div style="font-size:8px;color:var(--az);margin-top:1px">${p.tipoprestador}</div>`:''}</div>`).join('')}</div>`:`<div style="font-size:9px;color:var(--text3);padding:10px;text-align:center;background:var(--bg3);border-radius:6px">Sin muestra de prestadores disponible</div>`}
+      <div style="margin-top:10px;font-size:8px;color:var(--text3)">Fuente: REPS — Registro Especial de Prestadores de Salud (MinSalud) · ${reps.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='sivigila'){
+    const sivi=d.sivigila||{};
+    const topEvt=sivi.top_eventos||[];
+    const nivCol=sivi.nivel_alerta==='alto'?'var(--a)':'var(--v)';
+    html=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Casos reportados',(sivi.total_casos_reportados||0).toLocaleString())}
+        ${bigStat('Eventos distintos',sivi.total_eventos_distintos||0)}
+        ${bigStat('Semana epidemiológica',`Sem. ${sivi.semana_datos||sivi.semana_epidemiologica_actual||'—'}`)}
+        ${bigStat('Riesgo sanitario',(sivi.riesgo_sanitario_post_desastre||'—').replace(/_/g,' ').toUpperCase(),nivCol)}
+      </div>
+      ${sivi.alerta_epidemiologica?`<div style="background:#ef444422;border:1px solid #ef444433;border-radius:7px;padding:10px;margin-bottom:12px;font-size:10px;color:#ef4444;font-weight:600">⚠️ Alerta epidemiológica activa — Nivel ${sivi.nivel_alerta||'alto'}<br><span style="font-weight:400;color:var(--text2);font-size:9px">Coordinar con equipos de salud pública y SIVIGILA departamental</span></div>`:''}
+      ${topEvt.length?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Eventos con más casos reportados</div>${topEvt.map((e,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:var(--text3);font-weight:700;min-width:18px">${i+1}</span><span style="font-size:10px;color:var(--text)">${e.evento||'—'}</span></div><span style="font-size:11px;font-weight:700;background:var(--bg4);border-radius:4px;padding:2px 9px">${e.casos} casos</span></div>`).join('')}</div>`:`<div style="font-size:9px;color:var(--text3);padding:10px;text-align:center;background:var(--bg3);border-radius:6px">Sin detalle de eventos disponible</div>`}
+      <div style="margin-top:10px;font-size:8px;color:var(--text3)">Fuente: SIVIGILA — INS Instituto Nacional de Salud · ${sivi.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='sismicidad'){
+    const usgs=d.sismicidad||{};
+    const sismos=usgs.sismos_recientes||[];
+    const nisCol={bajo:'#22c55e',medio:'#f59e0b',alto:'#f97316'};
+    html=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Sismos M≥3 (7 días)',usgs.sismos_7_dias??0)}
+        ${bigStat('Magnitud máxima',`M ${usgs.magnitud_maxima||0}`)}
+        ${bigStat('Nivel sísmico',(usgs.nivel_sismico||'bajo').toUpperCase(),nisCol[usgs.nivel_sismico]||'var(--v)')}
+        ${bigStat('Factor sísmico IRG',((usgs.factor_sismico||0)*100).toFixed(1)+'%')}
+      </div>
+      ${sismos.length?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sismos recientes — radio 250 km de Antioquia</div>${sismos.map(s=>{const mc=s.magnitud>=5?'#ef4444':s.magnitud>=4?'#f59e0b':s.magnitud>=3?'#f97316':'var(--text)';const f=s.tiempo?new Date(s.tiempo).toLocaleString('es-CO',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';return`<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px"><span style="font-size:14px;font-weight:800;color:${mc};min-width:42px">M${s.magnitud}</span><div style="flex:1;min-width:0"><div style="font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.lugar||'—'}</div><div style="font-size:8px;color:var(--text3)">Prof: ${s.profundidad??'?'} km · ${f}</div></div></div>`}).join('')}</div>`:`<div style="background:rgba(34,197,94,.08);border-radius:7px;padding:12px;text-align:center;font-size:10px;color:var(--v)">✅ Sin sismos M≥3 en radio 250 km en los últimos 7 días</div>`}
+      <div style="margin-top:10px;font-size:8px;color:var(--text3)">Fuente: USGS Earthquake Hazards Program · ${usgs.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='enso'){
+    const enso=d.enso||{};
+    const fc=enso.factor_clima??1.0;
+    const faseIco={'El Niño':'☀️','La Niña':'🌧️','Neutro':'🌤️'};
+    const faseCol={'El Niño':'#f59e0b','La Niña':'#3b82f6','Neutro':'#22c55e'};
+    const fcPct=((fc-1)*100).toFixed(0);
+    html=`
+      <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:12px;text-align:center">
+        <div style="font-size:40px;margin-bottom:4px">${faseIco[enso.fase_enso]||'🌤️'}</div>
+        <div style="font-size:18px;font-weight:800;color:${faseCol[enso.fase_enso]||'var(--text)'}">${enso.fase_enso||'Neutro'}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">ONI: ${enso.indice_oni!=null?enso.indice_oni.toFixed(2):'—'} · ${enso.temporada||''} ${enso.año||''}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Factor clima OMAIRA',fc.toFixed(3),fc>1.05?'var(--a)':fc<0.95?'var(--v)':'var(--text)')}
+        ${bigStat('Efecto en riesgo',fc>1.05?`+${fcPct}%`:fc<0.95?`${fcPct}%`:'Neutro',fc>1.05?'var(--a)':fc<0.95?'var(--v)':'var(--text3)')}
+      </div>
+      ${enso.descripcion?`<div style="background:var(--bg3);border-radius:7px;padding:10px;font-size:10px;color:var(--text2);line-height:1.6;margin-bottom:8px">${enso.descripcion}</div>`:''}
+      <div style="background:var(--bg3);border-radius:7px;padding:10px;font-size:9px;color:var(--text2);line-height:1.5;margin-bottom:8px"><strong>Impacto en Antioquia:</strong><br>${fc>1.1?'La Niña aumenta precipitaciones, incrementando riesgo de deslizamientos e inundaciones. El modelo IRG amplifica los factores de riesgo hídrico.':fc<0.9?'El Niño reduce precipitaciones. Mayor riesgo de incendios forestales, menor riesgo hídrico. OMAIRA ajusta los factores de riesgo automáticamente.':'Condiciones neutras. El factor clima no amplifica ni reduce el IRG base.'}</div>
+      <div style="font-size:8px;color:var(--text3)">Fuente: NOAA Climate Prediction Center · ${enso.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='sisaire'){
+    const sis=d.sisaire||{};
+    const cont=sis.contaminantes||{};
+    const colAQI=sis.color_ica||'#00e400';
+    html=`
+      <div style="display:flex;align-items:center;gap:14px;background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:12px">
+        <div style="width:60px;height:60px;border-radius:50%;background:${colAQI};display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:800;color:#000;flex-shrink:0">${sis.ica||0}</div>
+        <div><div style="font-size:16px;font-weight:800">${sis.categoria_ica||'—'}</div><div style="font-size:9px;color:var(--text3)">AQI-EU: ${sis.ica||0} · AQI-US: ${sis.ica_us||0}</div><div style="font-size:9px;color:var(--text3)">${sis.fecha_dato||''}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+        ${['PM2.5','PM10','NO₂','O₃','CO','SO₂'].map((n,i)=>{const keys=['pm25_ug_m3','pm10_ug_m3','no2_ug_m3','o3_ug_m3','co_ug_m3','so2_ug_m3'];return`<div style="background:var(--bg3);border-radius:7px;padding:9px"><div style="font-size:8px;color:var(--text3)">${n}</div><div style="font-size:16px;font-weight:800">${cont[keys[i]]??'—'}<span style="font-size:9px;font-weight:400"> μg/m³</span></div></div>`}).join('')}
+      </div>
+      ${sis.recomendacion?`<div style="background:var(--bg3);border-radius:7px;padding:10px;font-size:10px;color:var(--text2);line-height:1.6;margin-bottom:8px">💡 ${sis.recomendacion}</div>`:''}
+      <div style="font-size:8px;color:var(--text3)">Fuente: Copernicus CAMS / Open-Meteo Air Quality · ${sis.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='dane'){
+    const dane=d.dane||{};
+    const nbi=dane.nbi||{};
+    const comp=nbi.componentes||{};
+    const est=dane.estructura_territorial||{};
+    const vulnPct=((dane.indice_vulnerabilidad_dane||0)*100).toFixed(0);
+    const vulnCol=dane.indice_vulnerabilidad_dane>0.6?'var(--a)':dane.indice_vulnerabilidad_dane>0.35?'#f59e0b':'var(--v)';
+    html=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Población 2024',dane.poblacion_2024?(dane.poblacion_2024).toLocaleString()+' hab.':'—')}
+        ${bigStat('Vulnerabilidad social',vulnPct+'/100',vulnCol)}
+        ${bigStat('NBI total',(nbi.total_pct||0)+'%',nbi.total_pct>25?'var(--a)':nbi.total_pct>10?'#f59e0b':'var(--v)')}
+        ${bigStat('Hogares con NBI',(nbi.hogares_afectados||0).toLocaleString())}
+      </div>
+      <div style="margin-bottom:12px"><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Componentes NBI</div>${[['Vivienda inadecuada',comp.vivienda_inadecuada],['Servicios inadecuados',comp.servicios_inadecuados],['Hacinamiento',comp.hacinamiento],['Dependencia económica',comp.alta_dependencia_economica]].map(([lbl,pct])=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px"><span style="color:var(--text2)">${lbl}</span><span style="font-weight:700">${pct??'—'}%</span></div><div style="height:5px;background:var(--bg4);border-radius:3px;overflow:hidden"><div style="width:${pct||0}%;height:100%;background:${(pct||0)>20?'var(--a)':(pct||0)>10?'#f59e0b':'var(--v)'};border-radius:3px"></div></div></div>`).join('')}</div>
+      <div style="background:var(--bg3);border-radius:7px;padding:10px;margin-bottom:8px"><div style="font-size:9px;font-weight:700;color:var(--text3);margin-bottom:6px">Estructura territorial</div><div style="display:flex;gap:8px">${[['Rural',est.rural_pct],['Urbano',est.urbano_pct]].map(([l,v])=>`<div style="flex:1;text-align:center;background:var(--bg4);border-radius:5px;padding:8px"><div style="font-size:16px;font-weight:800">${v||0}%</div><div style="font-size:8px;color:var(--text3)">${l}</div></div>`).join('')}</div></div>
+      ${dane.interpretacion?`<div style="font-size:9px;color:var(--text2);background:var(--bg3);border-radius:7px;padding:9px;line-height:1.5;font-style:italic;margin-bottom:8px">${dane.interpretacion}</div>`:''}
+      <div style="font-size:8px;color:var(--text3)">Fuente: DANE — Departamento Administrativo Nacional de Estadística · ${dane.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else if(fuente==='ansv'){
+    const ansv=d.ansv||{};
+    const sectores=ansv.sectores_mas_criticos||[];
+    const nvCol={bajo:'var(--v)',moderado:'#f59e0b',alto:'var(--a)',critico:'#ef4444'};
+    html=`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        ${bigStat('Sectores críticos',ansv.total_sectores_criticos||0)}
+        ${bigStat('Fallecidos registrados',ansv.total_fallecidos_registrados||0)}
+        ${bigStat('Índice GIP',ansv.indice_peligrosidad_gip||'—')}
+        ${bigStat('Riesgo vial',(ansv.nivel_riesgo_vial||'—').toUpperCase(),nvCol[ansv.nivel_riesgo_vial]||'var(--text)')}
+      </div>
+      ${ansv.alerta_rutas_evacuacion?`<div style="background:#ef444422;border:1px solid #ef444433;border-radius:7px;padding:10px;margin-bottom:12px;font-size:10px;color:#ef4444;font-weight:600">⚠️ Rutas de evacuación comprometidas — verificar alternativas</div>`:''}
+      ${sectores.length?`<div><div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Sectores viales más críticos</div>${sectores.map(s=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:var(--bg3);border-radius:6px;margin-bottom:4px;font-size:10px"><span style="color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.tramo||'Tramo'}</span><span style="color:var(--a);font-weight:700;margin-left:8px">${s.fallecidos} fallec.</span></div>`).join('')}</div>`:''}
+      <div style="margin-top:10px;font-size:8px;color:var(--text3)">Fuente: ANSV — Agencia Nacional de Seguridad Vial · ${ansv.fuente_real?'✅ Datos reales':'⚪ Estimado'}</div>`;
+
+  }else{
+    html=`<div style="font-size:10px;color:var(--text3);padding:20px;text-align:center">Sin datos disponibles para esta fuente. Intenta actualizar los datos desde Fuentes de datos.</div>`;
+  }
+
+  document.getElementById('det-modal-titulo').textContent=TITULOS[fuente]||'Detalle';
+  document.getElementById('det-modal-body').innerHTML=html;
+  const m=document.getElementById('det-modal');
+  m.style.display='flex';
+}
+
+// Cerrar modal con Escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape')cerrarDetModal();});
 </script>
 </body>
 </html>
