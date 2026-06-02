@@ -19,36 +19,58 @@
 }
 body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 14px;height:48px;display:flex;align-items:center;gap:10px;flex-shrink:0;overflow:hidden;position:relative;z-index:100;transition:border-color .4s}
-/* Rayo de luz arcoíris que atraviesa el header mientras carga */
+/* ── SEÑAL ARCOÍRIS — barre toda la pantalla mientras carga ─────────────────── */
 @keyframes arcoiris-sweep{
-  0%  {transform:translateX(-100%) skewX(-20deg);opacity:0}
-  5%  {opacity:.6}
-  95% {opacity:.6}
-  100%{transform:translateX(300%) skewX(-20deg);opacity:0}
+  0%  {transform:translateX(-100%) skewX(-15deg);opacity:0}
+  8%  {opacity:1}
+  92% {opacity:1}
+  100%{transform:translateX(250%) skewX(-15deg);opacity:0}
 }
-header.cargando::after{
+@keyframes arcoiris-borde{
+  0%  {background-position:0% 50%}
+  100%{background-position:200% 50%}
+}
+/* Overlay fijo sobre toda la app — pointer-events:none para no bloquear clicks */
+#arcoiris-overlay{
+  display:none;
+  position:fixed;inset:0;
+  pointer-events:none;
+  z-index:99998;
+  overflow:hidden;
+}
+#arcoiris-overlay.on{display:block;}
+/* El rayo que atraviesa */
+#arcoiris-overlay::before{
   content:'';
   position:absolute;
   top:0;left:0;
-  width:35%;height:100%;
+  width:40%;height:100%;
   background:linear-gradient(90deg,
     transparent 0%,
-    rgba(59,130,246,.15) 10%,
-    rgba(139,92,246,.25) 20%,
-    rgba(236,72,153,.30) 30%,
-    rgba(239,68,68,.28)  40%,
-    rgba(249,115,22,.28) 50%,
-    rgba(245,158,11,.30) 60%,
-    rgba(34,197,94,.28)  70%,
-    rgba(6,182,212,.25)  80%,
-    rgba(59,130,246,.15) 90%,
+    rgba(59,130,246,.06)  8%,
+    rgba(139,92,246,.12) 18%,
+    rgba(236,72,153,.16) 28%,
+    rgba(239,68,68,.14)  38%,
+    rgba(249,115,22,.16) 48%,
+    rgba(245,158,11,.18) 58%,
+    rgba(34,197,94,.16)  68%,
+    rgba(6,182,212,.12)  78%,
+    rgba(59,130,246,.06) 88%,
     transparent 100%);
-  animation:arcoiris-sweep 1.8s ease-in-out infinite;
-  pointer-events:none;
-  z-index:0;
+  animation:arcoiris-sweep 2s ease-in-out infinite;
 }
+/* Borde superior — línea de color que corre */
+#arcoiris-overlay::after{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899,#ef4444,#f97316,#f59e0b,#22c55e,#06b6d4,#3b82f6);
+  background-size:200% 100%;
+  animation:arcoiris-borde 1.2s linear infinite;
+}
+/* El header también mantiene su línea inferior */
 header.cargando{border-bottom-color:transparent}
-header.cargando::before{
+header.cargando::after{
   content:'';
   position:absolute;
   bottom:0;left:0;right:0;height:2px;
@@ -56,10 +78,6 @@ header.cargando::before{
   background-size:200% 100%;
   animation:arcoiris-borde 1.2s linear infinite;
   z-index:1;
-}
-@keyframes arcoiris-borde{
-  0%  {background-position:0% 50%}
-  100%{background-position:200% 50%}
 }
 .logo{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .logo-i{width:30px;height:30px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:7px;display:grid;place-items:center;font-size:15px}
@@ -402,6 +420,8 @@ main{flex:1;display:flex;overflow:hidden}
 </div>
 
 <div id="mob-overlay" onclick="cerrarSbMob()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199"></div>
+<!-- Señal arcoíris que barre toda la pantalla al cargar -->
+<div id="arcoiris-overlay"></div>
 <header>
   <button id="mob-sb-toggle" onclick="toggleSbMob()">☰</button>
   <div class="logo">
@@ -458,7 +478,7 @@ main{flex:1;display:flex;overflow:hidden}
     </div>
   </div>
 <div class="chip chip-loading" id="chip">⟳ Iniciando…</div>
-<script>document.addEventListener('DOMContentLoaded',()=>document.querySelector('header')?.classList.add('cargando'));</script>
+<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelector('header')?.classList.add('cargando');document.getElementById('arcoiris-overlay')?.classList.add('on');});</script>
 </header>
 <main>
 <aside class="sb">
@@ -4246,7 +4266,7 @@ async function cargarDatos(z){
 function renderChip(){
   const chip=document.getElementById('chip');if(!chip)return;
   // Quitar la animación arcoíris del header al terminar
-  document.querySelector('header')?.classList.remove('cargando');
+  document.querySelector('header')?.classList.remove('cargando');document.getElementById('arcoiris-overlay')?.classList.remove('on');
   if(D?.datos_reales){chip.className='chip chip-ok';const _fa=D.fuentes_activas;
     chip.textContent='● '+_fa.slice(0,6).join(' · ')+(_fa.length>6?' +'+(_fa.length-6)+' más':'');}
   else{
@@ -6447,7 +6467,7 @@ function cambiarZona(z){
     D=_cached;
     renderAll();
     const _chip=document.getElementById('chip');
-    if(_chip){_chip.className='chip chip-loading';_chip.textContent='⟳ Actualizando…';}document.querySelector('header')?.classList.add('cargando');
+    if(_chip){_chip.className='chip chip-loading';_chip.textContent='⟳ Actualizando…';}document.querySelector('header')?.classList.add('cargando');document.getElementById('arcoiris-overlay')?.classList.add('on');
   }
   actualizarDatos();
   poblarSel();
@@ -6471,7 +6491,7 @@ function cambiarZona(z){
 // ═══════════════════════════════════════════════════════════
 async function actualizarDatos(){
   const lupd=document.getElementById('lupd');if(lupd)lupd.textContent='⏳ Cargando datos reales…';
-  const chip=document.getElementById('chip');if(chip){chip.className='chip chip-loading';chip.textContent='⟳ Conectando…';}document.querySelector('header')?.classList.add('cargando');
+  const chip=document.getElementById('chip');if(chip){chip.className='chip chip-loading';chip.textContent='⟳ Conectando…';}document.querySelector('header')?.classList.add('cargando');document.getElementById('arcoiris-overlay')?.classList.add('on');
   try{
     // Timeout global de 20 segundos para evitar cuelgue indefinido
     const _timeout = new Promise((_, rej) =>
@@ -6535,11 +6555,11 @@ async function actualizarDatos(){
       const min=Math.round((Date.now()-ult.ts)/60000);
       D=ult.data;
       if(lupd)lupd.textContent=`⚠️ Offline — último dato hace ${min}min`;
-      if(chip){chip.className='chip chip-sim';chip.textContent=`⚠️ Offline — ${min}min`;}document.querySelector('header')?.classList.remove('cargando');
+      if(chip){chip.className='chip chip-sim';chip.textContent=`⚠️ Offline — ${min}min`;}document.querySelector('header')?.classList.remove('cargando');document.getElementById('arcoiris-overlay')?.classList.remove('on');
       renderAll();
     }else{
       if(lupd)lupd.textContent='⚠️ Sin datos — '+e.message.slice(0,40);
-      if(chip){chip.className='chip chip-sim';chip.textContent='⚠️ Sin conexión';}document.querySelector('header')?.classList.remove('cargando');
+      if(chip){chip.className='chip chip-sim';chip.textContent='⚠️ Sin conexión';}document.querySelector('header')?.classList.remove('cargando');document.getElementById('arcoiris-overlay')?.classList.remove('on');
       // Intentar con datos mínimos estimados para no quedar en blanco
       try{
         const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
