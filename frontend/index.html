@@ -2738,6 +2738,22 @@ async function obtenerReales(z){
         }
       }catch(e){res.fuentes_error.push('SISAIRE:'+e.message);}
     })(),
+    // Backend Railway — DANE, REPS, ANSV, SIVIGILA para el IRG
+    // Estos datos sociales/sanitarios/viales ahora alimentan el cálculo principal
+    (async()=>{
+      try{
+        const BASE=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+        const r=await fetch(`${BASE}/api/v1/fuentes/resumen/${z}`,{signal:AbortSignal.timeout(14000)});
+        if(!r.ok)return;
+        const d=await r.json();
+        if(d.dane){res.ext_dane=d.dane;if(d.dane.fuente_real)res.fuentes_activas.push('DANE-NBI');}
+        if(d.reps){res.ext_reps=d.reps;if(d.reps.fuente_real)res.fuentes_activas.push('REPS-Salud');}
+        if(d.ansv){res.ext_ansv=d.ansv;if(d.ansv.fuente_real)res.fuentes_activas.push('ANSV-Vial');}
+        if(d.sivigila){res.ext_sivigila=d.sivigila;if(d.sivigila.fuente_real)res.fuentes_activas.push('SIVIGILA');}
+        // También ENSO desde backend si el proxy NOAA falló
+        if(!res.enso_oni&&d.enso?.factor_clima){res.enso_oni=+d.enso.factor_clima.toFixed(3);}
+      }catch(e){res.fuentes_error.push('BackendExt:'+e.message);}
+    })(),
   ]);
   cache[z]=res;
   return res;
@@ -3004,6 +3020,31 @@ function construirSensores(z,dr){
   // ── UNGRD: eventos recientes en Antioquia ────────────────────
   if(dr?.ungrd?.eventos_recientes>0){
     s.ungrd_eventos=dr.ungrd.eventos_recientes; rf.ungrd=true;
+  }
+
+  // ── DANE: vulnerabilidad social real → densidad_exposicion ───
+  // indice_vulnerabilidad_dane: 0=baja (Envigado) a 0.82=altísima (Turbo)
+  if(dr?.ext_dane?.indice_vulnerabilidad_dane!=null){
+    s.vulnerabilidad_social=+dr.ext_dane.indice_vulnerabilidad_dane.toFixed(3);
+    s.nbi_pct=dr.ext_dane.nbi?.total_pct||0;
+    rf.vulnerabilidad_social=true;
+  }
+  // ── REPS: capacidad médica real → congestion_emergencia ──────
+  // Invertimos la cobertura: baja cobertura = mayor riesgo de colapso
+  if(dr?.ext_reps?.cobertura_medica){
+    const _cm={muy_alta:0.08,alta:0.18,media_alta:0.28,media:0.48,baja:0.70,muy_baja:0.90,'sin datos':0.55};
+    s.capacidad_medica_inv=_cm[dr.ext_reps.cobertura_medica]??0.50;
+    rf.capacidad_medica=true;
+  }
+  // ── ANSV: riesgo vial real → vias_problemas ──────────────────
+  if(dr?.ext_ansv?.indice_riesgo_vial!=null){
+    s.riesgo_vial_ansv=+Math.min(1,dr.ext_ansv.indice_riesgo_vial).toFixed(3);
+    rf.riesgo_vial=true;
+  }
+  // ── SIVIGILA: presión epidemiológica → congestion_emergencia ─
+  if(dr?.ext_sivigila?.total_casos_reportados>0){
+    s.riesgo_sanitario=+Math.min(1,dr.ext_sivigila.total_casos_reportados/3000).toFixed(3);
+    rf.riesgo_sanitario=true;
   }
 
   // ── Fin integración fuentes adicionales ─────────────────────
@@ -3649,21 +3690,30 @@ function calcIRGConPesos(s, hora, m, pw_dinamicos, api_val) {
   // crec: SOLO lluvia + humedad suelo. El embalse NO genera crecientes en quebradas.
   const crec=Math.min(1,(ln*.65+hn*.35)*fApi);
   const satc=Math.min(1,(hn*.5+en*.3+(api_val/200)*.2)*fApi); // API en saturación cuenca
-  // vias: estado vías — INVIAS incidentes reales + lluvia
+  // vias: ANSV real (45%) + clima+INVIAS (55%) cuando hay datos reales
   const vias=(()=>{
     const base=Math.min(1,ln*.5+hn*.3+(s.lluvia>60?.2:0));
-    const inv_factor=s.incidentes_viales>0 ? Math.min(.20,s.incidentes_viales*0.04) : 0;
-    return Math.min(1,base+inv_factor);
+    const inv_factor=s.incidentes_viales>0?Math.min(.20,s.incidentes_viales*0.04):0;
+    const clima=Math.min(1,base+inv_factor);
+    return s.riesgo_vial_ansv!=null?Math.min(1,clima*.55+s.riesgo_vial_ansv*.45):clima;
   })();
   const puen=Math.min(1,crec*.6+ln*.4);
   const derb=Math.min(1,(hn*.4+ln*.4+(s.lluvia>50?.2:0))*fApi); // API amplifica derrumbes
-  const cong=Math.min(1,tv*.4+vias*.4+mv*.2);
+  // cong: REPS capacidad médica (25%) + SIVIGILA sanitario (15%) + movilidad+turismo+vías (60%)
+  const cong=(()=>{
+    if(s.capacidad_medica_inv!=null)
+      return Math.min(1,tv*.22+vias*.22+mv*.16+s.capacidad_medica_inv*.25+(s.riesgo_sanitario||0)*.15);
+    return Math.min(1,tv*.4+vias*.4+mv*.2);
+  })();
   const ica_n=s.ica>0?Math.min(1,s.ica/150):0;
   const cont_base=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
   const cont=ica_n>0?Math.min(1,ica_n*.65+cont_base*.35):cont_base;
   const nebv=Math.min(1,neb*.7+hn*.3);
   const rest=Math.min(1,vn*.4+neb*.3+torn*.3);
-  const dens=Math.min(1,tv*.5+mv*.5);
+  // dens: DANE vulnerabilidad social (44%) + turismo+movilidad (56%) cuando hay datos reales
+  const dens=s.vulnerabilidad_social!=null
+    ?Math.min(1,tv*.28+mv*.28+s.vulnerabilidad_social*.44)
+    :Math.min(1,tv*.5+mv*.5);
   const vs={
     precipitacion:{v:ln,raw:s.lluvia,u:'mm/h',ico:'🌧️',n:'Precipitación'},
     humedad_suelo:{v:Math.min(1,hn*fApi),raw:s.hum,u:'%',ico:'💧',n:'Humedad suelo'},
@@ -4086,16 +4136,23 @@ function calcIRG(s,hora,m){
   // crec: solo lluvia + humedad. El embalse no genera crecientes en quebradas.
   const crec=Math.min(1,ln*.65+hn*.35);
   const satc=Math.min(1,hn*.6+en*.4);
-  const vias=Math.min(1,ln*.5+hn*.3+(s.lluvia>60?.2:0));
+  const vias_base=Math.min(1,ln*.5+hn*.3+(s.lluvia>60?.2:0));
+  const vias=s.riesgo_vial_ansv!=null?Math.min(1,vias_base*.55+s.riesgo_vial_ansv*.45):vias_base;
   const puen=Math.min(1,crec*.6+ln*.4);
   const derb=Math.min(1,hn*.4+ln*.4+(s.lluvia>50?.2:0));
-  const cong=Math.min(1,tv*.4+vias*.4+mv*.2);
+  const cong=(()=>{
+    if(s.capacidad_medica_inv!=null)
+      return Math.min(1,tv*.22+vias*.22+mv*.16+s.capacidad_medica_inv*.25+(s.riesgo_sanitario||0)*.15);
+    return Math.min(1,tv*.4+vias*.4+mv*.2);
+  })();
   const ica_n=s.ica>0?Math.min(1,s.ica/150):0;
   const cont_base=Math.min(1,Math.max(0,1-s.viento/10)*Math.max(0,(s.temp-15)/15)*.5);
   const cont=ica_n>0?Math.min(1,ica_n*.65+cont_base*.35):cont_base;
   const nebv=Math.min(1,neb*.7+hn*.3);
   const rest=Math.min(1,vn*.4+neb*.3+torn*.3);
-  const dens=Math.min(1,tv*.5+mv*.5);
+  const dens=s.vulnerabilidad_social!=null
+    ?Math.min(1,tv*.28+mv*.28+s.vulnerabilidad_social*.44)
+    :Math.min(1,tv*.5+mv*.5);
   const vs={
     precipitacion:{v:ln,raw:s.lluvia,u:'mm/h',ico:'🌧️',n:'Precipitación'},
     humedad_suelo:{v:hn,raw:s.hum,u:'%',ico:'💧',n:'Humedad suelo'},
