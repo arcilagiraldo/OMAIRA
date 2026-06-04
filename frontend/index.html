@@ -41,14 +41,14 @@ body::before{
   background:linear-gradient(180deg,#3b82f6,#8b5cf6,#ec4899,#ef4444,#f97316,#f59e0b,#22c55e,#06b6d4,#3b82f6);
   background-size:100% 300%;
   animation:arcoiris-v 3.5s linear infinite;
-  opacity:.55;z-index:99990;pointer-events:none;
+  opacity:.55;z-index:5;pointer-events:none;
 }
 body::after{
   content:'';position:fixed;right:0;top:0;bottom:0;width:3px;
   background:linear-gradient(180deg,#06b6d4,#22c55e,#f59e0b,#f97316,#ef4444,#ec4899,#8b5cf6,#3b82f6,#06b6d4);
   background-size:100% 300%;
   animation:arcoiris-v 3.5s linear infinite reverse;
-  opacity:.55;z-index:99990;pointer-events:none;
+  opacity:.55;z-index:5;pointer-events:none;
 }
 /* Borde inferior — div fijo al pie */
 #arcoiris-bottom{
@@ -56,7 +56,7 @@ body::after{
   background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899,#ef4444,#f97316,#f59e0b,#22c55e,#06b6d4,#3b82f6);
   background-size:200% 100%;
   animation:arcoiris-borde 3.5s linear infinite;
-  opacity:.55;z-index:99990;pointer-events:none;
+  opacity:.55;z-index:5;pointer-events:none;
 }
 /* Durante carga: bordes más brillantes */
 body.cargando-app::before,body.cargando-app::after{opacity:.9;}
@@ -7712,7 +7712,8 @@ function renderMotorCiclo(){
 }
 
 // ═══ AGREGAR NUEVA FUENTE PERSONALIZADA ═══
-let fuentesPersonalizadas = JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]');
+// var (no let) — hoisteable, cargarFuentesPersonalizadas() se llama antes de esta línea
+var fuentesPersonalizadas = JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]');
 
 function abrirAgregarFuente(){
   const m=document.getElementById('modal-nueva-fuente');
