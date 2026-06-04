@@ -2685,7 +2685,11 @@ async function obtenerReales(z){
             const ult=lineas[lineas.length-1].trim().split(/\s+/);
             const oni=parseFloat(ult[ult.length-1]);
             if(!isNaN(oni)){
-              res.enso_oni=+(1.04+(oni*0.04)).toFixed(3);
+              // Misma fórmula que el backend — La Niña amplifica, El Niño reduce (Colombia)
+              // Bug anterior: 1.04+oni*0.04 hacía que La Niña nunca se detectara (umbral -3.0 imposible)
+              const f=oni>0.5?Math.max(0.70,1-(oni-0.5)*0.30):oni<-0.5?Math.min(1.55,1+(Math.abs(oni)-0.5)*0.45):1.0;
+              res.enso_oni=+f.toFixed(3);
+              res.enso_oni_raw=oni; // guardar ONI crudo para debug
               res.fuentes_activas.push('NOAA-ENSO');
               break;
             }
@@ -2714,6 +2718,26 @@ async function obtenerReales(z){
     (async()=>{const k=apiKeys['WAQI']||'';if(k)try{res.waqi=await apiWAQI(m.lat,m.lon,k);if(res.waqi?.aqi>0)res.fuentes_activas.push('WAQI');}catch(e){res.fuentes_error.push('WAQI:'+e.message);}})(),
     (async()=>{const k=apiKeys['DANE_API']||apiKeys['INVIAS']||'';if(k)try{res.dane=await apiDANE(k);if(res.dane?.municipios>0)res.fuentes_activas.push('DANE');}catch(e){res.fuentes_error.push('DANE:'+e.message);}})(),
     (async()=>{const k=apiKeys['UNGRD_EVENTOS']||apiKeys['INVIAS']||'';if(k)try{res.ungrd=await apiUNGRD(k);if(res.ungrd!=null)res.fuentes_activas.push('UNGRD');}catch(e){res.fuentes_error.push('UNGRD:'+e.message);}})(),
+    // SISAIRE — Open-Meteo Air Quality (Copernicus CAMS) directamente en el navegador
+    // Mismo endpoint que usa el backend — provee AQI europeo real y PM2.5
+    (async()=>{
+      try{
+        const aqR=await fetch(
+          `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${m.lat}&longitude=${m.lon}&current=european_aqi,pm2_5,pm10&domains=cams_global&timezone=America%2FBogota`,
+          {signal:AbortSignal.timeout(9000)}
+        );
+        if(aqR.ok){
+          const aqD=await aqR.json();
+          const aqi=aqD.current?.european_aqi||0;
+          const pm25=aqD.current?.pm2_5||0;
+          if(aqi>0||pm25>0){
+            res.sisaire_aqi=+aqi;
+            res.sisaire_pm25=+pm25.toFixed(2);
+            res.fuentes_activas.push('SISAIRE-Copernicus');
+          }
+        }
+      }catch(e){res.fuentes_error.push('SISAIRE:'+e.message);}
+    })(),
   ]);
   cache[z]=res;
   return res;
@@ -2929,6 +2953,13 @@ function construirSensores(z,dr){
     integrarFuentesCustomEnSensores(dr._custom_resultados, s, rf);
   }
 
+  // ── SISAIRE/Copernicus — AQI europeo real (misma fuente que el backend) ──
+  // Tiene prioridad sobre estimado; OpenAQ/WAQI pueden sobreescribir si son mejores
+  if(dr?.sisaire_aqi>0&&!rf.ica){
+    s.ica=+dr.sisaire_aqi.toFixed(0);
+    if(dr.sisaire_pm25>0)s.pm25=+dr.sisaire_pm25.toFixed(2);
+    rf.ica=true; rf.sisaire=true;
+  }
   // ── OpenAQ: PM2.5/PM10 reales (complementa SIATA) ───────────
   if(dr?.openaq?.pm25!=null){
     s.pm25=+dr.openaq.pm25.toFixed(1);
@@ -3050,9 +3081,10 @@ function nivelAPI(api) {
 function calcPesosDinamicos(enso, mes, api, rel) {
   const esMontano = rel === 'montañoso';
   const esHumedo  = ['selva_humeda','selva','plano_humedo'].includes(rel);
-  // Fase ENSO: >1.08 = El Niño (seco), <0.92 = La Niña (lluvioso)
-  const esNiño    = enso > 1.08;
-  const esNiña    = enso < 0.92;
+  // Fase ENSO: factor<0.95 = El Niño (seco, reduce lluvia), factor>1.05 = La Niña (húmedo, amplifica)
+  // Con la fórmula corregida: El Niño=0.70–0.95, Neutro=1.0, La Niña=1.05–1.55
+  const esNiño    = enso < 0.95;
+  const esNiña    = enso > 1.05;
   // Estación: Colombia tiene 2 períodos lluviosos (mar-may, sep-nov)
   const esPeriodoLluvioso = [3,4,5,9,10,11].includes(mes);
   // Factor de saturación antecedente
