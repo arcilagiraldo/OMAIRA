@@ -7,6 +7,15 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 import math
 
+# Altitud (m) de cada zona — para normalizar presión atmosférica correctamente
+_ALTITUD_ZONA: Dict[str, float] = {
+    "guatape":            1890.0,
+    "medellin":           1495.0,
+    "rionegro":           2150.0,
+    "santa_fe_antioquia":  550.0,
+    "caucasia":            150.0,
+}
+
 
 # ── Pesos de cada variable (deben sumar 1.0) ───────────────────────────────
 PESOS_IRG = {
@@ -120,8 +129,12 @@ def calcular_irg(
     turismo    = _turismo_por_hora(hora)
     movilidad  = _movilidad_por_turismo(turismo, hora)
 
-    # Índice de tormenta eléctrica: baja presión + lluvia intensa
-    tormenta_electrica = min(1.0, (lluvia / 80) * ((900 - presion) / 30 if presion < 900 else 0.3))
+    # Índice de tormenta eléctrica: anomalía de presión local + lluvia intensa
+    # Fix: 900 hPa era incorrecto — Guatapé (1890m) tiene presión normal ~808 hPa,
+    # lo que hacía que tormenta_electrica siempre resultara máxima en zonas de altitud.
+    _alt = _ALTITUD_ZONA.get(zona_id, 1000.0)
+    presion_base_local = 1013.25 * (1 - 0.0000226 * _alt) ** 5.256
+    tormenta_electrica = min(1.0, (lluvia / 80) * max(0.0, (presion_base_local - presion) / 20))
 
     # Vendaval: viento > 15 m/s es severo
     vendaval = min(1.0, max(0, (viento - 10) / 20))

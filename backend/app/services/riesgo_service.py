@@ -115,7 +115,10 @@ def _calcular_amenaza(
 
     elif tipo == TipoRiesgo.TORMENTA:
         viento_norm = min(1.0, meteo["velocidad_viento_ms"] / 20)
-        presion_norm = max(0, (890 - meteo["presion_hpa"]) / 30)
+        # Presión normalizada respecto al baseline altitudinal local
+        # Fix: 890 hPa era incorrecto — Guatapé (1890m) tiene presión normal ~808 hPa
+        presion_base = 1013.25 * (1 - 0.0000226 * zona.get("altitud_m", 1000)) ** 5.256
+        presion_norm = min(1.0, max(0, (presion_base - meteo["presion_hpa"]) / 20))
         h = (0.6 * presion_norm + 0.4 * viento_norm)
 
     elif tipo == TipoRiesgo.INCENDIO:
