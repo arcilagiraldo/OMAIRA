@@ -30,6 +30,38 @@ header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 14p
   0%  {background-position:0% 50%}
   100%{background-position:200% 50%}
 }
+@keyframes arcoiris-v{
+  0%  {background-position:50% 0%}
+  100%{background-position:50% 200%}
+}
+/* ── MARCO ARCOÍRIS — enmarca TODA la app en los 4 bordes ───────────────────── */
+/* Borde izquierdo y borde derecho — usan body::before / body::after */
+body::before{
+  content:'';position:fixed;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,#3b82f6,#8b5cf6,#ec4899,#ef4444,#f97316,#f59e0b,#22c55e,#06b6d4,#3b82f6);
+  background-size:100% 300%;
+  animation:arcoiris-v 3.5s linear infinite;
+  opacity:.55;z-index:99990;pointer-events:none;
+}
+body::after{
+  content:'';position:fixed;right:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,#06b6d4,#22c55e,#f59e0b,#f97316,#ef4444,#ec4899,#8b5cf6,#3b82f6,#06b6d4);
+  background-size:100% 300%;
+  animation:arcoiris-v 3.5s linear infinite reverse;
+  opacity:.55;z-index:99990;pointer-events:none;
+}
+/* Borde inferior — div fijo al pie */
+#arcoiris-bottom{
+  position:fixed;bottom:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#3b82f6,#8b5cf6,#ec4899,#ef4444,#f97316,#f59e0b,#22c55e,#06b6d4,#3b82f6);
+  background-size:200% 100%;
+  animation:arcoiris-borde 3.5s linear infinite;
+  opacity:.55;z-index:99990;pointer-events:none;
+}
+/* Durante carga: bordes más brillantes */
+body.cargando-app::before,body.cargando-app::after{opacity:.9;}
+#arcoiris-bottom.cargando-app{opacity:.9;height:4px;}
+@media(max-width:768px){body::before,body::after{width:2px}#arcoiris-bottom{height:2px;bottom:64px}}
 /* Overlay fijo sobre toda la app — pointer-events:none para no bloquear clicks */
 #arcoiris-overlay{
   display:none;
@@ -427,6 +459,8 @@ main{flex:1;display:flex;overflow:hidden}
 </div>
 
 <div id="mob-overlay" onclick="cerrarSbMob()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:199"></div>
+<!-- Marco arcoíris — borde inferior siempre visible -->
+<div id="arcoiris-bottom"></div>
 <!-- Señal arcoíris que barre toda la pantalla al cargar -->
 <div id="arcoiris-overlay"></div>
 <header>
