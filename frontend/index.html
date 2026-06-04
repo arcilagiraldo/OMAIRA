@@ -2121,11 +2121,44 @@ function cargarCfgInst(){
   }catch(e){console.warn('Error cargando cfg institucional:',e.message);}
 }
 
-// Preferencias UI
+// ═══════════════════════════════════════════════════════════
+// ALMACENAMIENTO ONLINE — Railway PostgreSQL
+// localStorage se usa solo como caché de respaldo offline
+// ═══════════════════════════════════════════════════════════
+const _STORAGE_BASE=()=>window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+let _currentEmail=''; // se asigna tras login Google
+
+function _storagePost(path,body){
+  if(!_currentEmail)return;
+  fetch(_STORAGE_BASE()+'/api/v1/storage'+path,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),signal:AbortSignal.timeout(8000)
+  }).catch(()=>{});
+}
+function _storagePut(path,body){
+  if(!_currentEmail)return;
+  fetch(_STORAGE_BASE()+'/api/v1/storage'+path,{
+    method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body),signal:AbortSignal.timeout(8000)
+  }).catch(()=>{});
+}
+async function _storageGet(path){
+  try{
+    const r=await fetch(_STORAGE_BASE()+'/api/v1/storage'+path,{signal:AbortSignal.timeout(8000)});
+    if(r.ok)return await r.json();
+  }catch(e){}
+  return null;
+}
+
+// Preferencias UI — escribe local inmediato + online async
 function guardarPrefs(prefs){
   try{
     const actual=cargarPrefs();
-    localStorage.setItem(LS_PREFS,JSON.stringify({...actual,...prefs}));
+    const merged={...actual,...prefs};
+    localStorage.setItem(LS_PREFS,JSON.stringify(merged));
+    // Sincronizar online con zona y horizonte actuales
+    _storagePut('/prefs',{email:_currentEmail,zona_activa:zona||'guatape',
+      horizonte:merged.horizonte||'24h',prefs:merged});
   }catch(e){}
 }
 function cargarPrefs(){
@@ -2133,12 +2166,40 @@ function cargarPrefs(){
   }catch{return{};}
 }
 
-// Zona activa — persiste entre sesiones
+// Zona activa — local inmediato + online async
 function guardarZona(z){
-  try{localStorage.setItem(LS_ZONA,z);}catch(e){}
+  try{
+    localStorage.setItem(LS_ZONA,z);
+    if(_currentEmail)
+      _storagePut('/prefs',{email:_currentEmail,zona_activa:z,
+        horizonte:cargarPrefs().horizonte||'24h',prefs:cargarPrefs()});
+  }catch(e){}
 }
 function cargarZona(){
   try{return localStorage.getItem(LS_ZONA)||'guatape';}catch{return'guatape';}
+}
+
+// Sincronización online al iniciar sesión — trae preferencias guardadas
+async function sincronizarPreferenciasOnline(){
+  if(!_currentEmail)return;
+  const d=await _storageGet('/prefs?email='+encodeURIComponent(_currentEmail));
+  if(!d)return;
+  // Aplicar preferencias online si son más recientes que las locales
+  if(d.zona_activa&&d.zona_activa!==zona){
+    localStorage.setItem(LS_ZONA,d.zona_activa);
+    zona=d.zona_activa;
+    const sel=document.getElementById('zsel');
+    if(sel)sel.value=zona;
+  }
+  if(d.horizonte){
+    const p=cargarPrefs();
+    p.horizonte=d.horizonte;
+    localStorage.setItem(LS_PREFS,JSON.stringify(p));
+  }
+  if(d.prefs&&Object.keys(d.prefs).length){
+    const p={...cargarPrefs(),...d.prefs};
+    localStorage.setItem(LS_PREFS,JSON.stringify(p));
+  }
 }
 
 function limpiarTodasLasKeys(){
@@ -2200,18 +2261,19 @@ function importarConfig(){
 }
 
 let apiKeys=cargarKeysLocales();
-// Historial IRG para calcular tendencia (último día en memoria)
-const IRG_HISTORIAL = []; // [{ts, irg, zona}]
-function registrarIRGHistorial(zona_id, irg_val){
+// Historial IRG — en memoria para tendencia inmediata + online para persistencia
+const IRG_HISTORIAL = []; // [{ts, irg, zona}] — seed desde backend al iniciar
+function registrarIRGHistorial(zona_id, irg_val, nivel='', fuentes=[]){
   IRG_HISTORIAL.push({ts:Date.now(), irg:irg_val, zona:zona_id});
-  // Mantener solo últimas 96 entradas (24h a intervalos de 15min)
-  if(IRG_HISTORIAL.length>96) IRG_HISTORIAL.shift();
+  if(IRG_HISTORIAL.length>200) IRG_HISTORIAL.shift();
+  // Persistir online — fire-and-forget
+  if(_currentEmail)
+    _storagePost('/irg',{email:_currentEmail,zona_id,irg:irg_val,nivel,fuentes:fuentes.slice(0,15)});
 }
 function getTendenciaIRG(zona_id){
   const histZona=IRG_HISTORIAL.filter(h=>h.zona===zona_id);
   if(histZona.length<2)return{flecha:'→',color:'var(--text3)',diff:0,desc:'Sin historial'};
   const actual=histZona[histZona.length-1].irg;
-  // Comparar con hace 1h
   const hace1h=Date.now()-3600000;
   const ant=histZona.filter(h=>h.ts<=hace1h).pop();
   if(!ant)return{flecha:'→',color:'var(--text3)',diff:0,desc:'Datos insuficientes'};
@@ -2219,6 +2281,19 @@ function getTendenciaIRG(zona_id){
   if(diff>0.03)return{flecha:'↑',color:'var(--r)',diff,desc:`+${(diff*100).toFixed(1)}% vs 1h`};
   if(diff<-0.03)return{flecha:'↓',color:'var(--v)',diff,desc:`${(diff*100).toFixed(1)}% vs 1h`};
   return{flecha:'→',color:'var(--az)',diff,desc:'Estable vs 1h'};
+}
+// Carga historial online al iniciar sesión para seed de tendencias
+async function cargarHistorialOnline(zona_id){
+  if(!_currentEmail)return;
+  const d=await _storageGet(`/irg/${zona_id}?email=${encodeURIComponent(_currentEmail)}&horas=48`);
+  if(!d?.historial?.length)return;
+  const existentes=new Set(IRG_HISTORIAL.map(h=>h.ts));
+  d.historial.forEach(h=>{
+    const ts=new Date(h.ts).getTime();
+    if(!existentes.has(ts))IRG_HISTORIAL.push({ts,irg:h.irg,zona:zona_id});
+  });
+  IRG_HISTORIAL.sort((a,b)=>a.ts-b.ts);
+  console.log(`📊 Historial IRG cargado: ${d.historial.length} entradas para ${zona_id}`);
 }
 let zona='guatape',D=null,pg='dashboard';
 let _fuentesExt=null; // últimos datos de fuentes externas (Railway backend)
@@ -3269,6 +3344,9 @@ function registrarReporte(zona_id, tipo_id, descripcion, lat, lon) {
   };
   REPORTES_CIUDADANOS[zona_id].unshift(reporte);
   if (REPORTES_CIUDADANOS[zona_id].length > 50) REPORTES_CIUDADANOS[zona_id].pop();
+  // Persistir en backend online
+  _storagePost('/reportes',{zona_id,tipo:tipo_id,descripcion:descripcion||'',
+    lat:lat||0,lon:lon||0,email:_currentEmail||'anonimo'});
   // Intentar geolocalización si no viene
   if (!lat && navigator.geolocation) {
     navigator.geolocation.getCurrentPosition(pos => {
@@ -4465,8 +4543,8 @@ function renderIRGHero(){
   const tendencia=getTendenciaIRG(zona);
   const tEl=document.getElementById('irg-tendencia');
   if(tEl)tEl.innerHTML=`<span style="font-size:18px;font-weight:800;color:${tendencia.color}">${tendencia.flecha}</span><span style="font-size:9px;color:${tendencia.color};margin-left:3px">${tendencia.desc}</span>`;
-  // Registrar para historial
-  registrarIRGHistorial(zona, irg.irg);
+  // Registrar para historial (online + memoria)
+  registrarIRGHistorial(zona, irg.irg, irg.nivel||'', D?.fuentes_activas||[]);
   ['irg-bh','irg-bb'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.width=pct+'%';});
   const th=document.getElementById('irg-th');if(th)th.textContent=`${irg.contexto.turismo_nivel}(${irg.contexto.turismo_pct}%)`;
   const hh=document.getElementById('irg-hh');if(hh)hh.textContent=irg.contexto.hora;
@@ -8301,6 +8379,11 @@ function loginSuccess(sess, isNew) {
   document.getElementById('user-name-drop').textContent = sess.nombre || sess.email;
   document.getElementById('user-email-drop').textContent = sess.email;
   if (isNew) toast('Bienvenido, ' + displayName, 'ok');
+  // Activar almacenamiento online con el email verificado
+  _currentEmail = sess.email;
+  sincronizarPreferenciasOnline().then(()=>{
+    cargarHistorialOnline(zona);
+  });
 }
 
 function logout() {

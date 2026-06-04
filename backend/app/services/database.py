@@ -76,6 +76,49 @@ CREATE TABLE IF NOT EXISTS usuarios_autorizados (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS irg_historial (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(300) NOT NULL,
+    zona_id VARCHAR(100) NOT NULL,
+    irg FLOAT NOT NULL,
+    nivel VARCHAR(30),
+    fuentes_activas TEXT,
+    ts TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_irg_email_zona ON irg_historial(email, zona_id);
+CREATE INDEX IF NOT EXISTS idx_irg_ts ON irg_historial(ts);
+
+CREATE TABLE IF NOT EXISTS preferencias_usuario (
+    email VARCHAR(300) PRIMARY KEY,
+    zona_activa VARCHAR(100) DEFAULT 'guatape',
+    horizonte VARCHAR(10) DEFAULT '24h',
+    prefs JSONB DEFAULT '{}',
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS reportes_ciudadanos (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(100) NOT NULL,
+    tipo VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    lat FLOAT,
+    lon FLOAT,
+    email VARCHAR(300),
+    verificado BOOLEAN DEFAULT FALSE,
+    ts TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_reportes_zona ON reportes_ciudadanos(zona_id, ts);
+
+CREATE TABLE IF NOT EXISTS outcomes_credibilidad (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(100) NOT NULL,
+    tipo_riesgo VARCHAR(100) NOT NULL,
+    email VARCHAR(300),
+    ocurrio SMALLINT NOT NULL,
+    prob_predicha FLOAT,
+    ts TIMESTAMP DEFAULT NOW()
+);
+
 INSERT INTO zonas (zona_id, municipio) VALUES
     ('guatape', 'Guatapé'),
     ('medellin', 'Medellín'),
@@ -258,6 +301,159 @@ async def get_stats_zona(zona_id: str) -> Dict:
     except Exception as e:
         logger.debug(f"get_stats: {e}")
         return {"disponible": False}
+
+
+# ── IRG Historial ─────────────────────────────────────────────────────────────
+
+async def guardar_irg_historial(email: str, zona_id: str, irg: float, nivel: str, fuentes: List[str]) -> None:
+    if not _pool_disponible():
+        return
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO irg_historial (email, zona_id, irg, nivel, fuentes_activas, ts)
+                   VALUES ($1, $2, $3, $4, $5, NOW())""",
+                email, zona_id, round(irg, 4), nivel, ",".join(fuentes[:20]),
+            )
+    except Exception as e:
+        logger.debug(f"guardar_irg_historial: {e}")
+
+
+async def get_irg_historial(email: str, zona_id: str, horas: int = 48) -> List[Dict]:
+    if not _pool_disponible():
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT irg, nivel, fuentes_activas, ts
+                   FROM irg_historial
+                   WHERE email=$1 AND zona_id=$2
+                     AND ts > NOW() - ($3 || ' hours')::INTERVAL
+                   ORDER BY ts ASC
+                   LIMIT 500""",
+                email, zona_id, str(horas),
+            )
+            return [{"irg": r["irg"], "nivel": r["nivel"],
+                     "ts": r["ts"].isoformat(), "fuentes": r["fuentes_activas"]} for r in rows]
+    except Exception as e:
+        logger.debug(f"get_irg_historial: {e}")
+        return []
+
+
+# ── Preferencias usuario ──────────────────────────────────────────────────────
+
+async def get_preferencias(email: str) -> Dict:
+    if not _pool_disponible():
+        return {}
+    try:
+        async with _pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT zona_activa, horizonte, prefs FROM preferencias_usuario WHERE email=$1",
+                email,
+            )
+            if row:
+                import json as _json
+                return {"zona_activa": row["zona_activa"], "horizonte": row["horizonte"],
+                        "prefs": dict(row["prefs"] or {})}
+            return {}
+    except Exception as e:
+        logger.debug(f"get_preferencias: {e}")
+        return {}
+
+
+async def guardar_preferencias(email: str, zona_activa: str, horizonte: str, prefs: Dict) -> None:
+    if not _pool_disponible():
+        return
+    try:
+        import json as _json
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO preferencias_usuario (email, zona_activa, horizonte, prefs, updated_at)
+                   VALUES ($1, $2, $3, $4::jsonb, NOW())
+                   ON CONFLICT (email) DO UPDATE
+                   SET zona_activa=$2, horizonte=$3, prefs=$4::jsonb, updated_at=NOW()""",
+                email, zona_activa[:100], horizonte[:10], _json.dumps(prefs),
+            )
+    except Exception as e:
+        logger.debug(f"guardar_preferencias: {e}")
+
+
+# ── Reportes ciudadanos ───────────────────────────────────────────────────────
+
+async def guardar_reporte(zona_id: str, tipo: str, descripcion: str,
+                          lat: float, lon: float, email: str) -> int:
+    if not _pool_disponible():
+        return 0
+    try:
+        async with _pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """INSERT INTO reportes_ciudadanos
+                   (zona_id, tipo, descripcion, lat, lon, email, ts)
+                   VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING id""",
+                zona_id, tipo[:100], (descripcion or "")[:500],
+                lat, lon, email,
+            )
+            return row["id"] if row else 0
+    except Exception as e:
+        logger.debug(f"guardar_reporte: {e}")
+        return 0
+
+
+async def get_reportes(zona_id: str, horas: int = 48) -> List[Dict]:
+    if not _pool_disponible():
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT id, tipo, descripcion, lat, lon, email, verificado, ts
+                   FROM reportes_ciudadanos
+                   WHERE zona_id=$1 AND ts > NOW() - ($2 || ' hours')::INTERVAL
+                   ORDER BY ts DESC LIMIT 100""",
+                zona_id, str(horas),
+            )
+            return [{"id": r["id"], "tipo": r["tipo"], "descripcion": r["descripcion"],
+                     "lat": r["lat"], "lon": r["lon"], "email": r["email"],
+                     "verificado": r["verificado"], "ts": r["ts"].isoformat()} for r in rows]
+    except Exception as e:
+        logger.debug(f"get_reportes: {e}")
+        return []
+
+
+# ── Outcomes credibilidad ─────────────────────────────────────────────────────
+
+async def guardar_outcome(zona_id: str, tipo_riesgo: str, email: str,
+                          ocurrio: int, prob_predicha: float) -> None:
+    if not _pool_disponible():
+        return
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO outcomes_credibilidad
+                   (zona_id, tipo_riesgo, email, ocurrio, prob_predicha, ts)
+                   VALUES ($1,$2,$3,$4,$5,NOW())""",
+                zona_id, tipo_riesgo[:100], email, ocurrio,
+                round(float(prob_predicha), 4),
+            )
+    except Exception as e:
+        logger.debug(f"guardar_outcome: {e}")
+
+
+async def get_outcomes(zona_id: str, tipo_riesgo: str) -> List[Dict]:
+    if not _pool_disponible():
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT ocurrio, prob_predicha, ts FROM outcomes_credibilidad
+                   WHERE zona_id=$1 AND tipo_riesgo=$2
+                   ORDER BY ts DESC LIMIT 500""",
+                zona_id, tipo_riesgo,
+            )
+            return [{"ocurrio": r["ocurrio"], "prob": r["prob_predicha"],
+                     "ts": r["ts"].isoformat()} for r in rows]
+    except Exception as e:
+        logger.debug(f"get_outcomes: {e}")
+        return []
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
