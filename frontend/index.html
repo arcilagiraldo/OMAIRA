@@ -469,8 +469,13 @@ main{flex:1;display:flex;overflow:hidden}
 .user-drop-btn{display:flex;align-items:center;gap:6px;width:100%;padding:6px 8px;background:none;border:none;color:#ef4444;font-size:9px;cursor:pointer;border-radius:5px;transition:background .15s;text-align:left}
 .user-drop-btn:hover{background:rgba(239,68,68,.08)}
 /* ── MÓDULO 1: SPLASH SCREEN ──────────────────────────────── */
-#splash-screen{position:fixed;inset:0;z-index:100000;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .8s ease}
-#splash-screen.fade-out{opacity:0;pointer-events:none}
+@keyframes splash-salida{
+  0%,72%{opacity:1;pointer-events:all;visibility:visible}
+  95%   {opacity:0;pointer-events:none;visibility:visible}
+  100%  {opacity:0;pointer-events:none;visibility:hidden}
+}
+#splash-screen{position:fixed;inset:0;z-index:100000;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;animation:splash-salida 4.5s ease forwards}
+#splash-screen.oculto{display:none!important}
 .splash-logo-wrap{width:80px;height:80px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);border-radius:20px;display:grid;place-items:center;font-size:40px;box-shadow:0 0 50px rgba(59,130,246,.45)}
 .splash-nombre{font-size:32px;font-weight:900;letter-spacing:-1.5px;color:#e2e8f0}
 .splash-subtitulo{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px}
@@ -10767,20 +10772,26 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarDetModal();ce
 (function iniciarSplash(){
   const FRASES_HORA={
     madrugada:'Guardia permanente — OMAIRA activo las 24 horas',
-    mañana:'Buenos días — monitoreo de riesgos iniciando',
+    manana:'Buenos días — monitoreo de riesgos iniciando',
     tarde:'Monitoreo activo — análisis de riesgo en curso',
     noche:'Vigilancia nocturna — datos actualizados'
   };
   const h=new Date().getHours();
-  const turno=h<6?'madrugada':h<12?'mañana':h<19?'tarde':'noche';
+  const turno=h<6?'madrugada':h<12?'manana':h<19?'tarde':'noche';
   const frase=document.getElementById('splash-frase');
-  if(frase)frase.textContent=FRASES_HORA[turno];
-  // Barra de progreso animada
+  if(frase)frase.textContent=FRASES_HORA[turno]||FRASES_HORA.tarde;
+  // Barra de progreso animada (sincronizada con animación CSS: 4.5s)
   const barra=document.getElementById('splash-barra-prog');
   let pct=0;
-  const iv=setInterval(()=>{pct+=2;if(barra)barra.style.width=pct+'%';if(pct>=100)clearInterval(iv);},70);
-  // Ocultar splash a los 3.5 s (o cuando datos carguen — ver ocultarSplash)
-  setTimeout(ocultarSplash,3500);
+  const iv=setInterval(function(){pct+=1.5;if(barra)barra.style.width=Math.min(pct,100)+'%';if(pct>=100)clearInterval(iv);},67);
+  // Garantía JS: ocultar después de 5s si la animación CSS falla por algún motivo
+  setTimeout(function(){
+    var s=document.getElementById('splash-screen');
+    if(s&&!s.classList.contains('oculto')){
+      s.style.opacity='0';s.style.pointerEvents='none';
+      setTimeout(function(){if(s)s.classList.add('oculto');},600);
+    }
+  },5000);
 })();
 
 function actualizarSplashConDatos(datos){
@@ -10796,7 +10807,7 @@ function actualizarSplashConDatos(datos){
   // Frase contextual según datos reales
   const frase=generarFraseSplash(datos);
   const fr=document.getElementById('splash-frase');if(fr)fr.textContent=frase;
-  if(irg>50)ocultarSplash(); // si hay riesgo alto, saltar splash rápido
+  ocultarSplash(); // ocultar splash cuando ya tenemos datos reales
 }
 
 function generarFraseSplash(datos){
@@ -10819,9 +10830,11 @@ function generarFraseSplash(datos){
 
 function ocultarSplash(){
   const s=document.getElementById('splash-screen');
-  if(!s||s.classList.contains('fade-out'))return;
-  s.classList.add('fade-out');
-  setTimeout(()=>{s.style.display='none';},900);
+  if(!s||s.classList.contains('oculto'))return;
+  s.style.animation='none';
+  s.style.opacity='0';
+  s.style.pointerEvents='none';
+  setTimeout(function(){if(s)s.classList.add('oculto');},300);
 }
 
 // ═══════════════════════════════════════════════════════════
