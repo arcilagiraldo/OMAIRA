@@ -2097,6 +2097,8 @@ function _sincronizarKeysOnline(){
       ...cargarPrefs(),
       api_keys:cargarKeysLocales(),
       cfg_inst:_getCfgInstObj(),
+      fuentes_custom:JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]'),
+      fuentes_motor_custom:JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]'),
     };
     _storagePut('/prefs',{email:_currentEmail,zona_activa:zona||'guatape',
       horizonte:prefs.horizonte||'24h',prefs});
@@ -2221,7 +2223,7 @@ async function sincronizarPreferenciasOnline(){
   }
   if(d.prefs&&Object.keys(d.prefs).length){
     // Extraer sub-objetos especiales antes de aplicar al prefs general
-    const {api_keys,cfg_inst,...uiPrefs}=d.prefs;
+    const {api_keys,cfg_inst,fuentes_custom,fuentes_motor_custom,...uiPrefs}=d.prefs;
     const p={...cargarPrefs(),...uiPrefs};
     localStorage.setItem(LS_PREFS,JSON.stringify(p));
 
@@ -2241,6 +2243,28 @@ async function sincronizarPreferenciasOnline(){
       localStorage.setItem(LS_CFG_INST,JSON.stringify(cfg_inst));
       cargarCfgInst(); // aplica a samaCfg, epmCfg, siataCfg, etc.
       restaurado.push('fuentes institucionales');
+    }
+
+    // ── Restaurar fuentes personalizadas (panel fuentes) ──────
+    if(fuentes_custom&&fuentes_custom.length){
+      const localFuentes=JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]');
+      const merged=[...fuentes_custom];
+      localFuentes.forEach(lf=>{if(!merged.find(x=>x.id===lf.id))merged.push(lf);});
+      localStorage.setItem('sirga_fuentes_custom',JSON.stringify(merged));
+      fuentesPersonalizadas=merged;
+      cargarFuentesPersonalizadas();
+      restaurado.push(fuentes_custom.length+' fuentes personalizadas');
+    }
+
+    // ── Restaurar fuentes del motor (modal agregar fuente) ────
+    if(fuentes_motor_custom&&fuentes_motor_custom.length){
+      const localMotor=JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]');
+      const merged=[...fuentes_motor_custom];
+      localMotor.forEach(lf=>{if(!merged.find(x=>x.nombre===lf.nombre))merged.push(lf);});
+      localStorage.setItem('omaira_fuentes_custom',JSON.stringify(merged));
+      FUENTES_CUSTOM=merged;
+      if(typeof renderFuentesCustomEnPanel==='function')renderFuentesCustomEnPanel();
+      restaurado.push(fuentes_motor_custom.length+' fuentes del motor');
     }
   }
 
@@ -9714,6 +9738,7 @@ async function guardarNuevaFuente(){
     ultimo_valor: null, ultimo_update: null
   });
   localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+  _sincronizarKeysOnline();
   renderFuentesCustomEnPanel();
   toast('✅ Fuente "'+nombre+'" guardada — activa en el próximo ciclo','ok');
   cerrarModalFuente();
@@ -9821,11 +9846,13 @@ function renderFuentesCustomEnPanel(){
 function toggleFuenteCustom(idx,activa){
   if(FUENTES_CUSTOM[idx]) FUENTES_CUSTOM[idx].activa=activa;
   localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+  _sincronizarKeysOnline();
 }
 
 function eliminarFuenteCustom(idx){
   FUENTES_CUSTOM.splice(idx,1);
   localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+  _sincronizarKeysOnline();
   renderFuentesCustomEnPanel();
   toast('🗑️ Fuente eliminada','info');
 }
