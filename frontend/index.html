@@ -737,20 +737,21 @@ main{flex:1;display:flex;overflow:hidden}
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div class="ctit">Predicción — <span id="pz">—</span></div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span style="font-size:8px;color:var(--text3)">Horizonte:</span>
-        <div style="display:flex;gap:3px" id="horizonte-btns">
-          <button onclick="setHorizonte('1h')"  id="hb-1h"  class="hbtn hbtn-act">+1h</button>
-          <button onclick="setHorizonte('6h')"  id="hb-6h"  class="hbtn">+6h</button>
-          <button onclick="setHorizonte('24h')" id="hb-24h" class="hbtn">+24h</button>
-          <button onclick="setHorizonte('72h')" id="hb-72h" class="hbtn">+72h</button>
-          <button onclick="setHorizonte('7d')"  id="hb-7d"  class="hbtn">7 días</button>
-          <button onclick="setHorizonte('15d')" id="hb-15d" class="hbtn">15 días</button>
-          <button onclick="setHorizonte('30d')" id="hb-30d" class="hbtn">30 días</button>
-          <button onclick="setHorizonte('90d')" id="hb-90d" class="hbtn">3 meses</button>
+        <span style="font-size:8px;color:var(--text3)">Ver riesgos:</span>
+        <div style="display:flex;gap:3px;flex-wrap:wrap" id="horizonte-btns">
+          <button onclick="setHorizonte('1h')"  id="hb-1h"  class="hbtn hbtn-act" title="Próxima hora">1 hora</button>
+          <button onclick="setHorizonte('6h')"  id="hb-6h"  class="hbtn" title="Próximas 6 horas">6 horas</button>
+          <button onclick="setHorizonte('24h')" id="hb-24h" class="hbtn" title="Próximas 24 horas">24 horas</button>
+          <button onclick="setHorizonte('72h')" id="hb-72h" class="hbtn" title="Próximas 72 horas">72 horas</button>
+          <button onclick="setHorizonte('7d')"  id="hb-7d"  class="hbtn" title="Próximos 7 días">7 días</button>
+          <button onclick="setHorizonte('15d')" id="hb-15d" class="hbtn" title="Próximos 15 días">15 días</button>
+          <button onclick="setHorizonte('30d')" id="hb-30d" class="hbtn" title="Próximo mes">30 días</button>
+          <button onclick="setHorizonte('90d')" id="hb-90d" class="hbtn" title="Próximos 3 meses">3 meses</button>
         </div>
         <span id="horizonte-fuente" style="font-size:7px;color:var(--text3)">Open-Meteo RT</span>
       </div>
     </div>
+    <div id="pred-resumen" style="font-size:9px;color:var(--text2);background:var(--bg3);border-radius:7px;padding:8px 10px;margin-top:8px;line-height:1.6;min-height:20px"></div>
     <div class="tl" id="tl"></div>
     <div id="pred-fiab-warn" style="display:none;font-size:8px;color:var(--a);background:rgba(245,158,11,.1);border-radius:5px;padding:5px 8px;margin-top:6px;border:1px solid rgba(245,158,11,.3)"></div>
     <canvas id="c-pred" style="max-height:190px"></canvas>
@@ -2106,6 +2107,8 @@ function _sincronizarKeysOnline(){
       cfg_inst:_getCfgInstObj(),
       fuentes_custom:JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]'),
       fuentes_motor_custom:JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]'),
+      cred_metrics:typeof CRED_DATA!=='undefined'?CRED_DATA.metrics||{}:{},
+      cred_source_perf:typeof CRED_DATA!=='undefined'?CRED_DATA.source_performance||{}:{},
     };
     _storagePut('/prefs',{email:_currentEmail,zona_activa:zona||'guatape',
       horizonte:prefs.horizonte||'24h',prefs});
@@ -2216,6 +2219,8 @@ async function publicarConfigOrg(){
     cfg_inst:_getCfgInstObj(),
     fuentes_custom:JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]'),
     fuentes_motor_custom:JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]'),
+    cred_metrics:typeof CRED_DATA!=='undefined'?CRED_DATA.metrics||{}:{},
+    cred_source_perf:typeof CRED_DATA!=='undefined'?CRED_DATA.source_performance||{}:{},
   };
   try{
     await fetch(_STORAGE_BASE()+'/api/v1/storage/prefs',{
@@ -2271,6 +2276,16 @@ async function sincronizarPreferenciasOnline(){
       FUENTES_CUSTOM=merged;
       if(typeof renderFuentesCustomEnPanel==='function')renderFuentesCustomEnPanel();
     }
+    if(op.cred_metrics&&Object.keys(op.cred_metrics).length&&typeof CRED_DATA!=='undefined'){
+      Object.entries(op.cred_metrics).forEach(([tipo,m])=>{
+        const local=CRED_DATA.metrics[tipo];
+        if(!local||((m.n||0)>(local.n||0)))CRED_DATA.metrics[tipo]=m;
+      });
+      if(op.cred_source_perf)Object.entries(op.cred_source_perf).forEach(([f,sp])=>{
+        const lsp=CRED_DATA.source_performance[f];
+        if(!lsp||((sp.total||0)>(lsp.total||0)))CRED_DATA.source_performance[f]=sp;
+      });
+    }
   }
 
   if(!d)return;
@@ -2293,7 +2308,7 @@ async function sincronizarPreferenciasOnline(){
   }
   if(d.prefs&&Object.keys(d.prefs).length){
     // Extraer sub-objetos especiales antes de aplicar al prefs general
-    const {api_keys,cfg_inst,fuentes_custom,fuentes_motor_custom,...uiPrefs}=d.prefs;
+    const {api_keys,cfg_inst,fuentes_custom,fuentes_motor_custom,cred_metrics,cred_source_perf,...uiPrefs}=d.prefs;
     const p={...cargarPrefs(),...uiPrefs};
     localStorage.setItem(LS_PREFS,JSON.stringify(p));
 
@@ -2335,6 +2350,26 @@ async function sincronizarPreferenciasOnline(){
       FUENTES_CUSTOM=merged;
       if(typeof renderFuentesCustomEnPanel==='function')renderFuentesCustomEnPanel();
       restaurado.push(fuentes_motor_custom.length+' fuentes del motor');
+    }
+
+    // ── Restaurar métricas de credibilidad ────────────────────
+    if(cred_metrics&&Object.keys(cred_metrics).length&&typeof CRED_DATA!=='undefined'){
+      Object.entries(cred_metrics).forEach(([tipo,m])=>{
+        const local=CRED_DATA.metrics[tipo];
+        // Tomar el que tenga más muestras (mayor N = más calibrado)
+        if(!local||((m.n||0)>(local.n||0))){
+          CRED_DATA.metrics[tipo]=m;
+        }
+      });
+      if(cred_source_perf&&Object.keys(cred_source_perf).length){
+        Object.entries(cred_source_perf).forEach(([f,sp])=>{
+          const lsp=CRED_DATA.source_performance[f];
+          if(!lsp||((sp.total||0)>(lsp.total||0)))CRED_DATA.source_performance[f]=sp;
+        });
+      }
+      if(typeof saveCredDB==='function')saveCredDB();
+      const n=Object.keys(cred_metrics).length;
+      restaurado.push('calibración ('+n+' tipos)');
     }
   }
 
@@ -4836,12 +4871,45 @@ function renderIRGDet(){
 }
 function renderTL(){
   if(!D)return;
+  const lblCorto=['1h','6h','24h','72h'];
+  const lblLargo=['Próxima hora','Próximas 6 h','Próximas 24 h','Próximas 72 h'];
   document.getElementById('tl').innerHTML=['h1','h6','h24','h72'].map((h,i)=>{
-    const lbl=['+1h','+6h','+24h','+72h'][i];
     const top=D.riesgos.reduce((m,r)=>r['prob_'+h]>m.p?{p:r['prob_'+h],nv:r.nivel}:m,{p:0,nv:'muy_bajo'});
     const real=D.pronostico&&i>0;
     const c=NCV(top.nv);
-    return`<div class="ts2"><div class="tsh">${lbl}${real?'<span class="real-badge real-ok" style="font-size:6px;margin-left:2px">real</span>':''}</div><div class="tsn" style="color:${c}">${top.nv.replace('_',' ')}</div><div style="font-size:9px;color:var(--text2)">${(top.p*100).toFixed(0)}%</div><div class="tsb" style="background:${c}"></div></div>`;}).join('');
+    return`<div class="ts2" title="${lblLargo[i]}"><div class="tsh">${lblCorto[i]}${real?'<span class="real-badge real-ok" style="font-size:6px;margin-left:2px">real</span>':''}</div><div class="tsn" style="color:${c}">${top.nv.replace('_',' ')}</div><div style="font-size:9px;color:var(--text2)">${(top.p*100).toFixed(0)}%</div><div class="tsb" style="background:${c}"></div></div>`;}).join('');
+  renderPredResumen();
+}
+
+function renderPredResumen(){
+  const el=document.getElementById('pred-resumen');
+  if(!el||!D?.riesgos)return;
+  const h=horizonteActual||'24h';
+  const hi=HORIZONTES_INFO[h]||HORIZONTES_INFO['24h'];
+  const hKey='prob_'+(h==='1h'?'h1':h==='6h'?'h6':h==='24h'?'h24':h==='72h'?'h72':'h24');
+  const lblH={
+    '1h':'En la próxima hora','6h':'En las próximas 6 horas','24h':'En las próximas 24 horas',
+    '72h':'En las próximas 72 horas','7d':'En los próximos 7 días',
+    '15d':'En los próximos 15 días','30d':'En el próximo mes','90d':'En los próximos 3 meses'
+  };
+  const encabezado=lblH[h]||'En el horizonte seleccionado';
+  const probKey=hKey.startsWith('prob_')?hKey:'prob_h24';
+  const riesgos=D.riesgos.map(r=>({...r,ph:r[probKey.replace('prob_','')]||r.prob}));
+  const activos=riesgos.filter(r=>r.ph>=0.08).sort((a,b)=>b.ph-a.ph);
+  const nivelMax=riesgos.reduce((m,r)=>r.ph>m.ph?r:m,riesgos[0]);
+  const niveles={muy_bajo:'muy bajo',bajo:'bajo',medio:'medio',alto:'alto',muy_alto:'muy alto',critico:'crítico'};
+  let txt='';
+  if(!activos.length){
+    txt=`<b>${encabezado}</b> no se proyectan riesgos significativos. Condiciones estables para ${D.municipio||zona}.`;
+  } else {
+    const top3=activos.slice(0,3).map(r=>`${r.e} ${r.n} (${(r.ph*100).toFixed(0)}%)`).join(', ');
+    const nivelTexto=niveles[nivelMax.nivel]||nivelMax.nivel;
+    txt=`<b>${encabezado}</b> se proyecta riesgo <b style="color:${NCV(nivelMax.nivel)}">${nivelTexto}</b> para <b>${D.municipio||zona}</b>. `+
+        `Riesgos con mayor probabilidad: ${top3}.`+
+        (activos.length>3?` (${activos.length-3} riesgo${activos.length-3>1?'s':''} más con probabilidad relevante)`:'');
+  }
+  if(!hi.fiable) txt+=` <span style="color:var(--a)">⚠️ Horizonte orientativo — incertidumbre alta más allá de 7 días.</span>`;
+  el.innerHTML=txt;
 }
 // ═══════════════════════════════════════════════════════════
 // PREDICCIÓN MULTI-HORIZONTE — selector temporal
@@ -4869,6 +4937,7 @@ function setHorizonte(h){
   const fEl=document.getElementById('horizonte-fuente');
   if(fEl)fEl.innerHTML=hi.nota?`${hi.fuente} <span style="color:var(--a)">${hi.nota}</span>`:hi.fuente;
   renderPredAll();
+  renderPredResumen();
 }
 
 function factorHorizonte(riesgo_id, h){
@@ -8738,8 +8807,8 @@ function renderCredResumen(){
     ⚠️ <b>Sin outcomes aún.</b> El sistema está acumulando predicciones automáticamente. Para calibrar el modelo, registra resultados reales usando el formulario de abajo.
     <br><br>Mientras tanto, la credibilidad se basa en: número de fuentes activas, frescura de datos y consistencia entre fuentes.
   </div>` : ''}
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
-    ${D?.riesgos ? D.riesgos.slice(0,12).map(r=>{
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+    ${D?.riesgos ? D.riesgos.map(r=>{
       const c = window.CRED?.calcRiesgoConCredibilidad(r.id, zona, r.prob, D?.fuentes_activas||[], 24);
       const cc = c.credibilidad_pct>75?'#22c55e':c.credibilidad_pct>50?'#f59e0b':'#ef4444';
       return `<div style="background:var(--bg3);border-radius:6px;padding:7px;display:flex;gap:6px;align-items:center">
