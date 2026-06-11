@@ -1425,6 +1425,13 @@ main{flex:1;display:flex;overflow:hidden}
       <div style="font-size:8px;color:var(--text3);margin-top:5px">La persona podrá iniciar sesión con esa cuenta de Google inmediatamente.</div>
       <div id="usuarios-err" style="font-size:9px;color:var(--r);margin-top:5px;min-height:14px"></div>
     </div>
+
+    <!-- Compartir configuración con el equipo -->
+    <div style="background:var(--bg3);border-radius:7px;padding:10px;margin-top:8px;border:1px solid rgba(124,58,237,.2)">
+      <div style="font-size:9px;font-weight:600;color:var(--pu);margin-bottom:5px">🔗 Configuración compartida del equipo</div>
+      <div style="font-size:8px;color:var(--text3);margin-bottom:8px;line-height:1.5">Publica tus API keys y fuentes activas para que todos los usuarios autorizados las tengan disponibles al entrar. Ellos ya las reciben automáticamente en su próximo inicio de sesión.</div>
+      <button onclick="publicarConfigOrg()" style="width:100%;padding:9px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.4);color:var(--pu);border-radius:6px;font-size:10px;cursor:pointer;font-weight:600">☁️ Publicar mi configuración para el equipo</button>
+    </div>
   </div>
 </div>
 
@@ -2199,10 +2206,73 @@ function cargarZona(){
   try{return localStorage.getItem(LS_ZONA)||'guatape';}catch{return'guatape';}
 }
 
+// Slot especial para config compartida de organización (api keys + fuentes para todos los usuarios)
+const ORG_CONFIG_EMAIL='__omaira_org_v1__';
+
+async function publicarConfigOrg(){
+  if(!_currentEmail){toast('Debes iniciar sesión primero','warn');return;}
+  const prefs={
+    api_keys:cargarKeysLocales(),
+    cfg_inst:_getCfgInstObj(),
+    fuentes_custom:JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]'),
+    fuentes_motor_custom:JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]'),
+  };
+  try{
+    await fetch(_STORAGE_BASE()+'/api/v1/storage/prefs',{
+      method:'PUT',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:ORG_CONFIG_EMAIL,zona_activa:'guatape',horizonte:'24h',prefs}),
+      signal:AbortSignal.timeout(10000)
+    });
+    const n=Object.keys(prefs.api_keys).length;
+    const nf=(prefs.fuentes_motor_custom||[]).length;
+    toast(`☁️ Configuración publicada para el equipo: ${n} API keys, ${nf} fuentes personalizadas`,'ok');
+  }catch(e){toast('Error al publicar: '+e.message,'err');}
+}
+
 // Sincronización online al iniciar sesión — restaura TODO: zona, prefs, API keys, cfg institucional
 async function sincronizarPreferenciasOnline(){
   if(!_currentEmail)return;
-  const d=await _storageGet('/prefs?email='+encodeURIComponent(_currentEmail));
+  // Cargar config de organización y config personal en paralelo
+  const [org, d]=await Promise.all([
+    _storageGet('/prefs?email='+encodeURIComponent(ORG_CONFIG_EMAIL)),
+    _storageGet('/prefs?email='+encodeURIComponent(_currentEmail))
+  ]);
+
+  // ── Aplicar config de organización como base (si existe) ──
+  if(org?.prefs){
+    const op=org.prefs;
+    if(op.api_keys&&Object.keys(op.api_keys).length){
+      const localKeys=cargarKeysLocales();
+      // Org es base; claves personales tienen precedencia si ya existen
+      const merged={...op.api_keys,...localKeys};
+      localStorage.setItem(LS_KEYS,JSON.stringify(merged));
+      apiKeys=merged;
+    }
+    if(op.cfg_inst&&Object.keys(op.cfg_inst).length){
+      const localCfg=JSON.parse(localStorage.getItem(LS_CFG_INST)||'{}');
+      if(!Object.keys(localCfg).length){
+        localStorage.setItem(LS_CFG_INST,JSON.stringify(op.cfg_inst));
+        cargarCfgInst();
+      }
+    }
+    if(op.fuentes_custom&&op.fuentes_custom.length){
+      const localF=JSON.parse(localStorage.getItem('sirga_fuentes_custom')||'[]');
+      const merged=[...op.fuentes_custom];
+      localF.forEach(lf=>{if(!merged.find(x=>x.id===lf.id))merged.push(lf);});
+      localStorage.setItem('sirga_fuentes_custom',JSON.stringify(merged));
+      fuentesPersonalizadas=merged;
+      cargarFuentesPersonalizadas();
+    }
+    if(op.fuentes_motor_custom&&op.fuentes_motor_custom.length){
+      const localM=JSON.parse(localStorage.getItem('omaira_fuentes_custom')||'[]');
+      const merged=[...op.fuentes_motor_custom];
+      localM.forEach(lf=>{if(!merged.find(x=>x.nombre===lf.nombre))merged.push(lf);});
+      localStorage.setItem('omaira_fuentes_custom',JSON.stringify(merged));
+      FUENTES_CUSTOM=merged;
+      if(typeof renderFuentesCustomEnPanel==='function')renderFuentesCustomEnPanel();
+    }
+  }
+
   if(!d)return;
 
   let restaurado=[];
