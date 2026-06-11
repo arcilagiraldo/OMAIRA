@@ -471,8 +471,7 @@ main{flex:1;display:flex;overflow:hidden}
   </div>
   <nav>
     <!-- Pantallas principales -->
-    <button class="nb on" onclick="go('dashboard')">📊 Dashboard</button>
-    <button class="nb" onclick="go('irg')">🎯 IRG</button>
+    <button class="nb on" onclick="go('dashboard')">📊 Dashboard / IRG</button>
     <button class="nb" onclick="go('mapa')">🗺️ Mapa</button>
     <button class="nb" onclick="go('capas')">🌦️ Capas</button>
     <button class="nb" onclick="go('prediccion')">📈 Predicción</button>
@@ -579,65 +578,74 @@ main{flex:1;display:flex;overflow:hidden}
 <div class="resizer" id="main-resizer" title="Arrastra para ajustar el ancho del panel lateral"></div>
 <div class="ct">
 
-<!-- DASHBOARD -->
+<!-- DASHBOARD (absorbe IRG) -->
 <div id="p-dashboard">
-  <div style="display:grid;grid-template-columns:230px 1fr;gap:10px;margin-bottom:10px">
-    <div class="irg-h">
-      <div class="ctit">Índice de Riesgo Global</div>
-      <div class="irg-n" id="irg-n" style="color:var(--v)">—</div>
-      <div class="irg-l" id="irg-l" style="color:var(--v)">—</div>
-      <div class="irg-bg"><div class="irg-b" id="irg-bh" style="width:0%"></div></div>
-      <div style="font-size:8px;color:var(--text3)">Turismo:<span id="irg-th">—</span> · <span id="irg-hh">—</span>h</div>
+  <!-- Fila 1: IRG grande + Top 5 factores -->
+  <div style="display:grid;grid-template-columns:250px 1fr;gap:10px;margin-bottom:10px">
+    <div class="card">
+      <div class="ctit">Índice de Riesgo Global — <span id="irg-zl">—</span></div>
+      <div style="font-size:48px;font-weight:800;letter-spacing:-2px" id="irg-big">—</div>
+      <div style="font-size:12px;font-weight:700;margin-bottom:7px" id="irg-bnv">—</div>
+      <div class="irg-bg"><div class="irg-b" id="irg-bb" style="width:0%"></div></div>
+      <!-- Elementos de compatibilidad: renderIRGHero los usa pero no se muestran -->
+      <span style="display:none" id="irg-n">—</span>
+      <span style="display:none" id="irg-l">—</span>
+      <div style="display:none"><div class="irg-b" id="irg-bh"></div></div>
+      <div style="font-size:8px;color:var(--text3);margin-top:4px">Turismo: <span id="irg-th">—</span> · <span id="irg-hh">—</span>h</div>
       <div id="irg-fks" style="margin-top:5px"></div>
+      <div style="margin-top:10px">
+        <div class="ctit">Contexto</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="ctx-l"></div>
+      </div>
     </div>
-    <div class="mets" id="mets" style="align-content:start"></div>
+    <div class="card"><div class="ctit">Top factores de riesgo</div><div id="top-fk"></div></div>
   </div>
-  <!-- Sumario fuentes externas — se rellena con renderExtSumario() -->
+
+  <!-- Métricas rápidas compactas (lluvia, temp, turismo) -->
+  <div class="mets" id="mets" style="align-content:start;margin-bottom:10px"></div>
+
+  <!-- Sumario fuentes externas -->
   <div id="ext-sumario" style="display:none;margin-bottom:10px"></div>
+
+  <!-- Sensores -->
   <div class="card" style="margin-bottom:10px">
     <div class="ctit">Sensores — <span id="d-zona">—</span> <span id="d-real-badge"></span></div>
     <div class="sg" id="all-sens"></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+  <!-- 24 riesgos + 20 variables IRG -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
     <div class="card"><div class="ctit"><span id="lbl-n-riesgos">24</span> riesgos monitoreados</div><div id="all-risks"></div></div>
+    <div class="card"><div class="ctit">20 variables IRG</div><div class="vgrid" id="vgrid"></div></div>
+  </div>
+
+  <!-- Alertas + Sismos + Memoria hidrológica -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <div class="card">
       <div class="ctit">Alertas activas</div>
       <div id="adash"></div>
-      <div id="sismos-dash" style="margin-top:8px"></div>
-    <div id="api-panel" style="margin-top:8px;background:var(--bg3);border-radius:8px;padding:10px;border-left:3px solid var(--az);display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-        <div style="font-size:10px;font-weight:700">💧 Memoria hidrológica</div>
-        <span id="api-badge" style="font-size:7px;padding:2px 5px;border-radius:3px">API</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
-        <div style="font-size:20px;font-weight:800" id="api-val" style="color:var(--az)">0</div>
-        <div style="flex:1;background:var(--bg2);border-radius:3px;height:5px;overflow:hidden">
-          <div id="api-bar" style="height:100%;width:0%;border-radius:3px;transition:width .6s;background:var(--az)"></div>
-        </div>
-        <span id="api-nivel-badge" style="font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(34,197,94,.15);color:var(--v)">Bajo</span>
-      </div>
-      <div id="api-desc" style="font-size:8px;color:var(--text3)">Saturación suelo antecedente (API index)</div>
-      <div id="api-alertas-idf"></div>
     </div>
-    </div>
-  </div>
-</div>
-
-<!-- IRG -->
-<div id="p-irg" style="display:none">
-  <div style="display:grid;grid-template-columns:250px 1fr;gap:10px;margin-bottom:10px">
     <div class="card">
-      <div class="ctit">IRG — <span id="irg-zl">—</span></div>
-      <div style="font-size:48px;font-weight:800;letter-spacing:-2px" id="irg-big">—</div>
-      <div style="font-size:12px;font-weight:700;margin-bottom:7px" id="irg-bnv">—</div>
-      <div class="irg-bg"><div class="irg-b" id="irg-bb" style="width:0%"></div></div>
-      <div style="margin-top:10px"><div class="ctit">Contexto</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="ctx-l"></div></div>
+      <div id="sismos-dash"></div>
+      <div id="api-panel" style="margin-top:8px;background:var(--bg3);border-radius:8px;padding:10px;border-left:3px solid var(--az);display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <div style="font-size:10px;font-weight:700">💧 Memoria hidrológica</div>
+          <span id="api-badge" style="font-size:7px;padding:2px 5px;border-radius:3px">API</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+          <div style="font-size:20px;font-weight:800" id="api-val" style="color:var(--az)">0</div>
+          <div style="flex:1;background:var(--bg2);border-radius:3px;height:5px;overflow:hidden">
+            <div id="api-bar" style="height:100%;width:0%;border-radius:3px;transition:width .6s;background:var(--az)"></div>
+          </div>
+          <span id="api-nivel-badge" style="font-size:8px;padding:2px 6px;border-radius:3px;background:rgba(34,197,94,.15);color:var(--v)">Bajo</span>
+        </div>
+        <div id="api-desc" style="font-size:8px;color:var(--text3)">Saturación suelo antecedente (API index)</div>
+        <div id="api-alertas-idf"></div>
+      </div>
     </div>
-    <div class="card"><div class="ctit">Top factores de riesgo</div><div id="top-fk"></div></div>
   </div>
-  <div class="card" style="margin-bottom:10px"><div class="ctit">20 variables IRG</div><div class="vgrid" id="vgrid"></div></div>
-  <div class="card"><div class="ctit">Alertas IRG combinadas</div><div id="irg-als"></div></div>
+  <!-- Ghost para renderIRGDet() compat (llama renderAlertas('irg-als')) -->
+  <div id="irg-als" style="display:none"></div>
 </div>
 
 <!-- MAPA -->
@@ -6161,7 +6169,7 @@ async function cargarFuentesExternas(){
 
   // Actualizar sumario en dashboard y contexto IRG con los nuevos datos
   renderExtSumario();
-  if(pg==='irg')renderIRGDet();
+  if(pg==='dashboard')renderIRGDet();
 
   const rBadge=(real,lbl)=>real
     ?`<span style="font-size:7.5px;padding:1px 6px;border-radius:3px;background:#14532d44;color:var(--v);border:1px solid var(--v)33">${lbl||'REAL'}</span>`
@@ -6887,7 +6895,7 @@ function go(p){
     const autoChk=document.getElementById('mw-auto');
     if(autoChk&&!autoChk.checked){autoChk.checked=true;toggleMonitorAuto(true);}
   }
-  if(p==='irg')renderIRGDet();
+  if(p==='dashboard')renderIRGDet();
   if(p==='ia-analisis'){renderIASel();document.getElementById('ia-cfg-area').innerHTML=IA_CFG['local'];}
   if(p==='notif')renderConts();
   if(p==='fuentes'){renderFuentesPanel();setTimeout(cargarFuentesExternas,200);}
@@ -6978,7 +6986,7 @@ async function actualizarDatos(){
       });
     }
     if(pg==='prediccion'){renderTL();renderPredAll();renderChartPred();renderComp();renderInc();}
-    if(pg==='irg')renderIRGDet();
+    if(pg==='dashboard')renderIRGDet();
     if(pg==='alertas'){renderAlertas('afull');renderSismos('sismos-full');renderIncendios('incendios-full');}
     if(pg==='movilidad')renderMovilidad();
     if(pg==='capas')renderCapas();
@@ -9917,8 +9925,14 @@ async function consultarFuentesCustom(){
         resultados[f.variable]=resultados[f.variable]||[];
         resultados[f.variable].push({fuente:f.nombre,valor:parseFloat(valor)||valor});
         f.ultimo_valor=valor; f.ultimo_update=Date.now();
+        f.ultimo_error=null; f.en_irg=false; // se marca true en integrarFuentesCustomEnSensores
+      } else {
+        f.ultimo_error='Respuesta OK pero no se encontró el campo "'+f.campo+'" en el JSON';
       }
-    }catch(e){ console.warn('Fuente custom '+f.nombre+':',e.message); }
+    }catch(e){
+      console.warn('Fuente custom '+f.nombre+':',e.message);
+      f.ultimo_error=e.message; f.en_irg=false;
+    }
   }));
   localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
   return resultados;
@@ -9936,12 +9950,20 @@ function integrarFuentesCustomEnSensores(res_custom,s,rf){
   Object.entries(res_custom).forEach(([variable,lecturas])=>{
     if(!lecturas.length) return;
     const prom=lecturas.reduce((sum,l)=>sum+(parseFloat(l.valor)||0),0)/lecturas.length;
+    let integrada=false;
     switch(variable){
-      case 'lluvia':     s.lluvia=+Math.max(s.lluvia||0,prom).toFixed(1); rf.lluvia=true; break;
-      case 'nivel_rio':  s.nivel_rio=+prom.toFixed(2); rf.nivel_rio=true; break;
-      case 'temperatura': if(!rf.temp){s.temp=+prom.toFixed(1);rf.temp=true;} break;
-      case 'calidad_aire': s.ica=+Math.max(s.ica||0,prom/10).toFixed(2); rf.ica=true; break;
-      case 'embalse':    if(prom>0&&prom<=100){s.embalse=+prom.toFixed(1);rf.embalse=true;} break;
+      case 'lluvia':     s.lluvia=+Math.max(s.lluvia||0,prom).toFixed(1); rf.lluvia=true; integrada=true; break;
+      case 'nivel_rio':  s.nivel_rio=+prom.toFixed(2); rf.nivel_rio=true; integrada=true; break;
+      case 'temperatura': if(!rf.temp){s.temp=+prom.toFixed(1);rf.temp=true; integrada=true;} break;
+      case 'calidad_aire': s.ica=+Math.max(s.ica||0,prom/10).toFixed(2); rf.ica=true; integrada=true; break;
+      case 'embalse':    if(prom>0&&prom<=100){s.embalse=+prom.toFixed(1);rf.embalse=true; integrada=true;} break;
+    }
+    if(integrada){
+      // Marcar cada fuente que aportó a esta variable como integrada en el IRG
+      lecturas.forEach(l=>{
+        const f=FUENTES_CUSTOM.find(x=>x.nombre===l.fuente);
+        if(f)f.en_irg=true;
+      });
     }
   });
 }
@@ -9954,32 +9976,91 @@ function renderFuentesCustomEnPanel(){
   }
   cont.innerHTML=FUENTES_CUSTOM.map((f,i)=>{
     const ts = f.ultimo_update ? new Date(f.ultimo_update).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : null;
-    const estado_color = f.activa ? '#22c55e' : '#94a3b8';
-    return `<div style="background:var(--bg3);border-radius:7px;padding:8px 10px;display:flex;gap:8px;margin-bottom:5px;border-left:3px solid ${estado_color}">
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px">
-          <div style="width:6px;height:6px;border-radius:50%;background:${estado_color};flex-shrink:0"></div>
-          <div style="font-size:9px;font-weight:700;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.nombre}</div>
+    const min_atras = f.ultimo_update ? Math.round((Date.now()-f.ultimo_update)/60000) : null;
+    // Estado de verificación
+    let estado_color, badge_html;
+    if(!f.activa){
+      estado_color='#94a3b8';
+      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(148,163,184,.15);color:#94a3b8">Pausada</span>`;
+    } else if(f.en_irg){
+      estado_color='#22c55e';
+      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,.15);color:#22c55e;font-weight:700">✅ En IRG</span>`;
+    } else if(f.ultimo_valor!=null&&!f.ultimo_error){
+      estado_color='#f59e0b';
+      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b">⏳ Dato recibido</span>`;
+    } else if(f.ultimo_error){
+      estado_color='#ef4444';
+      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.15);color:#ef4444">❌ Error</span>`;
+    } else {
+      estado_color='#6b7280';
+      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--text3)">⏳ Pendiente</span>`;
+    }
+    return `<div style="background:var(--bg3);border-radius:7px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${estado_color}">
+      <div style="display:flex;gap:8px;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
+            <div style="font-size:9px;font-weight:700;color:var(--text2)">${f.nombre}</div>
+            ${badge_html}
+          </div>
+          <div style="font-size:7.5px;color:var(--text3);margin-bottom:2px">
+            📊 ${f.variable} · ⏱️ cada ${f.frecuencia}min · ${f.metodo||'GET'}${f.key?' · 🔑 key':''}
+          </div>
+          <div style="font-size:7px;color:var(--az);word-break:break-all;margin-bottom:3px">${f.url.slice(0,60)}${f.url.length>60?'...':''}</div>
+          ${f.en_irg
+            ?`<div style="font-size:7.5px;color:#22c55e">✅ Dato <b>${f.ultimo_valor}</b> integrado en sensor <b>${f.variable}</b>${ts?' · '+ts:''}</div>`
+            :f.ultimo_valor!=null&&!f.ultimo_error
+              ?`<div style="font-size:7.5px;color:#f59e0b">📥 Recibió <b>${f.ultimo_valor}</b>${ts?' · '+ts:''} — se integrará en el próximo ciclo</div>`
+              :f.ultimo_error
+                ?`<div style="font-size:7.5px;color:#ef4444">❌ ${f.ultimo_error.slice(0,80)}</div>`
+                :`<div style="font-size:7px;color:var(--text3)">Aún no consultada — se activará en el próximo ciclo (${f.frecuencia}min)</div>`
+          }
+          ${min_atras!=null&&min_atras>f.frecuencia*2
+            ?`<div style="font-size:6.5px;color:#f59e0b;margin-top:2px">⚠️ Sin actualización hace ${min_atras} min (ciclo: ${f.frecuencia}min)</div>`:''}
         </div>
-        <div style="font-size:7.5px;color:var(--text3);margin-bottom:1px">
-          📊 ${f.variable} · ⏱️ cada ${f.frecuencia}min · ${f.metodo||'GET'}
-          ${f.key?'🔑':''}
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;flex-shrink:0">
+          <label class="tog" style="transform:scale(0.8);margin-top:2px">
+            <input type="checkbox" ${f.activa?'checked':''} onchange="toggleFuenteCustom(${i},this.checked)">
+            <span class="togsl"></span>
+          </label>
+          <button onclick="probarFuenteCustom(${i})" title="Probar ahora"
+            style="padding:2px 5px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--az);border:1px solid rgba(59,130,246,.3);font-size:7px;cursor:pointer">🔄</button>
+          <button onclick="eliminarFuenteCustom(${i})" title="Eliminar fuente"
+            style="padding:2px 5px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:none;font-size:7px;cursor:pointer">✕</button>
         </div>
-        <div style="font-size:7px;color:var(--az);word-break:break-all">${f.url.slice(0,55)}${f.url.length>55?'...':''}</div>
-        ${f.ultimo_valor!=null
-          ?`<div style="font-size:7.5px;color:#22c55e;margin-top:2px">✅ Último valor: <b>${f.ultimo_valor}</b>${ts?' · '+ts:''}</div>`
-          :`<div style="font-size:7px;color:var(--text3);margin-top:2px">Sin datos aún — se consultará en el próximo ciclo</div>`}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:center;flex-shrink:0">
-        <label class="tog" style="transform:scale(0.8);margin-top:2px">
-          <input type="checkbox" ${f.activa?'checked':''} onchange="toggleFuenteCustom(${i},this.checked)">
-          <span class="togsl"></span>
-        </label>
-        <button onclick="eliminarFuenteCustom(${i})" title="Eliminar fuente"
-          style="padding:3px 6px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:none;font-size:7px;cursor:pointer">✕</button>
       </div>
     </div>`;
   }).join('');
+}
+
+async function probarFuenteCustom(idx){
+  const f=FUENTES_CUSTOM[idx]; if(!f) return;
+  toast('🔄 Probando "'+f.nombre+'"...','info');
+  const prev_irg=f.en_irg; f.en_irg=false; f.ultimo_error=null;
+  try{
+    let url_f=f.url;
+    const hdrs={'Accept':'application/json'};
+    if(f.key){
+      if(f.key_tipo==='bearer') hdrs['Authorization']='Bearer '+f.key;
+      else if(f.key_tipo==='header') hdrs['x-api-key']=f.key;
+      else url_f=url_f.includes('?')?url_f+'&apikey='+f.key:url_f+'?apikey='+f.key;
+    }
+    const resp=await fetch(url_f,{method:f.metodo||'GET',headers:hdrs,signal:AbortSignal.timeout(10000)});
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    const valor=f.campo?extraerValorJSON(data,f.campo):detectarVariableJSON(data,f.variable)?.valor;
+    if(valor!=null){
+      f.ultimo_valor=valor; f.ultimo_update=Date.now(); f.ultimo_error=null;
+      localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+      toast('✅ "'+f.nombre+'" respondió: '+valor+' (se usará en el próximo ciclo IRG)','ok');
+    } else {
+      f.ultimo_error='Respuesta OK pero no se encontró el campo "'+f.campo+'" en el JSON';
+      toast('⚠️ "'+f.nombre+'" responde pero sin dato para "'+f.variable+'"','warn');
+    }
+  }catch(e){
+    f.ultimo_error=e.message;
+    toast('❌ "'+f.nombre+'": '+e.message,'err');
+  }
+  renderFuentesCustomEnPanel();
 }
 
 function toggleFuenteCustom(idx,activa){
@@ -10171,8 +10252,7 @@ function eliminarFuenteCustom(idx){
 
 <nav id="mob-bottom-nav">
   <div class="mob-nav-inner">
-    <button class="mob-act" onclick="go('dashboard');mobNav(this)"><span class="icon">📊</span>Inicio</button>
-    <button onclick="go('irg');mobNav(this)"><span class="icon">🎯</span>IRG</button>
+    <button class="mob-act" onclick="go('dashboard');mobNav(this)"><span class="icon">📊</span>Dashboard</button>
     <button onclick="go('mapa');mobNav(this)"><span class="icon">🗺️</span>Mapa</button>
     <button onclick="go('prediccion');mobNav(this)"><span class="icon">📈</span>Predicción</button>
     <button onclick="go('alertas');mobNav(this)"><span class="icon">🚨</span>Alertas</button>
