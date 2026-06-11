@@ -378,8 +378,9 @@ main{flex:1;display:flex;overflow:hidden}
 .real-ok{background:rgba(34,197,94,.1);color:var(--v);border:1px solid rgba(34,197,94,.3)}
 .real-sim{background:rgba(245,158,11,.1);color:var(--a);border:1px solid rgba(245,158,11,.3)}
 
-.hbtn{padding:3px 7px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);
-  color:var(--text3);font-size:8px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.hbtn{padding:6px 12px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);
+  color:var(--text3);font-size:11px;cursor:pointer;transition:all .2s;white-space:nowrap;
+  touch-action:manipulation;min-height:38px;display:inline-flex;align-items:center}
 .hbtn:hover{background:var(--bg4);color:var(--text)}
 .hbtn-act{background:var(--az)!important;color:#fff!important;border-color:var(--az)!important;font-weight:700}
 
@@ -387,12 +388,12 @@ main{flex:1;display:flex;overflow:hidden}
 #mob-sb-toggle{display:none;background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:4px 8px;flex-shrink:0}
 #mob-bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);z-index:300;padding:4px 0 max(4px,env(safe-area-inset-bottom))}
 #mob-bottom-nav .mob-nav-inner{display:flex;justify-content:space-around;align-items:stretch}
-#mob-bottom-nav button{flex:1;background:none;border:none;color:var(--text3);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px;cursor:pointer;font-size:8px;transition:color .15s;min-width:0}
-#mob-bottom-nav button span.icon{font-size:20px;line-height:1}
+#mob-bottom-nav button{flex:1;background:none;border:none;color:var(--text3);display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;cursor:pointer;font-size:10px;transition:color .15s;min-width:0;touch-action:manipulation;min-height:54px}
+#mob-bottom-nav button span.icon{font-size:22px;line-height:1}
 #mob-bottom-nav button.mob-act{color:var(--az)}
 #mob-bottom-nav button.mob-act span.icon{filter:drop-shadow(0 0 4px var(--az))}
 @media(max-width:768px){
-  body{height:100dvh;overflow:hidden;padding-bottom:64px}
+  body{height:100dvh;overflow:hidden;padding-bottom:68px}
   #mob-bottom-nav{display:block}
   header{padding:0 8px;height:44px;gap:6px}
   header nav{display:none}
@@ -413,15 +414,42 @@ main{flex:1;display:flex;overflow:hidden}
   .sv{font-size:13px}
   .card{padding:10px}
   .ctit{font-size:10px}
-  .btn{font-size:12px;padding:9px 14px;min-height:40px}
+  .btn{font-size:12px;padding:9px 14px;min-height:44px;touch-action:manipulation}
   .irg-n{font-size:32px}
   #sirga-toasts{bottom:10px;right:10px;max-width:calc(100vw - 20px)}
   .nb-drop-menu,.nbg-menu{min-width:160px}
+  /* ── Grid colapso en tabletas y Kindle ── */
+  .vgrid{grid-template-columns:repeat(3,1fr)!important}
+  .tl{grid-template-columns:repeat(2,1fr)!important}
+  .capa-g{grid-template-columns:repeat(2,1fr)!important}
+  .ia-mg{grid-template-columns:repeat(3,1fr)!important}
+  .mov-g{grid-template-columns:repeat(2,1fr)!important}
+  /* ── Grids inline con columna fija (ej. 250px 1fr) ── */
+  [style*="250px"],[style*="230px"]{grid-template-columns:1fr!important}
+  /* ── Botones de horizonte ── */
+  .hbtn{min-height:40px;padding:7px 11px;font-size:11px}
+  /* ── Inputs y selects ── */
+  input,select,textarea{font-size:16px!important}
+}
+@media(max-width:640px){
+  /* Kindle Fire 7 y teléfonos grandes */
+  .vgrid{grid-template-columns:repeat(3,1fr)!important}
+  .tl{grid-template-columns:repeat(2,1fr)!important}
+  .capa-g{grid-template-columns:repeat(2,1fr)!important}
+  .ia-mg{grid-template-columns:repeat(3,1fr)!important}
+  #mob-bottom-nav button{font-size:9px;min-height:52px}
+  /* Grids de 3 columnas inline → 2 columnas */
+  [style*="1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
+  /* Grids de 3+ cols con auto → 2 cols */
+  [style*="1fr 1fr 1fr auto"]{grid-template-columns:1fr 1fr!important}
 }
 @media(max-width:400px){
   .mets{grid-template-columns:1fr 1fr!important}
   .sg{grid-template-columns:1fr 1fr!important}
   .nb{font-size:10px;padding:5px 6px}
+  .vgrid{grid-template-columns:repeat(2,1fr)!important}
+  .ia-mg{grid-template-columns:repeat(2,1fr)!important}
+  .hbtn{min-height:42px;padding:8px 8px;font-size:10px}
 }
 /* ── AUTH ──────────────────────────────────────────────── */
 #auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:99999;display:none;align-items:center;justify-content:center}
