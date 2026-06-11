@@ -7246,9 +7246,9 @@ function renderAll(){
   renderAllRisks();renderAlertas();renderSismos('sismos-dash');
   renderChip();renderDataStatus();
   renderPanelAPI();
-  generarNarrativa(D);
-  renderHistorico();
-  actualizarSplashConDatos(D);
+  if(typeof generarNarrativa==='function')generarNarrativa(D);
+  if(typeof renderHistorico==='function')renderHistorico();
+  if(typeof actualizarSplashConDatos==='function')actualizarSplashConDatos(D);
   if(pg==='mapa'){renderMapaPanel();_actualizarCapasActivas();}
   // Mostrar reportes ciudadanos activos en alertas
   const reps=getReportesActivos(zona||'guatape');
@@ -10201,6 +10201,180 @@ function eliminarFuenteCustom(idx){
   renderFuentesCustomEnPanel();
   toast('🗑️ Fuente eliminada','info');
 }
+
+// ═══════════════════════════════════════════════════════════
+// MÓDULOS V5 — definidos en script principal para disponibilidad inmediata
+// ═══════════════════════════════════════════════════════════
+
+// ── MÓDULO 1: helpers splash ────────────────────────────────
+function actualizarSplashConDatos(datos){
+  if(!datos)return;
+  var irg=Math.round(datos.irg.irg*100);
+  var nivel=datos.irg.nivel;
+  var c=NCV(nivel);
+  var circ=document.getElementById('splash-irg-circle');
+  if(circ){circ.style.color=c;circ.style.borderColor=c;}
+  var val=document.getElementById('splash-irg-val');if(val)val.textContent=irg+'%';
+  var lbl=document.getElementById('splash-irg-lbl');if(lbl)lbl.textContent=nivel.replace(/_/g,' ').toUpperCase();
+  var muni=document.getElementById('splash-municipio');if(muni)muni.textContent='📍 '+datos.muni;
+  var fr=document.getElementById('splash-frase');if(fr)fr.textContent=generarFraseSplash(datos);
+  ocultarSplash();
+}
+function generarFraseSplash(datos){
+  var irg=Math.round(datos.irg.irg*100);
+  var nivel=datos.irg.nivel;
+  var s=datos.s||{};
+  var factores=[];
+  if((s.lluvia||0)>20)factores.push('lluvias acumuladas ('+s.lluvia+'mm)');
+  if((s.embalse||0)>70)factores.push('embalse al '+s.embalse+'%');
+  if(datos.sismos&&datos.sismos.length>0)factores.push('actividad sísmica reciente');
+  if((s.viento||0)>50)factores.push('viento fuerte ('+s.viento+'km/h)');
+  var nivelTxt=nivel.replace(/_/g,' ');
+  if(factores.length>=2)return factores[0]+' y '+factores[1]+' elevan el riesgo a nivel '+nivelTxt+' en '+datos.muni+'.';
+  if(factores.length===1)return factores[0]+' mantiene el riesgo en nivel '+nivelTxt+' en '+datos.muni+'.';
+  if(irg<25)return'Condiciones estables en '+datos.muni+'. Sin alertas críticas activas.';
+  return'Riesgo en nivel '+nivelTxt+' en '+datos.muni+'. IRG: '+irg+'/100.';
+}
+function ocultarSplash(){
+  var s=document.getElementById('splash-screen');
+  if(!s||s.classList.contains('oculto'))return;
+  s.style.animation='none';
+  s.style.opacity='0';
+  s.style.pointerEvents='none';
+  setTimeout(function(){if(s)s.classList.add('oculto');},300);
+}
+
+// ── MÓDULO 2: narrativa ─────────────────────────────────────
+function generarNarrativa(datos){
+  var el=document.getElementById('narrativa-texto');
+  var tsEl=document.getElementById('narrativa-ts');
+  var varEl=document.getElementById('narrativa-variables');
+  if(!el||!datos)return;
+  try{
+    var s=datos.s||{};
+    var irg=Math.round(datos.irg.irg*100);
+    var nivel=datos.irg.nivel.replace(/_/g,' ');
+    var c=NCV(datos.irg.nivel);
+    var lluvia=+(s.lluvia||0);
+    var embalse=+(s.embalse||0);
+    var viento=+(s.viento||0);
+    var hum=+(s.hum||0);
+    var api=datos.api_valor?Number(datos.api_valor).toFixed(1):'—';
+    var mag=(datos.sismos&&datos.sismos[0])?+(datos.sismos[0].magnitude||0):0;
+    var dist_km=(datos.sismos&&datos.sismos[0])?+(datos.sismos[0].distance_km||0):0;
+    var html='';
+    if(datos.sismos&&datos.sismos.length>0&&mag>3){
+      html='Actividad sísmica reciente (<strong style="color:var(--n)">M'+mag+'</strong> a '+dist_km+'km) en combinación con '+(lluvia>20?'suelo húmedo (<strong>'+lluvia+'mm</strong>)':'condiciones secas')+' eleva el riesgo sísmico a <strong style="color:'+c+'">'+nivel+'</strong>. Se recomienda revisar estructuras en zonas de alta pendiente.';
+    }else if(lluvia>25&&embalse>65){
+      html='Las lluvias acumuladas (<strong style="color:var(--az)">'+lluvia+'mm en 24h</strong>) junto con el embalse al <strong style="color:var(--a)">'+embalse+'%</strong> de capacidad mantienen el riesgo en nivel <strong style="color:'+c+'">'+nivel+'</strong> en '+datos.muni+'. La saturación del suelo (API='+api+') incrementa el riesgo en laderas.';
+    }else if(viento>40&&lluvia>10){
+      html='Combinación de viento fuerte (<strong style="color:var(--n)">'+viento+'km/h</strong>) y lluvia activa eleva el riesgo de vendaval a <strong style="color:'+c+'">'+nivel+'</strong> en '+datos.muni+'.';
+    }else if(lluvia>15){
+      html='Lluvia acumulada de <strong style="color:var(--az)">'+lluvia+'mm en 24h</strong> mantiene el riesgo de deslizamiento en nivel <strong style="color:'+c+'">'+nivel+'</strong> en '+datos.muni+'. Índice de saturación suelo (API='+api+') dentro del rango de precaución DAGRAN.';
+    }else{
+      html='Condiciones meteorológicas estables en <strong>'+datos.muni+'</strong>. IRG en <strong style="color:'+c+'">'+irg+'/100</strong> — nivel <strong style="color:'+c+'">'+nivel+'</strong>. Sin eventos de riesgo inminente identificados.';
+    }
+    el.innerHTML=html;
+    if(tsEl)tsEl.textContent=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+    var tags=[];
+    if(lluvia>0)tags.push({lbl:'🌧️ '+lluvia+'mm lluvia',c:'var(--az)'});
+    if(embalse>0)tags.push({lbl:'💧 Embalse '+embalse+'%',c:embalse>70?'var(--a)':'var(--v)'});
+    if(s.temp!=null)tags.push({lbl:'🌡️ '+s.temp+'°C',c:'var(--text3)'});
+    if(hum>0)tags.push({lbl:'💦 Hum '+hum+'%',c:hum>80?'var(--n)':'var(--text3)'});
+    if(datos.sismos&&datos.sismos.length>0)tags.push({lbl:'🌋 '+datos.sismos.length+' sismo(s)',c:'var(--r)'});
+    if(varEl)varEl.innerHTML=tags.map(function(t){return'<span class="narr-vtag" style="background:'+t.c+'20;color:'+t.c+';border:1px solid '+t.c+'40">'+t.lbl+'</span>';}).join('');
+    var panel=document.getElementById('panel-narrativa');
+    if(panel)panel.style.borderLeftColor=c;
+  }catch(e){console.warn('generarNarrativa error:',e.message);}
+}
+
+// ── MÓDULO 3: badge dato ────────────────────────────────────
+function badgeDato(tipo){
+  var map={real:{e:'🟢',t:'DATO REAL',c:'#22c55e'},estimado:{e:'🟡',t:'ESTIMADO',c:'#eab308'},sin_senal:{e:'⚪',t:'SIN SEÑAL',c:'#64748b'}};
+  var b=map[tipo]||map.estimado;
+  return'<span style="font-size:8px;font-weight:700;color:'+b.c+';background:'+b.c+'18;border:1px solid '+b.c+'40;padding:1px 5px;border-radius:3px;margin-left:4px">'+b.e+' '+b.t+'</span>';
+}
+
+// ── MÓDULO 4: panel histórico ───────────────────────────────
+var HIST_EVENTOS=[
+  {fecha:'2022-03-12',municipio:'El Retiro',      tipo:'Deslizamiento',  afect:45,   muertos:2,irg:74,nivel:'alto',    ant_h:6},
+  {fecha:'2021-11-05',municipio:'Caucasia',        tipo:'Inundación',     afect:1200, muertos:0,irg:81,nivel:'muy_alto',ant_h:4},
+  {fecha:'2020-07-18',municipio:'Ituango',         tipo:'Av. torrencial', afect:300,  muertos:5,irg:88,nivel:'critico', ant_h:3},
+  {fecha:'2019-04-22',municipio:'Salgar',          tipo:'Av. torrencial', afect:890,  muertos:4,irg:79,nivel:'alto',    ant_h:5},
+  {fecha:'2023-09-14',municipio:'Vigía del Fuerte',tipo:'Inundación',     afect:2100, muertos:0,irg:83,nivel:'muy_alto',ant_h:8},
+  {fecha:'2022-06-30',municipio:'Fredonia',        tipo:'Deslizamiento',  afect:120,  muertos:1,irg:68,nivel:'alto',    ant_h:4},
+  {fecha:'2023-05-03',municipio:'Liborina',        tipo:'Av. torrencial', afect:78,   muertos:3,irg:77,nivel:'alto',    ant_h:5},
+  {fecha:'2021-08-11',municipio:'San Carlos',      tipo:'Deslizamiento',  afect:55,   muertos:0,irg:61,nivel:'medio',   ant_h:7},
+];
+function renderHistorico(){
+  var tb=document.getElementById('hist-tbody');
+  if(!tb)return;
+  tb.innerHTML=HIST_EVENTOS.map(function(e){
+    var c=NCV(e.nivel);
+    var lbl=e.nivel.replace(/_/g,' ').toUpperCase();
+    return'<tr><td>'+e.fecha+'</td><td style="font-weight:600">'+e.municipio+'</td><td>'+e.tipo+'</td><td style="font-weight:700;color:'+c+'">'+e.irg+'/100</td><td><span class="nivel-bdg" style="background:'+c+'">'+lbl+'</span></td><td>'+e.afect.toLocaleString()+(e.muertos>0?' <span style="color:var(--r);font-size:7.5px">('+e.muertos+' víct.)</span>':'')+'</td><td style="color:var(--v)">'+e.ant_h+'h antes</td></tr>';
+  }).join('');
+}
+
+// ── MÓDULO 5: decisión asistida ─────────────────────────────
+function abrirDecision(){
+  try{
+    var irg=D?Math.round(D.irg.irg*100):0;
+    var nivel=D&&D.irg?D.irg.nivel:'bajo';
+    var muni=D?D.muni:'municipio';
+    var c=NCV(nivel);
+    var bdg=document.getElementById('deci-irg-bdg');
+    if(bdg){bdg.style.background=c;bdg.style.boxShadow='0 0 20px '+c+'55';}
+    var n=document.getElementById('deci-irg-num');if(n)n.textContent=irg+'%';
+    var sb=document.getElementById('deci-irg-sub');if(sb)sb.textContent=nivel.replace(/_/g,' ');
+    var tit=document.getElementById('deci-tit');
+    if(tit)tit.textContent=irg>=75?'NIVEL ROJO — Activar PMGRD inmediatamente':irg>=50?'NIVEL NARANJA — Alerta temprana y monitoreo intensivo':irg>=25?'NIVEL AMARILLO — Precaución y preparación':'NIVEL VERDE — Condiciones normales';
+    var sub=document.getElementById('deci-sub');
+    if(sub)sub.textContent='Protocolo para '+muni+' · '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+    var accs=irg>=75?['Notificar alcalde y gobernación de inmediato','Activar Plan Municipal de Gestión del Riesgo (PMGRD)','Emitir alerta pública por todos los canales disponibles','Evacuar zonas de amenaza alta identificadas en POT','Solicitar apoyo CDGRD si se supera capacidad municipal']:irg>=50?['Notificar alcalde y secretaría de gobierno','Activar monitoreo cada 30 minutos','Alertar comunidades en zonas de amenaza alta','Disponer equipos de respuesta en puntos de encuentro','Verificar estaciones de monitoreo y sensores locales']:irg>=25?['Monitorear evolución del IRG cada hora','Verificar pronóstico meteorológico IDEAM','Recordar protocolos a líderes comunitarios','Revisar inventario de elementos para respuesta']:['Continuar monitoreo rutinario','Aprovechar para actividades de preparación y capacitación'];
+    var lista=document.getElementById('deci-acciones');
+    if(lista)lista.innerHTML=accs.map(function(a,i){return'<li class="deci-acc"><span class="deci-num">'+(i+1)+'</span><span>'+a+'</span></li>';}).join('');
+    var ta=document.getElementById('deci-comunicado-ta');
+    if(ta)ta.value=generarComunicadoOficial(irg,muni,nivel);
+    var modal=document.getElementById('modal-deci');
+    if(modal)modal.classList.add('abierto');
+  }catch(e){console.error('abrirDecision error:',e);}
+}
+function cerrarDecision(){
+  var m=document.getElementById('modal-deci');if(m)m.classList.remove('abierto');
+}
+function copiarComunicado(){
+  var ta=document.getElementById('deci-comunicado-ta');
+  if(!ta)return;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(ta.value).then(function(){toast('📋 Comunicado copiado al portapapeles','ok');}).catch(function(){ta.select();document.execCommand('copy');toast('📋 Copiado','ok');});
+  }else{ta.select();document.execCommand('copy');toast('📋 Copiado','ok');}
+}
+function generarComunicadoOficial(irg,muni,nivel){
+  var ahora=new Date();
+  var fecha=ahora.toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var hora=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var protocolo=irg>=75?'NIVEL ROJO — Activar PMGRD':irg>=50?'NIVEL NARANJA — Alerta temprana':irg>=25?'NIVEL AMARILLO — Precaución':'NIVEL VERDE — Condiciones normales';
+  return'COMUNICADO OFICIAL — '+fecha.toUpperCase()+'\n'+hora+' — COORDINACIÓN CMGRD '+muni.toUpperCase()+'\n\nCon base en el monitoreo del Sistema OMAIRA (IRG actual: '+irg+'/100),\nse informa a la comunidad que las condiciones corresponden a:\n\n'+protocolo+'\n\n[Editar y completar antes de publicar]\n\nAtentamente,\nCoordinador/a CMGRD '+muni+'\nSecretaría de Gobierno Municipal';
+}
+
+// ── MÓDULO 6: feedback reporte ciudadano ────────────────────
+function calcularAjusteIRGPorReporte(tipo_id,sev){
+  var tabla={deslizamiento:{leve:5,moderado:10,grave:15},inundacion:{leve:4,moderado:8,grave:13},avenida_torrencial:{leve:6,moderado:12,grave:15},agrietamiento:{leve:3,moderado:7,grave:10},desbordamiento:{leve:4,moderado:9,grave:14}};
+  return(tabla[tipo_id]&&tabla[tipo_id][sev])||3;
+}
+function mostrarFeedbackReporte(r){
+  var tipo=TIPOS_REPORTE.find(function(t){return t.id===r.tipo_id;});
+  var desc=(r.descripcion||'').toLowerCase();
+  var sev=desc.includes('grave')||desc.includes('severo')?'grave':desc.includes('moderado')?'moderado':'leve';
+  var ajuste=calcularAjusteIRGPorReporte(r.tipo_id,sev);
+  var id_rpt='RPT-'+Date.now().toString(36).toUpperCase();
+  var hora=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var loc=r.lat?' ('+r.lat.toFixed(4)+', '+r.lon.toFixed(4)+')':'';
+  var valid=r.validado?'✅ Validado: '+r.correlacion_sensor:'⏳ Pendiente validación cruzada';
+  var msg='✅ Reporte '+id_rpt+' recibido · '+hora+'\n\n'+(tipo?tipo.ico:'⚠️')+' '+(tipo?tipo.n:r.tipo_id)+' en '+(D?D.muni:'tu zona')+loc+'\n'+valid+'\n\nEl riesgo '+(ajuste>0?'aumentó +'+ajuste+' puntos en el IRG local.':'fue registrado para monitoreo.')+'\n'+(ajuste>10?'Se notificará a las autoridades automáticamente.':'Si el nivel aumenta, se emitirá alerta para tu sector.')+'\n\nGracias por contribuir a la seguridad de tu comunidad.';
+  toast(msg,'ok',8000);
+}
 </script>
 
 
@@ -10763,11 +10937,11 @@ function mostrarDetalle(fuente){
   m.style.display='flex';
 }
 
-// Cerrar modal con Escape
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarDetModal();cerrarDecision();}});
+// Cerrar modales con Escape
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){cerrarDetModal();if(typeof cerrarDecision==='function')cerrarDecision();}});
 
 // ═══════════════════════════════════════════════════════════
-// MÓDULO 1 — SPLASH SCREEN
+// SPLASH — IIFE de inicio (funciones splash ya en script principal)
 // ═══════════════════════════════════════════════════════════
 (function iniciarSplash(){
   const FRASES_HORA={
@@ -10793,242 +10967,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){cerrarDetModal();ce
     }
   },5000);
 })();
-
-function actualizarSplashConDatos(datos){
-  if(!datos)return;
-  const irg=Math.round(datos.irg.irg*100);
-  const nivel=datos.irg.nivel;
-  const c=NCV(nivel);
-  const circ=document.getElementById('splash-irg-circle');
-  if(circ){circ.style.color=c;circ.style.borderColor=c;}
-  const val=document.getElementById('splash-irg-val');if(val)val.textContent=irg+'%';
-  const lbl=document.getElementById('splash-irg-lbl');if(lbl)lbl.textContent=nivel.replace('_',' ').toUpperCase();
-  const muni=document.getElementById('splash-municipio');if(muni)muni.textContent='📍 '+datos.muni;
-  // Frase contextual según datos reales
-  const frase=generarFraseSplash(datos);
-  const fr=document.getElementById('splash-frase');if(fr)fr.textContent=frase;
-  ocultarSplash(); // ocultar splash cuando ya tenemos datos reales
-}
-
-function generarFraseSplash(datos){
-  const irg=Math.round(datos.irg.irg*100);
-  const nivel=datos.irg.nivel;
-  const s=datos.s||{};
-  // Identificar las variables más críticas
-  const factores=[];
-  if(s.lluvia>20)factores.push(`lluvias acumuladas (${s.lluvia}mm)`);
-  if(s.embalse>70)factores.push(`embalse al ${s.embalse}%`);
-  if(datos.sismos?.length>0)factores.push('actividad sísmica reciente');
-  if(s.viento>50)factores.push(`viento fuerte (${s.viento}km/h)`);
-  if(s.hum>85)factores.push(`suelo saturado (${s.hum}%)`);
-  const nivelTxt=nivel.replace('_',' ');
-  if(factores.length>=2)return`${factores[0]} y ${factores[1]} elevan el riesgo a nivel ${nivelTxt} en ${datos.muni}.`;
-  if(factores.length===1)return`${factores[0]} mantiene el riesgo en nivel ${nivelTxt} en ${datos.muni}.`;
-  if(irg<25)return`Condiciones estables en ${datos.muni}. Sin alertas críticas activas.`;
-  return`Riesgo en nivel ${nivelTxt} en ${datos.muni}. IRG: ${irg}/100.`;
-}
-
-function ocultarSplash(){
-  const s=document.getElementById('splash-screen');
-  if(!s||s.classList.contains('oculto'))return;
-  s.style.animation='none';
-  s.style.opacity='0';
-  s.style.pointerEvents='none';
-  setTimeout(function(){if(s)s.classList.add('oculto');},300);
-}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO 2 — NARRATIVA DE RIESGO EN TIEMPO REAL
-// ═══════════════════════════════════════════════════════════
-const PLANTILLAS_NARRATIVA={
-  lluvia_embalse:(v)=>`Las lluvias acumuladas (<strong style="color:var(--az)">${v.lluvia}mm en 24h</strong>) junto con el embalse al <strong style="color:var(--a)">${v.embalse}%</strong> de capacidad mantienen el riesgo de inundación y deslizamiento en nivel <strong style="color:${v.c}">${v.nivel}</strong> en ${v.muni}. La saturación del suelo (API=${v.api}) incrementa adicionalmente el riesgo en laderas pronunciadas.`,
-  sismo:(v)=>`Actividad sísmica reciente (<strong style="color:var(--n)">M${v.mag}</strong> a ${v.dist_km}km) en combinación con ${v.lluvia>20?`suelo húmedo (<strong>${v.lluvia}mm</strong>)`:'condiciones secas'} eleva el riesgo sísmico a <strong style="color:${v.c}">${v.nivel}</strong>. Se recomienda revisar estructuras en zonas de alta pendiente.`,
-  lluvia_sola:(v)=>`Lluvia acumulada de <strong style="color:var(--az)">${v.lluvia}mm en 24h</strong> mantiene el riesgo de deslizamiento en nivel <strong style="color:${v.c}">${v.nivel}</strong> en ${v.muni}. El índice de saturación del suelo (${v.api}) está dentro del rango de precaución según umbrales DAGRAN.`,
-  viento_lluvia:(v)=>`Combinación de viento fuerte (<strong style="color:var(--n)">${v.viento}km/h</strong>) y lluvia activa eleva el riesgo de vendaval y daños estructurales a <strong style="color:${v.c}">${v.nivel}</strong> en ${v.muni}.`,
-  normal:(v)=>`Condiciones meteorológicas estables en <strong>${v.muni}</strong>. IRG en <strong style="color:${v.c}">${v.irg}/100</strong> — nivel <strong style="color:${v.c}">${v.nivel}</strong>. Sin eventos de riesgo inminente identificados. Próxima evaluación automática en 10 minutos.`
-};
-
-function generarNarrativa(datos){
-  const el=document.getElementById('narrativa-texto');
-  const tsEl=document.getElementById('narrativa-ts');
-  const varEl=document.getElementById('narrativa-variables');
-  if(!el||!datos)return;
-  const s=datos.s||{};
-  const irg=Math.round(datos.irg.irg*100);
-  const nivel=datos.irg.nivel.replace('_',' ');
-  const c=NCV(datos.irg.nivel);
-  const v={muni:datos.muni,irg,nivel,c,lluvia:s.lluvia||0,embalse:s.embalse||0,
-    api:datos.api_valor?datos.api_valor.toFixed(1):'—',
-    viento:s.viento||0,mag:datos.sismos?.[0]?.magnitude||0,
-    dist_km:datos.sismos?.[0]?.distance_km||0};
-  let html='';
-  if(datos.sismos?.length>0&&v.mag>3)html=PLANTILLAS_NARRATIVA.sismo(v);
-  else if(v.lluvia>25&&v.embalse>65)html=PLANTILLAS_NARRATIVA.lluvia_embalse(v);
-  else if(v.viento>40&&v.lluvia>10)html=PLANTILLAS_NARRATIVA.viento_lluvia(v);
-  else if(v.lluvia>15)html=PLANTILLAS_NARRATIVA.lluvia_sola(v);
-  else html=PLANTILLAS_NARRATIVA.normal(v);
-  el.innerHTML=html;
-  if(tsEl)tsEl.textContent=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-  // Tags de variables
-  const tags=[];
-  if(s.lluvia>0)tags.push({lbl:`🌧️ ${s.lluvia}mm lluvia`,c:'var(--az)'});
-  if(s.embalse>0)tags.push({lbl:`💧 Embalse ${s.embalse}%`,c:s.embalse>70?'var(--a)':'var(--v)'});
-  if(s.temp!==undefined)tags.push({lbl:`🌡️ ${s.temp}°C`,c:'var(--text3)'});
-  if(s.hum>0)tags.push({lbl:`💦 Hum ${s.hum}%`,c:s.hum>80?'var(--n)':'var(--text3)'});
-  if(datos.sismos?.length>0)tags.push({lbl:`🌋 ${datos.sismos.length} sismo(s)`,c:'var(--r)'});
-  if(varEl)varEl.innerHTML=tags.map(t=>`<span class="narr-vtag" style="background:${t.c}20;color:${t.c};border:1px solid ${t.c}40">${t.lbl}</span>`).join('');
-  // Actualizar border-left según nivel
-  const panel=document.getElementById('panel-narrativa');
-  if(panel)panel.style.borderLeftColor=c;
-}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO 3 — BADGE DE DATO (SIN_SEÑAL) + helper
-// ═══════════════════════════════════════════════════════════
-function badgeDato(tipo){
-  const map={
-    real:{e:'🟢',t:'DATO REAL',c:'#22c55e'},
-    estimado:{e:'🟡',t:'ESTIMADO',c:'#eab308'},
-    sin_señal:{e:'⚪',t:'SIN SEÑAL',c:'#64748b'}
-  };
-  const b=map[tipo]||map.estimado;
-  return`<span style="font-size:8px;font-weight:700;letter-spacing:.04em;color:${b.c};background:${b.c}18;border:1px solid ${b.c}40;padding:1px 5px;border-radius:3px;margin-left:4px">${b.e} ${b.t}</span>`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO 4 — PANEL HISTÓRICO
-// ═══════════════════════════════════════════════════════════
-const EVENTOS_HISTORICOS=[
-  {fecha:'2022-03-12',municipio:'El Retiro',      tipo:'Deslizamiento',  afect:45,   muertos:2,irg:74,nivel:'alto',    ant_h:6},
-  {fecha:'2021-11-05',municipio:'Caucasia',        tipo:'Inundación',     afect:1200, muertos:0,irg:81,nivel:'muy_alto',ant_h:4},
-  {fecha:'2020-07-18',municipio:'Ituango',         tipo:'Av. torrencial', afect:300,  muertos:5,irg:88,nivel:'critico', ant_h:3},
-  {fecha:'2019-04-22',municipio:'Salgar',          tipo:'Av. torrencial', afect:890,  muertos:4,irg:79,nivel:'alto',    ant_h:5},
-  {fecha:'2023-09-14',municipio:'Vigía del Fuerte',tipo:'Inundación',     afect:2100, muertos:0,irg:83,nivel:'muy_alto',ant_h:8},
-  {fecha:'2022-06-30',municipio:'Fredonia',        tipo:'Deslizamiento',  afect:120,  muertos:1,irg:68,nivel:'alto',    ant_h:4},
-  {fecha:'2023-05-03',municipio:'Liborina',        tipo:'Av. torrencial', afect:78,   muertos:3,irg:77,nivel:'alto',    ant_h:5},
-  {fecha:'2021-08-11',municipio:'San Carlos',      tipo:'Deslizamiento',  afect:55,   muertos:0,irg:61,nivel:'medio',   ant_h:7},
-];
-
-function renderHistorico(){
-  const tb=document.getElementById('hist-tbody');
-  if(!tb)return;
-  tb.innerHTML=EVENTOS_HISTORICOS.map(e=>{
-    const c=NCV(e.nivel);
-    const lbl=e.nivel.replace('_',' ').toUpperCase();
-    return`<tr>
-      <td>${e.fecha}</td>
-      <td style="font-weight:600">${e.municipio}</td>
-      <td>${e.tipo}</td>
-      <td style="font-weight:700;color:${c}">${e.irg}/100</td>
-      <td><span class="nivel-bdg" style="background:${c}">${lbl}</span></td>
-      <td>${e.afect.toLocaleString()}${e.muertos>0?` <span style="color:var(--r);font-size:7.5px">(${e.muertos} vict.)</span>`:''}</td>
-      <td style="color:var(--v)">${e.ant_h}h antes</td>
-    </tr>`;
-  }).join('');
-}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO 5 — DECISIÓN ASISTIDA
-// ═══════════════════════════════════════════════════════════
-function abrirDecision(){
-  const irg=D?Math.round(D.irg.irg*100):0;
-  const nivel=D?.irg.nivel||'bajo';
-  const muni=D?.muni||'municipio';
-  const c=NCV(nivel);
-  // Llenar badge IRG
-  const bdg=document.getElementById('deci-irg-bdg');
-  if(bdg){bdg.style.background=c;
-    document.getElementById('deci-irg-num').textContent=irg+'%';
-    document.getElementById('deci-irg-sub').textContent=nivel.replace('_',' ');}
-  // Título y subtítulo
-  const tit=document.getElementById('deci-tit');
-  if(tit)tit.textContent=irg>=75?'NIVEL ROJO — Activar PMGRD inmediatamente':irg>=50?'NIVEL NARANJA — Alerta temprana y monitoreo intensivo':irg>=25?'NIVEL AMARILLO — Precaución y preparación':'NIVEL VERDE — Condiciones normales';
-  const sub=document.getElementById('deci-sub');
-  if(sub)sub.textContent=`Protocolo recomendado para ${muni} · ${new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}`;
-  // Acciones
-  const accs=irg>=75?[
-    'Notificar alcalde y gobernación de inmediato',
-    'Activar Plan Municipal de Gestión del Riesgo (PMGRD)',
-    'Emitir alerta pública por todos los canales disponibles',
-    'Evacuar zonas de amenaza alta identificadas en los POT',
-    'Solicitar apoyo CDGRD si se supera capacidad municipal'
-  ]:irg>=50?[
-    'Notificar alcalde y secretaría de gobierno',
-    'Activar monitoreo cada 30 minutos',
-    'Alertar comunidades en zonas de amenaza alta',
-    'Disponer equipos de respuesta en puntos de encuentro',
-    'Verificar estaciones de monitoreo y sensores locales'
-  ]:irg>=25?[
-    'Monitorear evolución del IRG cada hora',
-    'Verificar pronóstico meteorológico IDEAM',
-    'Recordar protocolos a líderes comunitarios',
-    'Revisar inventario de elementos para respuesta'
-  ]:[
-    'Continuar monitoreo rutinario',
-    'Aprovechar para actividades de preparación y capacitación'
-  ];
-  const lista=document.getElementById('deci-acciones');
-  if(lista)lista.innerHTML=accs.map((a,i)=>`<li class="deci-acc"><span class="deci-num">${i+1}</span><span>${a}</span></li>`).join('');
-  // Comunicado oficial
-  const ta=document.getElementById('deci-comunicado-ta');
-  if(ta)ta.value=generarComunicadoOficial(irg,muni,nivel);
-  document.getElementById('modal-deci').classList.add('abierto');
-}
-
-function cerrarDecision(){
-  const m=document.getElementById('modal-deci');
-  if(m)m.classList.remove('abierto');
-}
-
-function copiarComunicado(){
-  const ta=document.getElementById('deci-comunicado-ta');
-  if(!ta)return;
-  navigator.clipboard.writeText(ta.value).then(()=>toast('📋 Comunicado copiado al portapapeles','ok')).catch(()=>{ta.select();document.execCommand('copy');toast('📋 Copiado','ok');});
-}
-
-function generarComunicadoOficial(irg,muni,nivel){
-  const ahora=new Date();
-  const fecha=ahora.toLocaleDateString('es-CO',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const hora=ahora.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-  const protocolo=irg>=75?'NIVEL ROJO — Activar PMGRD':irg>=50?'NIVEL NARANJA — Alerta temprana':irg>=25?'NIVEL AMARILLO — Precaución':'NIVEL VERDE — Condiciones normales';
-  return`COMUNICADO OFICIAL — ${fecha.toUpperCase()}
-${hora} — COORDINACIÓN CMGRD ${muni.toUpperCase()}
-
-Con base en el monitoreo del Sistema OMAIRA (IRG actual: ${irg}/100),
-se informa a la comunidad que las condiciones corresponden a:
-
-${protocolo}
-
-[Editar y completar antes de publicar]
-
-Atentamente,
-Coordinador/a CMGRD ${muni}
-Secretaría de Gobierno Municipal`;
-}
-
-// ═══════════════════════════════════════════════════════════
-// MÓDULO 6 — FEEDBACK REPORTE CIUDADANO
-// ═══════════════════════════════════════════════════════════
-function calcularAjusteIRGPorReporte(tipo_id,severidad){
-  const tabla={
-    deslizamiento:{leve:5,moderado:10,grave:15},
-    inundacion:{leve:4,moderado:8,grave:13},
-    avenida_torrencial:{leve:6,moderado:12,grave:15},
-    agrietamiento:{leve:3,moderado:7,grave:10},
-    desbordamiento:{leve:4,moderado:9,grave:14}
-  };
-  return tabla[tipo_id]?.[severidad]??3;
-}
-
-function mostrarFeedbackReporte(r){
-  const tipo=TIPOS_REPORTE.find(t=>t.id===r.tipo_id);
-  const sev=r.descripcion?.toLowerCase().includes('grave')||r.descripcion?.toLowerCase().includes('severo')?'grave':r.descripcion?.toLowerCase().includes('moderado')?'moderado':'leve';
-  const ajuste=calcularAjusteIRGPorReporte(r.tipo_id,sev);
-  const id_rpt='RPT-'+Date.now().toString(36).toUpperCase();
-  const hora=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-  const msg=`✅ Reporte ${id_rpt} recibido · ${hora}\n\n${tipo?.ico||'⚠️'} ${tipo?.n||r.tipo_id} en ${D?.muni||'tu zona'}${r.lat?` (${r.lat.toFixed(4)}, ${r.lon.toFixed(4)})`:''}\n${r.validado?'✅ Validado con sensores: '+r.correlacion_sensor:'⏳ Pendiente validación cruzada'}\n\nBasado en tu reporte el riesgo ${ajuste>0?`aumentó +${ajuste} puntos en el IRG local.`:'fue registrado para monitoreo.'}\n${ajuste>10?'Se notificará a las autoridades automáticamente.':'Si el nivel aumenta, se emitirá alerta para tu sector.'}\n\nGracias por contribuir a la seguridad de tu comunidad.`;
-  toast(msg,'ok',8000);
-}
 </script>
 
 <!-- ── MÓDULO 5: BOTÓN FLOTANTE + MODAL DECISIÓN ──────────── -->
