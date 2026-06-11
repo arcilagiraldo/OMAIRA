@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>OMAIRA v4 — Gestión Inteligente de Riesgos</title>
+<title>OMAIRA v6 — Gestión Inteligente de Riesgos</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -566,7 +566,7 @@ main{flex:1;display:flex;overflow:hidden}
   <button id="mob-sb-toggle" onclick="toggleSbMob()">☰</button>
   <div class="logo">
     <div class="logo-i">🛰️</div>
-    <div><h1>OMAIRA v4</h1><small>Colombia · Multi-departamental</small></div>
+    <div><h1>OMAIRA v6</h1><small>Colombia · Multi-departamental</small></div>
   </div>
   <nav>
     <!-- Pantallas principales -->
@@ -1518,7 +1518,7 @@ main{flex:1;display:flex;overflow:hidden}
         <div style="font-size:8px;color:var(--text3)">Fuentes de datos</div>
       </div>
       <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center">
-        <div style="font-size:11px;font-weight:700;color:var(--text2)" id="cfg-inf-version">OMAIRA v4.1</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text2)" id="cfg-inf-version">OMAIRA v6</div>
         <div style="font-size:8px;color:var(--text3)">Versión</div>
       </div>
       <div style="background:var(--bg3);border-radius:6px;padding:8px;text-align:center">
@@ -1581,7 +1581,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:14px;border-bottom:2px solid var(--border)">
     <div style="width:56px;height:56px;background:linear-gradient(135deg,#1d4ed8,#7c3aed);border-radius:14px;display:grid;place-items:center;font-size:26px;flex-shrink:0;box-shadow:0 4px 12px rgba(59,130,246,.3)">🛰️</div>
     <div>
-      <div style="font-size:19px;font-weight:900;letter-spacing:-0.5px">OMAIRA v5.0</div>
+      <div style="font-size:19px;font-weight:900;letter-spacing:-0.5px">OMAIRA v6</div>
       <div style="font-size:10px;color:var(--text2);margin-top:2px">Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
       <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
         <span class="pill pa">municipios activos</span>
@@ -1597,7 +1597,7 @@ main{flex:1;display:flex;overflow:hidden}
   <!-- ¿QUÉ ES OMAIRA? -->
   <div class="ac-s">
     <h2>🎯 ¿Qué es OMAIRA?</h2>
-    <p>OMAIRA es una plataforma web de inteligencia artificial para la predicción, monitoreo y gestión del riesgo de desastres en el el territorio. Corre directamente en el navegador del operador — sin instalación, sin servidores propios — e integra en tiempo real datos de 17 fuentes institucionales y públicas para calcular un Índice de Riesgo Global (IRG) con credibilidad probabilística calibrada.</p>
+    <p>OMAIRA es una plataforma web de inteligencia artificial para la predicción, monitoreo y gestión del riesgo de desastres en el el territorio. Corre directamente en el navegador del operador — sin instalación, sin servidores propios — e integra en tiempo real datos de 27 fuentes institucionales y públicas para calcular un Índice de Riesgo Global (IRG) con credibilidad probabilística calibrada.</p>
     <p><strong>Principio fundamental:</strong> OMAIRA diferencia siempre entre dato real (proveniente de una fuente activa verificada) y estimado (calculado cuando la fuente no está disponible). Nunca presenta ficción como hecho. Cada variable indica su origen y nivel de confianza.</p>
     <p><strong>Población protegida:</strong> ~5.8 millones de habitantes · municipios activos · 9 subregiones · Marco Sendai 2015-2030.</p>
   </div>
@@ -1609,8 +1609,8 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><th>Capa</th><th>Tecnología</th><th>Función</th></tr>
       <tr><td><strong>Presentación</strong></td><td>HTML5 · JavaScript ES2022 · Leaflet.js · Chart.js</td><td>Dashboard interactivo, mapas en tiempo real, gráficos de predicción, alertas visuales</td></tr>
       <tr><td><strong>Datos en tiempo real</strong></td><td>Open-Meteo · USGS · ADS-B · TomTom · NOAA ONI</td><td>Clima, sismos, vuelos, tráfico, índice ENSO — consultados cada 15 minutos</td></tr>
-      <tr><td><strong>Núcleo científico</strong></td><td>JavaScript · API Index · Pesos ENSO · IDF DAGRAN</td><td>IRG dinámico con 23 tipos de riesgo, modelo H×E×V×F, calibrado metodología DAGRAN</td></tr>
-      <tr><td><strong>IA multi-modelo</strong></td><td>Claude API · OpenAI GPT-4o · Gemini Flash · Motor local</td><td>Diagnóstico automático, análisis de riesgo con lenguaje natural, predicción multi-horizonte</td></tr>
+      <tr><td><strong>Núcleo científico</strong></td><td>JavaScript · API Index · Pesos ENSO · IDF DAGRAN</td><td>IRG dinámico con 24 tipos de riesgo, modelo H×E×V×F, calibrado metodología DAGRAN</td></tr>
+      <tr><td><strong>IA multi-modelo</strong></td><td>Claude API · OpenAI GPT-4o mini · Gemini Flash · Motor local</td><td>Diagnóstico automático, análisis de riesgo con lenguaje natural, predicción multi-horizonte</td></tr>
       <tr><td><strong>Credibilidad</strong></td><td>Brier Score · ECE · Isotonic Regression · Platt Scaling</td><td>Calibración probabilística automática, peso dinámico por fuente, detección sobreconfianza</td></tr>
       <tr><td><strong>Persistencia local</strong></td><td>IndexedDB (50MB+) · localStorage</td><td>Historial 90 días lluvia, 30 días IRG, outcomes para calibración, aprendizaje continuo</td></tr>
     </table>
@@ -1659,12 +1659,12 @@ main{flex:1;display:flex;overflow:hidden}
     <h2>🔬 Motor científico — cómo se calculan los riesgos</h2>
 
     <h3>1. Índice de Riesgo Global (IRG)</h3>
-    <div class="fbx">IRG = Σ(<span>wᵢ × vᵢ</span>) &nbsp; donde i = 1…23 variables<br>
+    <div class="fbx">IRG = Σ(<span>wᵢ × vᵢ</span>) &nbsp; donde i = 1…24 variables<br>
       <span class="cm">// wᵢ = pesos dinámicos ajustados por ENSO + estación climática</span><br>
       <span class="cm">// vᵢ = variable normalizada en [0,1] — REAL si viene de fuente activa, ESTIMADO si no</span>
     </div>
 
-    <h3>2. Modelo de riesgo por tipo — 23 categorías</h3>
+    <h3>2. Modelo de riesgo por tipo — 24 categorías</h3>
     <div class="fbx">RIESGO = (<span>H</span> × <span>E</span> × <span>V</span>) × <span>F_clima</span><br>
       <span class="cm">// H = Amenaza: probabilidad del peligro físico (lluvia, sismo, temperatura...)</span><br>
       <span class="cm">// E = Exposición: max(0.30, (pop/50.000)×0.35 + (pendiente/45)×0.65)</span><br>
@@ -1700,7 +1700,7 @@ main{flex:1;display:flex;overflow:hidden}
     <h3>5. Memoria hidrológica acumulativa</h3>
     <p>El sistema guarda en IndexedDB los últimos 90 días de lluvia por municipio. Esto permite calcular el Antecedent Precipitation Index (API) real acumulado, la sequía por déficit real vs climatología normal de cada subregión, y mejorar la predicción de crecientes con suelo saturado. El modelo mejora automáticamente con el tiempo sin requerir intervención.</p>
 
-    <h3>5. Prioridad de fuentes en los sensores</h3>
+    <h3>6. Prioridad de fuentes en los sensores</h3>
     <p>Cuando múltiples fuentes proveen el mismo dato (ej: lluvia), el sistema aplica jerarquía: <strong>SAMA</strong> (máxima — dato local calibrado) → <strong>SIATA</strong> (Área Metro) → <strong>IDEAM</strong> (ponderado 60/40 con Open-Meteo) → <strong>OpenWeatherMap</strong> (refinamiento) → <strong>Open-Meteo</strong> (base siempre disponible).</p>
   </div>
 
@@ -1746,7 +1746,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>GPT-4o mini (OpenAI)</strong></td><td>LLM avanzado</td><td>API key requerida</td><td>Diagnóstico rápido, síntesis de múltiples variables, comparación con eventos históricos</td></tr>
       <tr><td><strong>Gemini Flash (Google)</strong></td><td>LLM avanzado · Gratuito</td><td>Key gratuita en AI Studio</td><td>Análisis multimodal, evaluación de escenarios, comunicación de riesgo al público</td></tr>
     </table>
-    <p>Los modelos externos reciben como contexto el IRG actual, los valores de los 23 sensores, las fuentes activas y el historial de las últimas 72h. No tienen acceso directo a datos personales ni a la base de datos local.</p>
+    <p>Los modelos externos reciben como contexto el IRG actual, los valores de los 24 sensores, las fuentes activas y el historial de las últimas 72h. No tienen acceso directo a datos personales ni a la base de datos local.</p>
   </div>
 
   <!-- PREDICCIÓN MULTI-HORIZONTE -->
@@ -1766,7 +1766,7 @@ main{flex:1;display:flex;overflow:hidden}
   <!-- COBERTURA -->
   <div class="ac-s">
     <h2>🗺️ Cobertura territorial</h2>
-    <p>OMAIRA cubre los <strong>municipios del territorio</strong> (de los 125 totales del departamento) organizados en 9 subregiones, con datos DANE 2026 verificados, altitudes corregidas y relieves calibrados. Cada municipio tiene configurados su fuente hídrica principal, riesgo predominante histórico y nivel de cobertura instrumental SAMA.</p>
+    <p>OMAIRA cubre <strong>123 municipios</strong> (de los 125 totales del departamento) organizados en 9 subregiones, con datos DANE 2026 verificados, altitudes corregidas y relieves calibrados. Cada municipio tiene configurados su fuente hídrica principal, riesgo predominante histórico y nivel de cobertura instrumental SAMA.</p>
     <p>Los <strong>umbrales IDF</strong> (Intensidad-Duración-Frecuencia) para la activación de alertas están calibrados por subregión según metodología DAGRAN: Valle de Aburrá (28mm/1h), Oriente (35mm/1h), Urabá (48mm/1h), etc.</p>
   </div>
 
@@ -1796,7 +1796,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><th>Componente</th><th>Tecnología</th><th>Descripción</th></tr>
       <tr><td><strong>Frontend</strong></td><td>GitHub Pages</td><td>App web estática sin servidor propio. Acceso desde cualquier dispositivo con navegador.</td></tr>
       <tr><td><strong>Backend / APIs externas</strong></td><td>Railway (FastAPI + Python)</td><td>Servidor en la nube que integra REPS, SIVIGILA, ENSO, SISAIRE, DANE, ANSV y las sirve con un solo endpoint optimizado.</td></tr>
-      <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 7 días.</td></tr>
+      <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 8 horas.</td></tr>
       <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
       <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
       <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos. 3 reportes del mismo tipo en la misma zona activan una alerta automática confirmada.</td></tr>
@@ -1805,9 +1805,9 @@ main{flex:1;display:flex;overflow:hidden}
 
   <!-- PIE -->
   <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;margin-top:10px;border:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v5.0 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
+    <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v6 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
     <div style="font-size:8px;color:var(--text3);line-height:17px">
-      125 municipios · 24 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
+      123 municipios · 24 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
       Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score
     </div>
@@ -1865,7 +1865,7 @@ main{flex:1;display:flex;overflow:hidden}
 <script>
 'use strict';
 // ═══════════════════════════════════════════════════════════
-// OMAIRA v4 — Datos REALES cuando existen, ESTIMADOS cuando no.
+// OMAIRA v6 — Datos REALES cuando existen, ESTIMADOS cuando no.
 // Siempre indicado claramente. Nunca ficticios sin advertencia.
 // ═══════════════════════════════════════════════════════════
 // En Railway la variable RAILWAY_PUBLIC_DOMAIN se inyecta automáticamente
@@ -1899,7 +1899,7 @@ const MUNS=[
   ['la_union','La Unión',5.9778,-75.3622,'Oriente',24374,2200,'montañoso','quebradas','deslizamiento','media'],
   ['sonson','Sonsón',5.7108,-75.3097,'Oriente',31842,2485,'montañoso','rios','deslizamiento','media'],
   ['abejorral','Abejorral',5.7928,-75.4281,'Oriente',21126,2250,'montañoso','rios','deslizamiento','media'],
-  ['santuario','Santuario',5.7122,-75.9703,'Oriente',26000,1700,'montañoso','quebradas','deslizamiento','media'],
+  ['santuario','El Santuario',6.1361,-75.2722,'Oriente',26000,2100,'montañoso','quebradas','deslizamiento','media'],
   ['cocorna','Cocorná',6.0608,-75.1886,'Oriente',16000,800,'montañoso','rios','inundacion','baja'],
   ['san_francisco','San Francisco',6.0394,-75.1078,'Oriente',8000,1100,'montañoso','rios','inundacion','baja'],
   ['san_luis','San Luis',6.0408,-74.9994,'Oriente',12000,950,'montañoso','rios','inundacion','baja'],
@@ -1916,9 +1916,9 @@ const MUNS=[
   ['angostura','Angostura',6.8894,-75.3394,'Norte',12558,1750,'montañoso','rio_cauca','deslizamiento','baja'],
   ['guadalupe','Guadalupe',6.9403,-75.2922,'Norte',7031,1450,'montañoso','rio_cauca','deslizamiento','baja'],
   ['valdivia','Valdivia',7.1628,-75.4439,'Norte',18000,900,'montañoso','rio_cauca','movimiento_masa','baja'],
-  ['taraza','Tarazá',7.5803,-75.3972,'Norte',34782,100,'plana_tropical','rio_cauca','inundacion','baja'],
-  ['caceres','Cáceres',7.5892,-75.3392,'Norte',28944,50,'plana_tropical','rio_cauca','inundacion','baja'],
-  ['zaragoza','Zaragoza',7.4961,-74.8683,'Norte',21648,140,'ondulado','rios','inundacion','baja'],
+  ['taraza','Tarazá',7.5803,-75.3972,'Bajo Cauca',34782,100,'plana_tropical','rio_cauca','inundacion','baja'],
+  ['caceres','Cáceres',7.5892,-75.3392,'Bajo Cauca',28944,50,'plana_tropical','rio_cauca','inundacion','baja'],
+  ['zaragoza','Zaragoza',7.4961,-74.8683,'Bajo Cauca',21648,140,'ondulado','rios','inundacion','baja'],
   ['anori','Anorí',7.0714,-75.1383,'Norte',21307,1350,'montañoso','rios','deslizamiento','baja'],
   ['campamento','Campamento',6.9519,-75.2817,'Norte',10063,1600,'montañoso','quebradas','deslizamiento','baja'],
   ['belmira','Belmira',6.6092,-75.6650,'Norte',6148,2550,'montañoso','rios','variabilidad_climatica','baja'],
@@ -1952,7 +1952,7 @@ const MUNS=[
   ['heliconia','Heliconia',6.2317,-75.7461,'Occidente',4961,1200,'montañoso','quebradas','deslizamiento','baja'],
   ['angelopolis','Angelpolis',6.1386,-75.7028,'Occidente',6214,1750,'montañoso','quebradas','deslizamiento','baja'],
   ['titiribí','Titiribí',6.0664,-75.7897,'Occidente',14000,1600,'montañoso','rios','deslizamiento','baja'],
-  ['venecia','Venecia',5.9572,-75.7703,'Occidente',13000,1750,'montañoso','rios','deslizamiento','baja'],
+  ['venecia','Venecia',5.9572,-75.7703,'Suroeste',13000,1750,'montañoso','rios','deslizamiento','baja'],
   ['buritica','Buriticá',6.7147,-75.8814,'Occidente',11168,1100,'montañoso','rio_cauca','deslizamiento','sin'],
   ['giraldo','Giraldo',6.5547,-75.9575,'Occidente',6491,1950,'montañoso','quebradas','deslizamiento','sin'],
   ['cañasgordas','Cañasgordas',6.7339,-75.9994,'Occidente',14000,1650,'montañoso','rios','deslizamiento','sin'],
@@ -1981,23 +1981,27 @@ const MUNS=[
   ['dabeiba','Dabeiba',7.0050,-76.2661,'Urabá',24937,800,'montañoso','rios','movimiento_masa','sin'],
   ['vigia_f','Vigía del Fuerte',6.6019,-76.8919,'Urabá',8000,50,'plano_humedo','rios','inundacion','sin'],
   ['murindo','Murindó',6.9803,-76.7236,'Urabá',6023,50,'selva_humeda','rios','inundacion','sin'],
-  // ── Municipios completados para llegar a 125 ─────────────────
+  // ── Municipios completados — duplicados eliminados, faltantes agregados ──
   ['amaga','Amagá',6.0366,-75.7022,'Valle de Aburrá',33092,1500,'montañoso','rio_medellin','deslizamiento','baja'],
-  ['armenia_ant','Armenia (Ant.)',6.0822,-75.7500,'Occidente',5292,1300,'ondulado','rios','deslizamiento','sin'],
+  ['san_rafael','San Rafael',6.2939,-75.0294,'Oriente',11600,1050,'montañoso','rios','inundacion','baja'],
   ['gomez_plata','Gómez Plata',6.5394,-75.1831,'Norte',10420,1600,'montañoso','rios','deslizamiento','sin'],
   ['guarne','Guarne',6.2808,-75.4364,'Oriente',66158,2100,'montañoso','rio_negro','deslizamiento','baja'],
   ['jardin','Jardín',5.5983,-75.8233,'Suroeste',15531,1750,'montañoso','rios','deslizamiento','baja'],
   ['la_pintada','La Pintada',5.7517,-75.5833,'Suroeste',8722,450,'ondulado','rio_cauca','inundacion','sin'],
   ['montebello','Montebello',5.9369,-75.4978,'Suroeste',6477,2200,'montañoso','rios','deslizamiento','sin'],
-  ['narino_ant','Nariño (Ant.)',5.9939,-75.1658,'Oriente',11059,1800,'montañoso','rios','deslizamiento','sin'],
-  ['san_andres_cuerquia','San Andrés de Cuerquia',6.5858,-75.9083,'Norte',9000,2550,'montañoso','rios','deslizamiento','sin'],
+  ['carolina_principe','Carolina del Príncipe',6.7394,-75.0817,'Norte',5400,1800,'montañoso','quebradas','deslizamiento','sin'],
+  ['santo_domingo','Santo Domingo',6.4644,-75.0394,'Nordeste',21000,1800,'montañoso','rios','deslizamiento','baja'],
   ['san_carlos','San Carlos',6.1878,-74.9944,'Oriente',21000,1000,'montañoso','embalse_penol','inundacion','sin'],
   ['san_pedro_milagros','San Pedro de los Milagros',6.4753,-75.5669,'Norte',28000,2450,'montañoso','rios','deslizamiento','sin'],
   ['santa_barbara','Santa Bárbara',5.8778,-75.5753,'Suroeste',21000,1850,'montañoso','rios','deslizamiento','sin'],
   ['tamesis','Támesis',5.6667,-75.7167,'Suroeste',16000,1700,'montañoso','rios','deslizamiento','sin'],
   ['valparaiso','Valparaíso',5.7264,-75.5967,'Suroeste',9000,1650,'ondulado','rios','deslizamiento','sin'],
-  ['vigia_fuerte','Vigía del Fuerte',6.0833,-76.8833,'Occidente',5000,100,'selva_humeda','rio_atrato','inundacion','sin'],
+  ['san_roque','San Roque',6.5822,-75.0461,'Nordeste',15500,1480,'montañoso','rios','deslizamiento','sin'],
   ['yondo','Yondó',6.7728,-74.4392,'Magdalena Medio',18000,75,'plana_tropical','rio_magdalena','inundacion','sin'],
+  ['puerto_berrio','Puerto Berrío',6.4894,-74.4028,'Magdalena Medio',44000,75,'plana_tropical','rio_magdalena','inundacion','baja'],
+  ['puerto_nare','Puerto Nare',6.1953,-74.5842,'Magdalena Medio',19000,125,'plana_tropical','rio_magdalena','inundacion','sin'],
+  ['puerto_triunfo','Puerto Triunfo',5.8756,-74.7181,'Magdalena Medio',17500,160,'ondulado','rio_magdalena','inundacion','sin'],
+  ['hispania','Hispania',5.8319,-76.0956,'Suroeste',5200,1650,'montañoso','rios','deslizamiento','sin'],
 ];
 const MUNICIPIOS=[...new Map(MUNS.map(m=>[m[0],{id:m[0],n:m[1],lat:m[2],lon:m[3],sub:m[4],pop:m[5],alt:m[6],rel:m[7],agua:m[8],rp:m[9],cob:m[10],nv:'bajo'}])).values()];
 
@@ -2550,7 +2554,7 @@ function exportarConfig(){
       prefs:cargarPrefs(),
       zona:cargarZona(),
       fecha:new Date().toISOString(),
-      version:'OMAIRA v4'
+      version:'OMAIRA v6'
     };
     const blob=new Blob([JSON.stringify(cfg,null,2)],{type:'application/json'});
     const a=document.createElement('a');
@@ -3457,7 +3461,7 @@ function construirSensores(z,dr){
 // ═══════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════════════
-// NÚCLEO CIENTÍFICO OMAIRA v4.1 — Implementación hoja de ruta completa
+// NÚCLEO CIENTÍFICO OMAIRA v6 — Implementación hoja de ruta completa
 // Basado en: Sendai Framework, IPCC AR6, UNDRR, metodología DAGRAN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -6093,7 +6097,7 @@ async function runIA(){
   if(modeloIA==='local'||modeloIA==='simulado'){
     setP('ia-pf','ia-plbl',50,`Ejecutando ${modeloInfo?.n}…`);
     resultado=analisLocal();
-    resultado.modelo_usado=modeloIA==='local'?'Motor local OMAIRA v4 (reglas expertas)':'Simulación OMAIRA v4 (demo)';
+    resultado.modelo_usado=modeloIA==='local'?'Motor local OMAIRA v6 (reglas expertas)':'Simulación OMAIRA v6 (demo)';
     modelo_usado_real=modeloIA;
     setP('ia-pf','ia-plbl',100,'Análisis completado ✓');
     addLog('ia-log',`✅ ${modeloInfo?.n} ejecutado correctamente`,'#22c55e');
@@ -7629,7 +7633,7 @@ async function exportarDB(){
       dbQuery('temp_ext',zona,0),dbQuery('reportes',zona,0),
     ]);
     const datos={
-      version:'OMAIRA v4',zona,municipio:D?.muni||zona,
+      version:'OMAIRA v6',zona,municipio:D?.muni||zona,
       exportado:new Date().toISOString(),
       lluvia,irg,sismos,alertas,temp_ext:temp,reportes,
     };
@@ -8122,7 +8126,7 @@ function cargarFuentesPersonalizadas(){
 
 // ═══ SISTEMA DE CREDIBILIDAD PROBABILÍSTICA ═══
 // ═══════════════════════════════════════════════════════════════════════════
-// OMAIRA v4 — SISTEMA DE CREDIBILIDAD PROBABILÍSTICA
+// OMAIRA v6 — SISTEMA DE CREDIBILIDAD PROBABILÍSTICA
 // Estado del arte: Brier Score, ECE, Isotonic Regression, Ensemble ponderado
 // Aprendizaje continuo incremental, calibración, manejo de incertidumbre
 // ═══════════════════════════════════════════════════════════════════════════
