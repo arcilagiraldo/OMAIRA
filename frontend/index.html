@@ -3169,6 +3169,9 @@ async function obtenerReales(z){
         if(d.sivigila){res.ext_sivigila=d.sivigila;if(d.sivigila.fuente_real)res.fuentes_activas.push('SIVIGILA');}
         // También ENSO desde backend si el proxy NOAA falló
         if(!res.enso_oni&&d.enso?.factor_clima){res.enso_oni=+d.enso.factor_clima.toFixed(3);}
+        // Nivel embalse real (XM/SIMEM) — solo si el backend lo confirmó como fuente_real
+        if(d.embalse?.fuente_real&&d.embalse?.nivel_embalse_pct!=null)
+          res.ext_embalse=d.embalse.nivel_embalse_pct;
       }catch(e){res.fuentes_error.push('BackendExt:'+e.message);}
     })(),
   ]);
@@ -3229,7 +3232,8 @@ function construirSensores(z,dr){
     // Otros embalses: usar proxy de lluvia también
     embalse_est=tieneEmb ? Math.min(99,Math.max(30, 50 + (s.lluvia||0)*0.5)) : 0;
   }
-  s.embalse = tieneEmb ? +embalse_est.toFixed(1) : 0;
+  if(tieneEmb&&dr?.ext_embalse!=null){s.embalse=+dr.ext_embalse.toFixed(1);rf.embalse=true;}
+  else s.embalse=tieneEmb?+embalse_est.toFixed(1):0;
   s.caudal=+(SR(z,7)*(esCalido?3:10)+0.3).toFixed(2);
   s.nivel_rio=+(SR(z,8)*(esCalido?1.5:4)+0.2).toFixed(2);
 

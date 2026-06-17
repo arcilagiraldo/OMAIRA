@@ -55,7 +55,7 @@ async def get_enso():
 @router.get("/resumen/{zona_id}")
 async def get_resumen_fuentes(zona_id: str):
     """Todas las fuentes en una sola llamada — para el panel del dashboard."""
-    (dane, reps, ansv, sivigila, sisaire, sismicidad, enso) = await asyncio.gather(
+    (dane, reps, ansv, sivigila, sisaire, sismicidad, enso, embalse) = await asyncio.gather(
         svc.obtener_dane(zona_id),
         svc.obtener_reps(zona_id),
         svc.obtener_ansv(zona_id),
@@ -63,10 +63,11 @@ async def get_resumen_fuentes(zona_id: str):
         svc.obtener_sisaire(zona_id),
         svc.obtener_sismicidad(zona_id),
         svc.obtener_enso(),
+        svc.obtener_nivel_embalse_xm(zona_id),
     )
     here = await svc.obtener_here(zona_id, os.getenv("HERE_API_KEY"))
 
-    todas = [dane, reps, ansv, sivigila, sisaire, sismicidad, enso, here]
+    todas = [dane, reps, ansv, sivigila, sisaire, sismicidad, enso, embalse, here]
     activas = sum(1 for f in todas if f.get("fuente_real"))
 
     return {
@@ -83,5 +84,6 @@ async def get_resumen_fuentes(zona_id: str):
         "sisaire": sisaire,
         "sismicidad": sismicidad,
         "enso": enso,
+        "embalse": embalse,
         "here": here,
     }
