@@ -3169,6 +3169,9 @@ async function obtenerReales(z){
         if(d.sivigila){res.ext_sivigila=d.sivigila;if(d.sivigila.fuente_real)res.fuentes_activas.push('SIVIGILA');}
         // También ENSO desde backend si el proxy NOAA falló
         if(!res.enso_oni&&d.enso?.factor_clima){res.enso_oni=+d.enso.factor_clima.toFixed(3);}
+        // Nivel embalse real (XM/SIMEM) — solo si el backend lo confirmó como fuente_real
+        if(d.embalse?.fuente_real&&d.embalse?.nivel_embalse_pct!=null)
+          res.ext_embalse=d.embalse.nivel_embalse_pct;
       }catch(e){res.fuentes_error.push('BackendExt:'+e.message);}
     })(),
   ]);
