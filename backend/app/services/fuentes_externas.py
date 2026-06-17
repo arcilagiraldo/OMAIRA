@@ -1442,3 +1442,84 @@ async def obtener_sismicidad(zona_id: str) -> Dict:
         }
         _cache[cache_key] = (ahora - 1740, fallback)  # reintentar en 1 min
         return fallback
+
+
+# ── Embalses — Nivel real vía API pública XM/SIMEM ───────────────────────────
+# Fuente: https://www.simem.co/backend-files/api/PublicData?datasetid=843497
+# Dataset: Reservas Hidráulicas del SIN — actualización diaria ~08h COT
+_EMBALSE_XM: Dict[str, str] = {
+    "guatape":    "PENOL",
+    "el_penol":   "PENOL",
+    "san_carlos": "PENOL",
+    "alejandria": "PENOL",
+    "ituango":    "ITUANGO",
+}
+
+
+async def obtener_nivel_embalse_xm(zona_id: str) -> Dict:
+    """Nivel real del embalse vía API pública XM/SIMEM (sin API key). Caché 4 h."""
+    codigo = _EMBALSE_XM.get(zona_id)
+    if not codigo:
+        return {
+            "fuente_real": False,
+            "modo_degradado": True,
+            "zona_id": zona_id,
+            "motivo": "sin embalse mapeado para este municipio",
+        }
+
+    cache_key = f"embalse_xm:{codigo}"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 14400:  # 4 h — datos son diarios
+        return cached[1]
+
+    fecha_hoy  = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    fecha_base = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%d")
+    url = (
+        "https://www.simem.co/backend-files/api/PublicData"
+        f"?datasetid=843497&startdate={fecha_base}&enddate={fecha_hoy}"
+    )
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                data = await resp.json(content_type=None)
+
+        if not data.get("success"):
+            raise ValueError(f"SIMEM: {data.get('message', 'error desconocido')}")
+
+        records = data.get("result", {}).get("records", [])
+        propios = [r for r in records if r.get("CodigoEmbalse") == codigo]
+        if not propios:
+            raise ValueError(f"sin registros para embalse {codigo} en {fecha_base}–{fecha_hoy}")
+
+        ultimo = sorted(propios, key=lambda r: r.get("Fecha", ""), reverse=True)[0]
+        nivel_pct = round(float(ultimo["VolumenUtilPorcentaje"]) * 100, 1)
+
+        resultado = {
+            "fuente": "XM — SIMEM Reservas Hidráulicas (dataset 843497)",
+            "fuente_id": "XM_EMBALSE",
+            "zona_id": zona_id,
+            "codigo_embalse": codigo,
+            "fecha_dato": ultimo.get("Fecha"),
+            "nivel_embalse_pct": nivel_pct,
+            "fuente_real": True,
+            "modo_degradado": False,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"XM Embalse {codigo} no disponible para {zona_id}: {e}")
+        fallback = {
+            "fuente_real": False,
+            "modo_degradado": True,
+            "zona_id": zona_id,
+            "codigo_embalse": codigo,
+            "motivo": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora - 13200, fallback)  # reintentar en 1 h
+        return fallback

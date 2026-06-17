@@ -8,6 +8,7 @@ import aiohttp
 from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
 import logging
+from app.services.fuentes_externas import obtener_nivel_embalse_xm
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ async def obtener_meteo_real(
     Retorna datos meteorológicos reales de Open-Meteo.
     - Cachea 10 min para no saturar la API gratuita.
     - Fallback silencioso a promedios históricos si no hay red.
+    - nivel_embalse_pct enriquecido con dato real XM/SIMEM cuando disponible.
     """
     lat = lat or COORDS_ZONAS.get(zona_id, (6.2336, -75.1567))[0]
     lon = lon or COORDS_ZONAS.get(zona_id, (6.2336, -75.1567))[1]
@@ -62,17 +64,26 @@ async def obtener_meteo_real(
     if cached and ahora - cached[0] < CACHE_TTL:
         return cached[1]
 
+    es_real = True
     try:
         datos = await _fetch(lat, lon, zona_id)
-        _cache[cache_key] = (ahora, datos)
         logger.info(f"Open-Meteo OK para {zona_id}: lluvia={datos['lluvia_24h_mm']}mm, T={datos['temperatura_c']}°C")
-        return datos
     except Exception as e:
         logger.warning(f"Open-Meteo no disponible para {zona_id} ({type(e).__name__}) — usando promedios históricos")
-        fallback = _fallback(zona_id, lat, lon)
-        # Cache corto: reintentar en 1 min
-        _cache[cache_key] = (ahora - CACHE_TTL + 60, fallback)
-        return fallback
+        datos = _fallback(zona_id, lat, lon)
+        es_real = False
+
+    # Enriquecer nivel_embalse_pct con dato real XM/SIMEM (reemplaza estimación)
+    try:
+        xm = await obtener_nivel_embalse_xm(zona_id)
+        if xm.get("fuente_real") and xm.get("nivel_embalse_pct") is not None:
+            datos["nivel_embalse_pct"] = xm["nivel_embalse_pct"]
+    except Exception as e_xm:
+        logger.warning(f"XM embalse no pudo enriquecer meteo para {zona_id}: {e_xm}")
+
+    # TTL completo si Open-Meteo respondió; cache corto (reintentar en 1 min) si no
+    _cache[cache_key] = (ahora if es_real else ahora - CACHE_TTL + 60, datos)
+    return datos
 
 
 async def _fetch(lat: float, lon: float, zona_id: str) -> Dict:

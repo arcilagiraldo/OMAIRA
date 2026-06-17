@@ -2915,9 +2915,10 @@ async function apiVuelos(lat,lon){
   // Intentar directo primero (funciona desde servidor HTTP)
   // Si falla por CORS, intentar con proxy
   const urlDirecta=`https://opendata.adsb.fi/api/v2/lat/${lat}/lon/${lon}/dist/200`;
+  const _B=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
   const adsbUrls=[
-    urlDirecta,  // Directo — funciona desde servidor HTTP o si tiene CORS
-    `https://corsproxy.io/?${encodeURIComponent(urlDirecta)}`, // Proxy público
+    urlDirecta,  // Directo — funciona si el servidor tiene CORS habilitado
+    `${_B}/api/v1/proxy/adsb?lat=${lat}&lon=${lon}`,
   ];
   let r=null;
   for(const url of adsbUrls){
@@ -3089,7 +3090,7 @@ async function obtenerReales(z){
     (async()=>{
       const noaaUrls=[
         'http://localhost:8080/proxy/noaa/oni.ascii.txt',
-        'https://corsproxy.io/?'+encodeURIComponent('https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt'),
+        (window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app')+'/api/v1/proxy/noaa-oni',
       ];
       for(const nu of noaaUrls){
         try{
@@ -4367,7 +4368,8 @@ async function apiIRIS_SGC(){
 async function apiGDACS(){
   // API JSON de GDACS está rota — usar RSS feed público que siempre funciona
   const rssUrl='https://www.gdacs.org/xml/rss.xml';
-  const urls=['http://localhost:8080/proxy/gdacs-rss',rssUrl,`https://corsproxy.io/?${encodeURIComponent(rssUrl)}`];
+  const _BG=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+  const urls=['http://localhost:8080/proxy/gdacs-rss',rssUrl,`${_BG}/api/v1/proxy/gdacs`];
   const getTag=(txt,tag)=>{const m=txt.match(new RegExp(`<(?:gdacs:|geo:)?${tag}>([^<]+)<`));return m?m[1].trim():'';};
   for(const u of urls){
     try{
