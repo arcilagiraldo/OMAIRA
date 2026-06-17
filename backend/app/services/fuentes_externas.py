@@ -1307,7 +1307,8 @@ async def obtener_enso() -> Dict:
         lineas = [l.strip() for l in texto.strip().splitlines()
                   if l.strip() and not l.strip().startswith("SEAS")]
         ultima = lineas[-1].split()
-        seas, yr, oni = ultima[0], int(ultima[1]), float(ultima[2])
+        # Formato NOAA: SEAS YR TOTAL ANOM — índice 3 es la anomalía ONI, no el índice 2 (TOTAL SST ~28°C)
+        seas, yr, oni = ultima[0], int(ultima[1]), float(ultima[3])
 
         if oni > 0.5:
             fase = "El Niño"
