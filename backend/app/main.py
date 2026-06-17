@@ -11,6 +11,7 @@ from app.api.auth import router as router_auth
 from app.api.fuentes_externas import router as router_fuentes
 from app.api.monitor import router as router_monitor
 from app.api.storage import router as router_storage
+from app.api.proxy import router as router_proxy
 from app.services.websocket_manager import ConnectionManager
 from app.services.riesgo_service import generar_alertas
 from app.services.database import init_pool, close_pool
@@ -43,6 +44,7 @@ app.include_router(router_auth,            prefix="/api/v1/auth")
 app.include_router(router_fuentes,         prefix="/api/v1/fuentes")
 app.include_router(router_monitor,         prefix="/api/v1/monitor")
 app.include_router(router_storage,         prefix="/api/v1/storage")
+app.include_router(router_proxy,           prefix="/api/v1/proxy")
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 manager = ConnectionManager()

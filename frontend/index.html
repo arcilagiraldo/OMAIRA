@@ -3089,7 +3089,7 @@ async function obtenerReales(z){
     (async()=>{
       const noaaUrls=[
         'http://localhost:8080/proxy/noaa/oni.ascii.txt',
-        'https://corsproxy.io/?'+encodeURIComponent('https://www.cpc.ncep.noaa.gov/data/indices/oni.ascii.txt'),
+        (window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app')+'/api/v1/proxy/noaa-oni',
       ];
       for(const nu of noaaUrls){
         try{
