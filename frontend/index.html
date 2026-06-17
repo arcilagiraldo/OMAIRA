@@ -4368,7 +4368,8 @@ async function apiIRIS_SGC(){
 async function apiGDACS(){
   // API JSON de GDACS está rota — usar RSS feed público que siempre funciona
   const rssUrl='https://www.gdacs.org/xml/rss.xml';
-  const urls=['http://localhost:8080/proxy/gdacs-rss',rssUrl,`https://corsproxy.io/?${encodeURIComponent(rssUrl)}`];
+  const _BG=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+  const urls=['http://localhost:8080/proxy/gdacs-rss',rssUrl,`${_BG}/api/v1/proxy/gdacs`];
   const getTag=(txt,tag)=>{const m=txt.match(new RegExp(`<(?:gdacs:|geo:)?${tag}>([^<]+)<`));return m?m[1].trim():'';};
   for(const u of urls){
     try{

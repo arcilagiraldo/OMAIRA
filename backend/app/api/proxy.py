@@ -10,6 +10,20 @@ from fastapi.responses import PlainTextResponse, Response
 router = APIRouter()
 
 
+@router.get("/gdacs")
+async def proxy_gdacs():
+    """Proxy GDACS RSS — evita restricciones CORS del navegador."""
+    url = "https://www.gdacs.org/xml/rss.xml"
+    async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
+        try:
+            r = await client.get(url)
+            r.raise_for_status()
+            return Response(content=r.content, media_type="application/xml",
+                            headers={"Cache-Control": "public, max-age=900"})
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"GDACS no disponible: {e}")
+
+
 @router.get("/adsb")
 async def proxy_adsb(
     lat: float = Query(..., description="Latitud del punto central"),
