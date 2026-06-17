@@ -392,6 +392,14 @@ main{flex:1;display:flex;overflow:hidden}
 #mob-bottom-nav button span.icon{font-size:22px;line-height:1}
 #mob-bottom-nav button.mob-act{color:var(--az)}
 #mob-bottom-nav button.mob-act span.icon{filter:drop-shadow(0 0 4px var(--az))}
+/* ── DISPOSITIVOS TÁCTILES (cualquier tamaño: Kindle, tablet, móvil) ── */
+@media(pointer:coarse),(max-width:1024px){
+  body{padding-bottom:68px}
+  #mob-bottom-nav{display:block}
+  header nav{display:none}
+  .chip{display:none}
+  header{padding:0 8px;gap:6px}
+}
 @media(max-width:768px){
   body{height:100dvh;overflow:hidden;padding-bottom:68px}
   #mob-bottom-nav{display:block}
@@ -720,7 +728,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div id="panel-historico" class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div class="ctit">Validación histórica — Eventos reales Antioquia</div>
-      <div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);color:#22c55e;font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px">87.5% de precisión</div>
+      <div id="badge-precision-backtest" style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);color:#22c55e;font-size:9px;font-weight:700;padding:3px 10px;border-radius:20px">—% de precisión</div>
     </div>
     <div style="font-size:9px;color:var(--text3);margin-bottom:8px">Simulación retroactiva: ¿qué habría alertado OMAIRA si hubiera existido en la fecha del evento?</div>
     <div style="overflow-x:auto">
@@ -954,7 +962,13 @@ main{flex:1;display:flex;overflow:hidden}
         <div style="font-size:11px;color:var(--text2);margin-bottom:10px">ADS-B Exchange — vuelos reales sin API key (gratuito)</div>
         <button onclick="activarADSB()" class="btn btpu" style="font-size:10px;padding:6px 14px">▶ Activar mapa de vuelos en tiempo real</button>
       </div>
-      <iframe id="adsb-frame" style="display:none;width:100%;height:250px;border:none;border-radius:8px"></iframe>
+      <div id="adsb-wrap" style="display:none;position:relative;border-radius:8px;overflow:hidden">
+        <iframe id="adsb-frame" style="width:100%;height:min(450px,55vh);border:none;display:block" allow="fullscreen" loading="lazy"></iframe>
+        <div id="adsb-hint" onclick="this.style.display='none'" style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px">
+          <div style="background:rgba(0,0,0,.78);padding:14px 22px;border-radius:10px;color:#fff;font-size:11px;text-align:center;pointer-events:none">👆 Toca aquí para interactuar<br><span style="font-size:9px;opacity:.7">Luego podrás hacer zoom, mover y seleccionar vuelos</span></div>
+        </div>
+      </div>
+      <button id="adsb-fs-btn" onclick="window.open(document.getElementById('adsb-frame').src,'_blank','noopener')" style="display:none;margin-top:6px;padding:6px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:9px;cursor:pointer;width:100%;text-align:center">↗ Abrir mapa ADS-B en pantalla completa</button>
     </div>
   </div>
   <div class="card">
@@ -5333,6 +5347,11 @@ function toggleCapaMapa(id){
     mapa.removeLayer(_ML[id]);
     _ML[id]=null;
     if(btn)btn.classList.remove('on');
+    if(id==='vuelos'){
+      if(window._vuelosTimer){clearInterval(window._vuelosTimer);window._vuelosTimer=null;}
+      if(window._vuelosAnimTimer){clearInterval(window._vuelosAnimTimer);window._vuelosAnimTimer=null;}
+      _vuelosG=null;_vuelosMks={};_vuelosSnap={};
+    }
   }else{
     const g=L.layerGroup().addTo(mapa);
     _ML[id]=g;
@@ -5340,6 +5359,14 @@ function toggleCapaMapa(id){
     ({irg:_capaIRG,sismos:_capaSismos,incendios:_capaIncendios,
       vuelos:_capaVuelos,aire:_capaAire,hospitales:_capaHospitales,
       gdacs:_capaGDACS,ansv:_capaANSV,tomtom:_capaTomTom})[id]?.(g);
+    if(id==='vuelos'){
+      window._vuelosTimer=setInterval(async()=>{
+        if(!_vuelosG)return;
+        const mu=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+        try{const v=await apiVuelos(mu.lat,mu.lon);if(D)D.vuelos=v;_vuelosActualizar(v);}catch(e){}
+      },30000);
+      window._vuelosAnimTimer=setInterval(_vuelosInterp,3000);
+    }
   }
 }
 
@@ -5389,45 +5416,63 @@ function _capaIncendios(g){
   sirga('ok','🔥 '+incs.length+' focos de incendio en el mapa (NASA FIRMS)');
 }
 
-// ── 4. VUELOS ADS-B ───────────────────────────────────────────────────────────
+// ── 4. VUELOS ADS-B — marcadores animados con interpolación de posición ────────
+let _vuelosG=null,_vuelosMks={},_vuelosSnap={};
+
 function _capaVuelos(g){
-  const vs=D?.vuelos||[];
+  _vuelosG=g;_vuelosMks={};_vuelosSnap={};
   const m=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
-  if(!vs.length){
-    // Show info circle even with no flights
-    L.circle([m.lat,m.lon],{radius:180000,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.03,weight:1,dashArray:'8 8'})
-      .bindPopup('<b>✈️ ADS-B Exchange — Radio 200km</b><br>Sin vuelos detectados en este momento.<br><span style="font-size:8px;color:#888">El espacio aéreo puede estar tranquilo o ADS-B no disponible.</span>')
-      .addTo(g);
-    sirga('info','✈️ Sin vuelos en radio 200km ahora mismo (ADS-B).');
-    return;
-  }
-  // Area circle showing coverage
-  L.circle([m.lat,m.lon],{radius:180000,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.02,weight:1,dashArray:'8 8'}).addTo(g);
-  const con_pos=vs.filter(v=>v.lat&&v.lon);
-  con_pos.forEach(v=>{
+  L.circle([m.lat,m.lon],{radius:180000,color:'#3b82f6',fillColor:'#3b82f6',fillOpacity:.02,weight:1,dashArray:'8 8'})
+    .bindPopup('<b>✈️ ADS-B Exchange — Radio 200km</b><br>Vuelos en tiempo real. Se actualiza cada 30s.')
+    .addTo(g);
+  _vuelosActualizar(D?.vuelos||[]);
+}
+
+function _vuelosActualizar(vs){
+  if(!_vuelosG)return;
+  const ahora=Date.now();
+  const vivos=new Set();
+  vs.filter(v=>v.lat&&v.lon).forEach(v=>{
+    const k=v.vuelo||v.hex||(v.lat+'_'+v.lon);
+    vivos.add(k);
+    _vuelosSnap[k]={lat:v.lat,lon:v.lon,gs:v.vel||0,track:v.track,t:ahora};
     const alt_km=v.alt?Math.round(v.alt/3280.84*10)/10:0;
     const vel_kmh=v.vel?Math.round(v.vel*1.852):0;
-    const isComercial=v.vuelo&&v.vuelo.length>=3;
-    const ic=L.divIcon({
-      className:'',
-      html:`<div style="font-size:${isComercial?20:16}px;filter:drop-shadow(0 0 4px #3b82f6);line-height:1">✈️</div>
-            <div style="font-size:7px;color:#3b82f6;font-weight:700;text-align:center;margin-top:-2px;text-shadow:0 0 4px #000;white-space:nowrap">${v.vuelo||v.hex||'?'}</div>`,
-      iconSize:[40,28],iconAnchor:[20,14]
-    });
-    L.marker([v.lat,v.lon],{icon:ic})
-      .bindPopup(`<div style="min-width:170px">
-        <b>✈️ Vuelo ${v.vuelo||v.hex||'Sin ID'}</b><br>
-        Altitud: ${alt_km>0?alt_km+' km ('+v.alt+' ft)':'—'}<br>
-        Velocidad: ${vel_kmh>0?vel_kmh+' km/h':'—'}<br>
-        Tipo aeronave: ${v.tipo||'—'}<br>
-        <span style="font-size:7.5px;color:#555">ADS-B Exchange — Tiempo real</span>
-      </div>`)
-      .addTo(g);
+    if(_vuelosMks[k]){
+      _vuelosMks[k].setLatLng([v.lat,v.lon]);
+    }else{
+      const isC=v.vuelo&&v.vuelo.length>=3;
+      const ic=L.divIcon({className:'',
+        html:`<div style="font-size:${isC?20:16}px;filter:drop-shadow(0 0 4px #3b82f6);line-height:1">✈️</div>
+              <div style="font-size:7px;color:#3b82f6;font-weight:700;text-align:center;margin-top:-2px;text-shadow:0 0 4px #000;white-space:nowrap">${v.vuelo||v.hex||'?'}</div>`,
+        iconSize:[40,28],iconAnchor:[20,14]});
+      _vuelosMks[k]=L.marker([v.lat,v.lon],{icon:ic})
+        .bindPopup(`<div style="min-width:170px"><b>✈️ Vuelo ${v.vuelo||v.hex||'Sin ID'}</b><br>
+          Altitud: ${alt_km>0?alt_km+' km ('+v.alt+' ft)':'—'}<br>
+          Velocidad: ${vel_kmh>0?vel_kmh+' km/h':'—'}<br>
+          Tipo: ${v.tipo||'—'}<br>
+          <span style="font-size:7.5px;color:#555">ADS-B Real · actualiza 30s</span></div>`)
+        .addTo(_vuelosG);
+    }
   });
-  // Label with count
-  const ic2=L.divIcon({className:'',html:`<div style="background:#3b82f6;color:#fff;font-size:8px;font-weight:800;padding:2px 7px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.4)">${vs.length} vuelo(s)</div>`,iconSize:[80,20],iconAnchor:[40,10]});
-  L.marker([m.lat+1.5,m.lon],{icon:ic2}).addTo(g);
-  sirga('ok',`✈️ ${vs.length} vuelo(s) detectados. ${vs.length-con_pos.length>0?'('+(vs.length-con_pos.length)+' sin posición GPS)':''}`);
+  Object.keys(_vuelosMks).forEach(k=>{if(!vivos.has(k)){_vuelosG.removeLayer(_vuelosMks[k]);delete _vuelosMks[k];delete _vuelosSnap[k];}});
+  if(vs.length)sirga('ok',`✈️ ${vs.length} vuelo(s) en radio 200km — próxima actualización en 30s`);
+  else sirga('info','✈️ Sin vuelos ADS-B en radio 200km ahora mismo.');
+}
+
+function _vuelosInterp(){
+  if(!_vuelosG)return;
+  const ahora=Date.now();
+  Object.entries(_vuelosSnap).forEach(([k,v])=>{
+    const mk=_vuelosMks[k];
+    if(!mk||!v.gs||v.gs<50||v.track==null)return;
+    const dt=(ahora-v.t)/1000;
+    if(dt>90)return;
+    const spDeg=(v.gs*1.852/3600)/111;
+    const tr=v.track*Math.PI/180;
+    const lr=v.lat*Math.PI/180;
+    mk.setLatLng([v.lat+spDeg*Math.cos(tr)*dt, v.lon+spDeg*Math.sin(tr)/Math.cos(lr)*dt]);
+  });
 }
 
 // ── 5. CALIDAD DEL AIRE ───────────────────────────────────────────────────────
@@ -5801,8 +5846,11 @@ function renderTomTomDatos(){
 
 function activarADSB(){
   const ph=document.getElementById('adsb-ph'),fr=document.getElementById('adsb-frame');
+  const wrap=document.getElementById('adsb-wrap'),fsBtn=document.getElementById('adsb-fs-btn');
   if(ph)ph.style.display='none';
-  if(fr){fr.style.display='block';fr.src=`https://globe.adsbexchange.com/?lat=${D?.lat||6.5}&lon=${D?.lon||-75.5}&zoom=8`;}
+  if(fr)fr.src=`https://globe.adsbexchange.com/?lat=${D?.lat||6.5}&lon=${D?.lon||-75.5}&zoom=8`;
+  if(wrap)wrap.style.display='block';
+  if(fsBtn)fsBtn.style.display='block';
   const b=document.getElementById('adsb-badge');if(b)b.innerHTML='<span class="real-badge real-ok">ADS-B activo</span>';
 }
 
@@ -10318,6 +10366,8 @@ function renderHistorico(){
     var lbl=e.nivel.replace(/_/g,' ').toUpperCase();
     return'<tr><td>'+e.fecha+'</td><td style="font-weight:600">'+e.municipio+'</td><td>'+e.tipo+'</td><td style="font-weight:700;color:'+c+'">'+e.irg+'/100</td><td><span class="nivel-bdg" style="background:'+c+'">'+lbl+'</span></td><td>'+e.afect.toLocaleString()+(e.muertos>0?' <span style="color:var(--r);font-size:7.5px">('+e.muertos+' víct.)</span>':'')+'</td><td style="color:var(--v)">'+e.ant_h+'h antes</td></tr>';
   }).join('');
+  var badge=document.getElementById('badge-precision-backtest');
+  if(badge){var bt=correrBacktest();badge.textContent=bt.pod+'% de precisión';}
 }
 
 // ── MÓDULO 5: decisión asistida ─────────────────────────────
