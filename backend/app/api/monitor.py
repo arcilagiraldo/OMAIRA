@@ -54,9 +54,7 @@ async def get_noticias(
     # ── Google News RSS Colombia ──────────────────────────────────────────────
     terminos_busqueda = q.replace(" ", "+")
     rss_url = f"https://news.google.com/rss/search?q={terminos_busqueda}+Colombia&hl=es&gl=CO&ceid=CO:es"
-    rss_proxy = f"https://corsproxy.io/?{rss_url}"
-
-    texto_rss = await _fetch_safe(rss_proxy, timeout=10)
+    texto_rss = await _fetch_safe(rss_url, timeout=10)
     if texto_rss:
         try:
             root = ET.fromstring(texto_rss)
@@ -92,7 +90,7 @@ async def get_noticias(
 
     # ── IDEAM alertas hidrometeorológicas ────────────────────────────────────
     ideam_url = "http://www.ideam.gov.co/rss.xml"
-    texto_ideam = await _fetch_safe(f"https://corsproxy.io/?{ideam_url}", timeout=6)
+    texto_ideam = await _fetch_safe(ideam_url, timeout=6)  # directo — el backend no necesita CORS proxy
     if texto_ideam:
         try:
             root = ET.fromstring(texto_ideam)
