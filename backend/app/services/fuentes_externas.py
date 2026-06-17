@@ -953,9 +953,7 @@ async def obtener_ansv(zona_id: str) -> Dict:
         corredor = [municipio] + [c.upper() for c in ANSV_CORREDOR.get(zona_id, [])]
         filas = [f for f in todos
                  if (f.get("municipio", "") or "").upper() in corredor]
-        # Si sigue vacío, devolver todos de Antioquia como contexto departamental
-        if not filas:
-            filas = todos[:20]
+        # Sin sectores para este municipio/corredor → lista vacía; no heredar datos de otras subregiones
     except Exception as e:
         logger.warning(f"ANSV API error para {zona_id}: {e}")
         filas = []
@@ -1035,7 +1033,8 @@ async def obtener_sivigila(zona_id: str) -> Dict:
         # Filtrar por municipio específico (código 5 dígitos)
         filas_mun = [f for f in filas
                      if str(f.get("cod_mun_o", "")).startswith(divipola[:5])]
-        filas_uso = filas_mun if filas_mun else filas
+        # Sin datos municipales propios → lista vacía; no heredar datos departamentales de otras subregiones
+        filas_uso = filas_mun
     except Exception as e:
         logger.warning(f"SIVIGILA API error para {zona_id}: {e}")
         filas_uso = []
@@ -1307,7 +1306,8 @@ async def obtener_enso() -> Dict:
         lineas = [l.strip() for l in texto.strip().splitlines()
                   if l.strip() and not l.strip().startswith("SEAS")]
         ultima = lineas[-1].split()
-        seas, yr, oni = ultima[0], int(ultima[1]), float(ultima[2])
+        # Formato NOAA: SEAS YR TOTAL ANOM — índice 3 es la anomalía ONI, no el índice 2 (TOTAL SST ~28°C)
+        seas, yr, oni = ultima[0], int(ultima[1]), float(ultima[3])
 
         if oni > 0.5:
             fase = "El Niño"
