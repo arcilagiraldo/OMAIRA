@@ -10077,6 +10077,99 @@ async function guardarNuevaFuente(){
   if(Object.keys(res).length>0) toast('✅ "'+nombre+'" respondió con datos reales','ok');
 }
 
+async function analizarYAgregarFuente(){
+  const nombre=document.getElementById('nf-nombre')?.value?.trim();
+  const url=document.getElementById('nf-url')?.value?.trim();
+  if(!nombre||!url){ toast('⚠️ Nombre y URL son obligatorios','warn'); return; }
+  const res_el=document.getElementById('nf-resultado');
+  if(res_el){ res_el.style.display='block'; res_el.style.color='var(--text3)'; res_el.textContent='⏳ Analizando con el servidor...'; }
+  try{
+    const BASE=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+    const resp=await fetch(`${BASE}/api/v1/fuentes/deteccion/analizar`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url,nombre_sugerido:nombre}),
+      signal:AbortSignal.timeout(15000)
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const analisis=await resp.json();
+    const fuente={
+      id:analisis.id,
+      nombre, url,
+      metodo:document.getElementById('nf-metodo')?.value||'GET',
+      key:document.getElementById('nf-key')?.value?.trim()||'',
+      key_tipo:document.getElementById('nf-key-tipo')?.value||'param',
+      campo:document.getElementById('nf-campo')?.value?.trim()||'',
+      variable:analisis.variable_sugerida||document.getElementById('nf-variable')?.value||'lluvia',
+      frecuencia:parseInt(document.getElementById('nf-frecuencia')?.value||'15'),
+      activa:false,
+      estado:analisis.estado,
+      formato_detectado:analisis.formato_detectado,
+      confianza:analisis.confianza,
+      campos_detectados:analisis.campos_detectados||[],
+      muestra_cruda:analisis.muestra_cruda||'',
+      motivo_ambigua:analisis.motivo_rechazo||null,
+      variable_sugerida:analisis.variable_sugerida||null,
+      fecha_deteccion:analisis.fecha_deteccion,
+      ultimo_valor:null, ultimo_update:null, ultimo_error:null, en_irg:false
+    };
+    FUENTES_CUSTOM.push(fuente);
+    localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+    _sincronizarKeysOnline();
+    renderFuentesCustomEnPanel();
+    const msgs={
+      pendiente_aprobacion:`✅ Variable "${analisis.variable_sugerida}" detectada (${Math.round((analisis.confianza||0)*100)}% confianza) — pendiente de aprobación en el panel.`,
+      rechazada_ambigua:`⚠️ Ambigua — ${(analisis.motivo_rechazo||'').slice(0,120)} Selecciona la variable en el panel.`,
+      rechazada_sin_respuesta:`❌ Sin respuesta — ${analisis.motivo_rechazo||''}`
+    };
+    const color={pendiente_aprobacion:'#22c55e',rechazada_ambigua:'#f59e0b',rechazada_sin_respuesta:'#ef4444'};
+    if(res_el){ res_el.style.color=color[analisis.estado]||'#6b7280'; res_el.textContent=msgs[analisis.estado]||'Resultado desconocido'; }
+    setTimeout(()=>cerrarModalFuente(),3000);
+  }catch(e){
+    if(res_el){ res_el.style.color='#ef4444'; res_el.textContent='❌ Error al analizar: '+e.message; }
+  }
+}
+
+async function aprobarFuenteCustom(id){
+  const idx=FUENTES_CUSTOM.findIndex(f=>f.id===id);
+  if(idx===-1) return;
+  const f=FUENTES_CUSTOM[idx];
+  const varManual=document.getElementById('var-manual-'+id)?.value;
+  const varFinal=varManual||f.variable_sugerida||f.variable||'lluvia';
+  try{
+    const BASE=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+    await fetch(`${BASE}/api/v1/fuentes/deteccion/${id}/aprobar`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({variable_irg_confirmada:varFinal}),
+      signal:AbortSignal.timeout(5000)
+    });
+  }catch(e){ console.warn('aprobar backend:',e.message); }
+  FUENTES_CUSTOM[idx]={...f,activa:true,estado:'aprobada',variable:varFinal,en_irg:false};
+  localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+  renderFuentesCustomEnPanel();
+  toast('✅ "'+f.nombre+'" aprobada como '+varFinal+' — entrará al IRG en el próximo ciclo','ok');
+}
+
+async function rechazarFuenteCustom(id){
+  const idx=FUENTES_CUSTOM.findIndex(f=>f.id===id);
+  if(idx===-1) return;
+  const nombre_f=FUENTES_CUSTOM[idx].nombre;
+  try{
+    const BASE=window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+    await fetch(`${BASE}/api/v1/fuentes/deteccion/${id}/rechazar`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({motivo:'Rechazada por el desarrollador'}),
+      signal:AbortSignal.timeout(5000)
+    });
+  }catch(e){ console.warn('rechazar backend:',e.message); }
+  FUENTES_CUSTOM.splice(idx,1);
+  localStorage.setItem('omaira_fuentes_custom',JSON.stringify(FUENTES_CUSTOM));
+  renderFuentesCustomEnPanel();
+  toast('"'+nombre_f+'" eliminada','warn');
+}
+
 async function consultarFuentesCustom(){
   if(!FUENTES_CUSTOM.length) return {};
   const resultados={};
@@ -10153,66 +10246,89 @@ function integrarFuentesCustomEnSensores(res_custom,s,rf){
 
 function renderFuentesCustomEnPanel(){
   const cont=document.getElementById('fuentes-custom-panel'); if(!cont) return;
-  if(!FUENTES_CUSTOM.length){
+  const en_rev=FUENTES_CUSTOM.filter(f=>f.estado==='pendiente_aprobacion'||f.estado==='rechazada_ambigua');
+  const oper=FUENTES_CUSTOM.map((f,i)=>({f,i})).filter(({f})=>!f.estado||f.estado==='aprobada'||f.estado==='rechazada_sin_respuesta');
+  if(!en_rev.length&&!oper.length){
     cont.innerHTML='<div style="font-size:8px;color:var(--text3);padding:8px;text-align:center">Sin fuentes personalizadas aún.</div>';
     return;
   }
-  cont.innerHTML=FUENTES_CUSTOM.map((f,i)=>{
-    const ts = f.ultimo_update ? new Date(f.ultimo_update).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}) : null;
-    const min_atras = f.ultimo_update ? Math.round((Date.now()-f.ultimo_update)/60000) : null;
-    // Estado de verificación
-    let estado_color, badge_html;
-    if(!f.activa){
-      estado_color='#94a3b8';
-      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(148,163,184,.15);color:#94a3b8">Pausada</span>`;
-    } else if(f.en_irg){
-      estado_color='#22c55e';
-      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,.15);color:#22c55e;font-weight:700">✅ En IRG</span>`;
-    } else if(f.ultimo_valor!=null&&!f.ultimo_error){
-      estado_color='#f59e0b';
-      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b">⏳ Dato recibido</span>`;
-    } else if(f.ultimo_error){
-      estado_color='#ef4444';
-      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.15);color:#ef4444">❌ Error</span>`;
-    } else {
-      estado_color='#6b7280';
-      badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--text3)">⏳ Pendiente</span>`;
-    }
-    return `<div style="background:var(--bg3);border-radius:7px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${estado_color}">
-      <div style="display:flex;gap:8px;align-items:flex-start">
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
-            <div style="font-size:9px;font-weight:700;color:var(--text2)">${f.nombre}</div>
-            ${badge_html}
-          </div>
-          <div style="font-size:7.5px;color:var(--text3);margin-bottom:2px">
-            📊 ${f.variable} · ⏱️ cada ${f.frecuencia}min · ${f.metodo||'GET'}${f.key?' · 🔑 key':''}
-          </div>
-          <div style="font-size:7px;color:var(--az);word-break:break-all;margin-bottom:3px">${f.url.slice(0,60)}${f.url.length>60?'...':''}</div>
-          ${f.en_irg
-            ?`<div style="font-size:7.5px;color:#22c55e">✅ Dato <b>${f.ultimo_valor}</b> integrado en sensor <b>${f.variable}</b>${ts?' · '+ts:''}</div>`
-            :f.ultimo_valor!=null&&!f.ultimo_error
-              ?`<div style="font-size:7.5px;color:#f59e0b">📥 Recibió <b>${f.ultimo_valor}</b>${ts?' · '+ts:''} — se integrará en el próximo ciclo</div>`
-              :f.ultimo_error
-                ?`<div style="font-size:7.5px;color:#ef4444">❌ ${f.ultimo_error.slice(0,80)}</div>`
-                :`<div style="font-size:7px;color:var(--text3)">Aún no consultada — se activará en el próximo ciclo (${f.frecuencia}min)</div>`
-          }
-          ${min_atras!=null&&min_atras>f.frecuencia*2
-            ?`<div style="font-size:6.5px;color:#f59e0b;margin-top:2px">⚠️ Sin actualización hace ${min_atras} min (ciclo: ${f.frecuencia}min)</div>`:''}
+  const VARS_IRG=['lluvia','nivel_rio','temperatura','calidad_aire','embalse','viento','sismo'];
+  let html='';
+  if(en_rev.length){
+    html+=`<div style="font-size:8px;font-weight:700;color:#f59e0b;margin-bottom:6px;padding:3px 0;border-bottom:1px solid rgba(245,158,11,.2)">🔍 En revisión (${en_rev.length})</div>`;
+    html+=en_rev.map(f=>{
+      const ambigua=f.estado==='rechazada_ambigua';
+      const pct=f.confianza!=null?Math.round(f.confianza*100)+'%':'—';
+      const opts=VARS_IRG.map(v=>`<option value="${v}"${(f.variable_sugerida||f.variable||'lluvia')===v?' selected':''}>${v}</option>`).join('');
+      return `<div style="background:var(--bg3);border-radius:7px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${ambigua?'#f59e0b':'#3b82f6'}">
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
+          <div style="font-size:9px;font-weight:700;color:var(--text2)">${f.nombre}</div>
+          ${ambigua?`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b;font-weight:700">⚠️ Ambigua</span>`:`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(59,130,246,.15);color:#3b82f6;font-weight:700">🔍 Pendiente</span>`}
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;flex-shrink:0">
-          <label class="tog" style="transform:scale(0.8);margin-top:2px">
-            <input type="checkbox" ${f.activa?'checked':''} onchange="toggleFuenteCustom(${i},this.checked)">
-            <span class="togsl"></span>
-          </label>
-          <button onclick="probarFuenteCustom(${i})" title="Probar ahora"
-            style="padding:2px 5px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--az);border:1px solid rgba(59,130,246,.3);font-size:7px;cursor:pointer">🔄</button>
-          <button onclick="eliminarFuenteCustom(${i})" title="Eliminar fuente"
-            style="padding:2px 5px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:none;font-size:7px;cursor:pointer">✕</button>
+        ${f.variable_sugerida?`<div style="font-size:7.5px;color:var(--text2);margin-bottom:2px">Detectada: <b>${f.variable_sugerida}</b> · ${pct} confianza</div>`:`<div style="font-size:7.5px;color:#f59e0b;margin-bottom:2px">Variable no detectada — elige manualmente</div>`}
+        ${f.motivo_ambigua?`<div style="font-size:7px;color:#f59e0b;margin-bottom:3px">${f.motivo_ambigua.slice(0,100)}</div>`:''}
+        <div style="font-size:7px;color:var(--az);word-break:break-all;margin-bottom:4px">${f.url.slice(0,60)}${f.url.length>60?'...':''}</div>
+        ${ambigua?`<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+          <select id="var-manual-${f.id}" style="font-size:7px;padding:2px 4px;border-radius:4px;background:var(--bg2);border:1px solid var(--borde);color:var(--text2)">${opts}</select>
+          <span style="font-size:7px;color:var(--text3)">← variable IRG</span>
+        </div>`:''}
+        <div style="display:flex;gap:4px">
+          <button onclick="aprobarFuenteCustom('${f.id}')" style="padding:3px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);font-size:7px;cursor:pointer;font-weight:600">✅ Aprobar</button>
+          <button onclick="rechazarFuenteCustom('${f.id}')" style="padding:3px 8px;border-radius:4px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.25);font-size:7px;cursor:pointer">❌ Rechazar</button>
         </div>
-      </div>
-    </div>`;
-  }).join('');
+      </div>`;
+    }).join('');
+  }
+  if(oper.length){
+    if(en_rev.length) html+=`<div style="font-size:8px;font-weight:700;color:var(--text2);margin:8px 0 5px;padding:3px 0;border-bottom:1px solid var(--borde)">Fuentes configuradas (${oper.length})</div>`;
+    html+=oper.map(({f,i})=>{
+      const ts=f.ultimo_update?new Date(f.ultimo_update).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}):null;
+      const min_atras=f.ultimo_update?Math.round((Date.now()-f.ultimo_update)/60000):null;
+      let estado_color,badge_html;
+      if(f.estado==='rechazada_sin_respuesta'){
+        estado_color='#ef4444';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.15);color:#ef4444">❌ Sin respuesta</span>`;
+      }else if(!f.activa){
+        estado_color='#94a3b8';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(148,163,184,.15);color:#94a3b8">Pausada</span>`;
+      }else if(f.en_irg){
+        estado_color='#22c55e';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(34,197,94,.15);color:#22c55e;font-weight:700">✅ En IRG</span>`;
+      }else if(f.ultimo_valor!=null&&!f.ultimo_error){
+        estado_color='#f59e0b';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:#f59e0b">⏳ Dato recibido</span>`;
+      }else if(f.ultimo_error){
+        estado_color='#ef4444';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.15);color:#ef4444">❌ Error</span>`;
+      }else{
+        estado_color='#6b7280';
+        badge_html=`<span style="font-size:7px;padding:1px 5px;border-radius:3px;background:var(--bg4);color:var(--text3)">⏳ Pendiente</span>`;
+      }
+      return `<div style="background:var(--bg3);border-radius:7px;padding:8px 10px;margin-bottom:5px;border-left:3px solid ${estado_color}">
+        <div style="display:flex;gap:8px;align-items:flex-start">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
+              <div style="font-size:9px;font-weight:700;color:var(--text2)">${f.nombre}</div>
+              ${badge_html}
+            </div>
+            <div style="font-size:7.5px;color:var(--text3);margin-bottom:2px">📊 ${f.variable} · ⏱️ cada ${f.frecuencia}min · ${f.metodo||'GET'}${f.key?' · 🔑 key':''}</div>
+            <div style="font-size:7px;color:var(--az);word-break:break-all;margin-bottom:3px">${f.url.slice(0,60)}${f.url.length>60?'...':''}</div>
+            ${f.en_irg?`<div style="font-size:7.5px;color:#22c55e">✅ Dato <b>${f.ultimo_valor}</b> integrado en sensor <b>${f.variable}</b>${ts?' · '+ts:''}</div>`:f.ultimo_valor!=null&&!f.ultimo_error?`<div style="font-size:7.5px;color:#f59e0b">📥 Recibió <b>${f.ultimo_valor}</b>${ts?' · '+ts:''} — se integrará en el próximo ciclo</div>`:f.ultimo_error?`<div style="font-size:7.5px;color:#ef4444">❌ ${f.ultimo_error.slice(0,80)}</div>`:`<div style="font-size:7px;color:var(--text3)">Aún no consultada — se activará en el próximo ciclo (${f.frecuencia}min)</div>`}
+            ${min_atras!=null&&min_atras>f.frecuencia*2?`<div style="font-size:6.5px;color:#f59e0b;margin-top:2px">⚠️ Sin actualización hace ${min_atras} min (ciclo: ${f.frecuencia}min)</div>`:''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:center;flex-shrink:0">
+            <label class="tog" style="transform:scale(0.8);margin-top:2px">
+              <input type="checkbox" ${f.activa?'checked':''} onchange="toggleFuenteCustom(${i},this.checked)">
+              <span class="togsl"></span>
+            </label>
+            <button onclick="probarFuenteCustom(${i})" title="Probar ahora" style="padding:2px 5px;border-radius:4px;background:rgba(59,130,246,.15);color:var(--az);border:1px solid rgba(59,130,246,.3);font-size:7px;cursor:pointer">🔄</button>
+            <button onclick="eliminarFuenteCustom(${i})" title="Eliminar fuente" style="padding:2px 5px;border-radius:4px;background:rgba(239,68,68,.15);color:#ef4444;border:none;font-size:7px;cursor:pointer">✕</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  cont.innerHTML=html;
 }
 
 async function probarFuenteCustom(idx){
@@ -10599,9 +10715,9 @@ function mostrarFeedbackReporte(r){
         style="padding:8px 14px;background:var(--az);color:#fff;border:none;border-radius:6px;font-size:9px;cursor:pointer;font-weight:600">
         🔍 Probar conexión
       </button>
-      <button onclick="guardarNuevaFuente()" 
+      <button onclick="analizarYAgregarFuente()"
         style="padding:8px 14px;background:var(--v);color:#fff;border:none;border-radius:6px;font-size:9px;cursor:pointer;font-weight:600">
-        💾 Guardar y activar
+        🔍 Analizar y agregar a revisión
       </button>
     </div>
   </div>
