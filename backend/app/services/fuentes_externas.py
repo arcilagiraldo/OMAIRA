@@ -953,9 +953,7 @@ async def obtener_ansv(zona_id: str) -> Dict:
         corredor = [municipio] + [c.upper() for c in ANSV_CORREDOR.get(zona_id, [])]
         filas = [f for f in todos
                  if (f.get("municipio", "") or "").upper() in corredor]
-        # Si sigue vacío, devolver todos de Antioquia como contexto departamental
-        if not filas:
-            filas = todos[:20]
+        # Sin sectores para este municipio/corredor → lista vacía; no heredar datos de otras subregiones
     except Exception as e:
         logger.warning(f"ANSV API error para {zona_id}: {e}")
         filas = []
