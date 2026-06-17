@@ -1035,7 +1035,8 @@ async def obtener_sivigila(zona_id: str) -> Dict:
         # Filtrar por municipio específico (código 5 dígitos)
         filas_mun = [f for f in filas
                      if str(f.get("cod_mun_o", "")).startswith(divipola[:5])]
-        filas_uso = filas_mun if filas_mun else filas
+        # Sin datos municipales propios → lista vacía; no heredar datos departamentales de otras subregiones
+        filas_uso = filas_mun
     except Exception as e:
         logger.warning(f"SIVIGILA API error para {zona_id}: {e}")
         filas_uso = []
