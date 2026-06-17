@@ -119,6 +119,23 @@ CREATE TABLE IF NOT EXISTS outcomes_credibilidad (
     ts TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS fuentes_detectadas (
+    id VARCHAR(40) PRIMARY KEY,
+    url TEXT NOT NULL,
+    nombre_sugerido VARCHAR(200),
+    estado VARCHAR(40) NOT NULL DEFAULT 'pendiente_aprobacion',
+    formato_detectado VARCHAR(20),
+    variable_sugerida VARCHAR(50),
+    confianza FLOAT,
+    campos_detectados TEXT,
+    muestra_cruda TEXT,
+    motivo_rechazo TEXT,
+    variable_manual VARCHAR(50),
+    aprobada_por VARCHAR(300),
+    fecha_deteccion TIMESTAMP DEFAULT NOW(),
+    fecha_decision TIMESTAMP
+);
+
 INSERT INTO zonas (zona_id, municipio) VALUES
     ('guatape', 'Guatapé'),
     ('medellin', 'Medellín'),
