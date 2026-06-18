@@ -1626,7 +1626,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>Núcleo científico</strong></td><td>JavaScript · API Index · Pesos ENSO · IDF DAGRAN</td><td>IRG dinámico con 24 tipos de riesgo, modelo H×E×V×F, calibrado metodología DAGRAN</td></tr>
       <tr><td><strong>IA multi-modelo</strong></td><td>Claude API · OpenAI GPT-4o mini · Gemini Flash · Motor local</td><td>Diagnóstico automático, análisis de riesgo con lenguaje natural, predicción multi-horizonte</td></tr>
       <tr><td><strong>Credibilidad</strong></td><td>Brier Score · ECE · Isotonic Regression · Platt Scaling</td><td>Calibración probabilística automática, peso dinámico por fuente, detección sobreconfianza</td></tr>
-      <tr><td><strong>Persistencia local</strong></td><td>IndexedDB (50MB+) · localStorage</td><td>Historial 90 días lluvia, 30 días IRG, outcomes para calibración, aprendizaje continuo</td></tr>
+      <tr><td><strong>Persistencia</strong></td><td>IndexedDB (50MB+) · localStorage · Railway PostgreSQL</td><td>Historial 90 días lluvia, 30 días IRG; outcomes de calibración guardados localmente y sincronizados al backend para preservar el aprendizaje entre dispositivos</td></tr>
     </table>
   </div>
 
@@ -1745,7 +1745,7 @@ main{flex:1;display:flex;overflow:hidden}
     </div>
 
     <h3>Aprendizaje continuo (Online Learning)</h3>
-    <p>El modelo actualiza las métricas incrementalmente con cada outcome registrado — sin recalcular todo desde cero. El peso de cada fuente en el ensemble se ajusta automáticamente según su Brier Skill Score histórico: peso = f(BSS × 0.5 + 0.5, n_muestras/200). Fuentes con mejor historial de predicción pesan más.</p>
+    <p>El sistema actualiza Brier Score y Log Loss incrementalmente con cada outcome registrado, sin recalcular desde cero. Cada 15 minutos se generan <strong>outcomes automáticos</strong> a partir de datos reales: sismos USGS, focos NASA FIRMS, lluvia vs umbrales IDF, tráfico TomTom, visibilidad aeronáutica y nivel de embalses. La <strong>calibración isotónica (PAVA)</strong> se activa automáticamente con ≥10 outcomes, ajustando las probabilidades predichas para que reflejen las frecuencias reales observadas. Todos los outcomes se persisten en localStorage (respuesta inmediata) y se sincronizan al backend PostgreSQL (historial compartido entre dispositivos, requiere base de datos Railway provisionada).</p>
   </div>
 
   <!-- IA MULTI-MODELO -->
