@@ -7149,6 +7149,23 @@ async function actualizarDatos(){
       const _dr = D.dr_raw || {}; // snapshot de datos raw si disponible
       try{ generarOutcomesAuto(D.dr_raw||{}, D.s||{}, null); }
       catch(e_oa){ console.warn('outcomes auto error:',e_oa.message); }
+      // Registrar predicciones de backends para comparación BSS de 3 modelos
+      // Fire-and-forget: si Railway no responde, el ciclo siguiente lo reintentará
+      if(backendActivo && typeof registrarPrediccionModelo === 'function'){
+        const _BASE = window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
+        fetch(_BASE+'/api/v1/riesgo/zona/'+zona, {signal:AbortSignal.timeout(5000)})
+          .then(r=>r.json())
+          .then(d=>{if(d.predicciones)d.predicciones.forEach(p=>
+            registrarPrediccionModelo('riesgo_service_v6',p.tipo_riesgo,zona,p.probabilidad))})
+          .catch(()=>{});
+        fetch(_BASE+'/api/v1/irg/dashboard/'+zona, {signal:AbortSignal.timeout(5000)})
+          .then(r=>r.json())
+          .then(d=>{if(d.irg!=null)
+            registrarPrediccionModelo('irg_service_v6','irg_global',zona,d.irg)})
+          .catch(()=>{});
+      }
+      // Verificar salud del BSS activo (activa rollback si hay pérdida de datos)
+      try{ verificarSaludBSS(); }catch(e){}
     }
     // ── Registrar en base de datos acumulativa ──────────────
     if(D){
@@ -8209,7 +8226,9 @@ function initCredDB() {
     // calibration_data[tipo_riesgo] = [{bin, predicted_mean, actual_freq, n}]
     calibration_data: {},
     // Historial de Brier Score acumulado para aprendizaje online
-    online_state: {}
+    online_state: {},
+    // model_performance[modelo_id] = {predictions:[{ts,tipo_riesgo,zona,prob}], sum_bs, n, brier, bss}
+    model_performance: {}
   };
 }
 
@@ -8235,6 +8254,36 @@ function registrarPrediccion(tipo_riesgo, zona, prob, fuentes_activas, horizonte
   if(CRED_DATA.predictions[tipo_riesgo][zona].length > 2000) {
     CRED_DATA.predictions[tipo_riesgo][zona].splice(0, 500);
   }
+  // También registrar en model_performance para comparación BSS entre modelos
+  registrarPrediccionModelo('calcIRGConPesos_v6', tipo_riesgo, zona, registro.prob);
+}
+
+// ── 1b. REGISTRO DE PREDICCIÓN POR MODELO (para comparación BSS entre modelos) ──
+function registrarPrediccionModelo(modelo_id, tipo_riesgo, zona, prob) {
+  if(!CRED_DATA.model_performance[modelo_id]) {
+    CRED_DATA.model_performance[modelo_id] = {predictions:[], sum_bs:0, n:0, brier:null, bss:null};
+  }
+  const mp = CRED_DATA.model_performance[modelo_id];
+  mp.predictions.push({ts:Date.now(), tipo_riesgo, zona, prob:Math.max(0,Math.min(1,prob))});
+  if(mp.predictions.length > 1000) mp.predictions.splice(0, 200);
+}
+
+function actualizarModeloMetricas(modelo_id, tipo_riesgo, zona, ocurrio) {
+  const mp = CRED_DATA.model_performance?.[modelo_id];
+  if(!mp) return;
+  // irg_service tiene predicciones de tipo irg_global — usar para cualquier outcome de zona
+  const buscar_tipo = modelo_id === 'irg_service_v6' ? 'irg_global' : tipo_riesgo;
+  const pred = [...mp.predictions]
+    .filter(p => p.tipo_riesgo === buscar_tipo && p.zona === zona)
+    .sort((a,b) => b.ts - a.ts)[0];
+  if(!pred) return;
+  const eps = 1e-7;
+  const p = Math.max(eps, Math.min(1-eps, pred.prob));
+  const o = ocurrio ? 1 : 0;
+  mp.sum_bs += (p-o)**2;
+  mp.n++;
+  mp.brier = +(mp.sum_bs/mp.n).toFixed(4);
+  mp.bss = brierSkillScore(mp.brier, obtenerClimatologia(tipo_riesgo, zona)) ?? 0;
 }
 
 // ── 2. REGISTRO DE OUTCOMES (cuando ocurre/no ocurre el evento) ────────────
@@ -8248,6 +8297,10 @@ function registrarOutcome(tipo_riesgo, zona, ocurrio, magnitud_norm) {
   });
   // Actualizar métricas incrementalmente (online learning)
   actualizarMetricasOnline(tipo_riesgo, zona, ocurrio);
+  // Actualizar BSS de los 3 modelos para este outcome
+  Object.keys(CRED_DATA.model_performance||{}).forEach(mid => {
+    actualizarModeloMetricas(mid, tipo_riesgo, zona, ocurrio);
+  });
   saveCredDB();
   // Sincronizar al backend PostgreSQL — fire-and-forget, no bloquea si Railway no responde
   try {
@@ -8993,6 +9046,128 @@ window.alert = function(msg){
 };
 
 // ═══════════════════════════════════════════════════════════════════════
+// ── EVALUACIÓN COMPARATIVA DE MODELOS ────────────────────────────────────────
+function evaluarComparacionModelos(zona_actual) {
+  const MIN_OUTCOMES = 500;
+  const MIN_DIFERENCIA_BSS = 0.15;
+  const mp = CRED_DATA.model_performance || {};
+  const modelos = [
+    {id:'calcIRGConPesos_v6', etiqueta:'Frontend (calcIRGConPesos)'},
+    {id:'riesgo_service_v6',  etiqueta:'Backend riesgo_service'},
+    {id:'irg_service_v6',     etiqueta:'Backend irg_service'},
+  ];
+  const datos = modelos.map(m => ({
+    ...m,
+    bss: mp[m.id]?.bss ?? null,
+    n:   mp[m.id]?.n   ?? 0,
+  })).filter(m => m.n > 0);
+
+  const min_n = datos.length ? Math.min(...datos.map(d => d.n)) : 0;
+  if(datos.length < 2 || min_n < MIN_OUTCOMES) {
+    const faltantes = Math.max(0, MIN_OUTCOMES - min_n);
+    const modelo_min = datos.sort((a,b)=>a.n-b.n)[0]?.etiqueta || 'desconocido';
+    return {
+      hay_evidencia: false, faltantes,
+      mensaje: `Acumulando evidencia comparativa: faltan ~${faltantes} outcomes ` +
+               `(el modelo con menos datos es ${modelo_min} con ${min_n}).`,
+      detalle: datos,
+    };
+  }
+  const ordenados = [...datos].filter(d=>d.bss!==null).sort((a,b)=>b.bss-a.bss);
+  if(ordenados.length < 2) return {hay_evidencia:false, faltantes:0, detalle:datos};
+  const mejor = ordenados[0], segundo = ordenados[1];
+  const diferencia = mejor.bss - segundo.bss;
+  if(diferencia >= MIN_DIFERENCIA_BSS) {
+    return {
+      hay_evidencia:true, recomendar_unificacion:true,
+      modelo_ganador: mejor.id, etiqueta_ganador: mejor.etiqueta,
+      diferencia_bss: diferencia, detalle: ordenados,
+      mensaje: `"${mejor.etiqueta}" supera al siguiente en BSS por ${diferencia.toFixed(3)} ` +
+               `con ${mejor.n.toLocaleString()} outcomes. Considera unificar en este modelo.`,
+    };
+  }
+  return {
+    hay_evidencia:true, recomendar_unificacion:false, detalle:ordenados,
+    mensaje: `Los modelos tienen BSS similar (diferencia ${diferencia.toFixed(3)} < ${MIN_DIFERENCIA_BSS}). ` +
+             `No hay evidencia suficiente para preferir uno sobre otro.`,
+  };
+}
+
+// ── ROLLBACK — 3 capas de protección ──────────────────────────────────────────
+function guardarHistorialModelo(modelo_id, bss_actual, n_outcomes) {
+  try {
+    const hist = JSON.parse(localStorage.getItem('omaira_historial_modelos')||'[]');
+    hist.push({modelo:modelo_id, bss:bss_actual, n:n_outcomes, ts:new Date().toISOString()});
+    localStorage.setItem('omaira_historial_modelos', JSON.stringify(hist.slice(-10)));
+  } catch(e) {}
+}
+
+function verificarSaludBSS() {
+  const BSS_MINIMO = -0.5;
+  const UMBRAL_N   = 50;
+  const modelo_activo = localStorage.getItem('omaira_modelo_activo') || 'calcIRGConPesos_v6';
+  const mp = CRED_DATA.model_performance?.[modelo_activo];
+  if(!mp) return;
+  const bss_actual = mp.bss;
+  const n_actual   = mp.n || 0;
+  if((bss_actual === null || bss_actual === undefined || bss_actual < BSS_MINIMO) && n_actual < UMBRAL_N) {
+    const hist = JSON.parse(localStorage.getItem('omaira_historial_modelos')||'[]');
+    if(hist.length >= 2) {
+      const modelo_anterior = hist[hist.length-2];
+      console.warn(`[OMAIRA-ROLLBACK] BSS=${bss_actual} con ${n_actual} outcomes — revirtiendo a ${modelo_anterior.modelo}`);
+      localStorage.setItem('omaira_modelo_activo', modelo_anterior.modelo);
+      enviarEmailRollback(modelo_activo, modelo_anterior.modelo, bss_actual, n_actual);
+    }
+  }
+}
+
+function enviarEmailRollback(modelo_fallido, modelo_anterior, bss_caido, n_outcomes) {
+  const KEY = 'omaira_email_rollback_'+Date.now();
+  const BASE = _STORAGE_BASE();
+  const cuerpo = `⚠️ OMAIRA — Reversión automática de modelo de riesgo\n\n` +
+    `El sistema detectó BSS=${bss_caido} con solo ${n_outcomes} outcomes — posible pérdida de datos.\n` +
+    `Se revirtió automáticamente al modelo anterior como medida de seguridad.\n\n` +
+    `MODELO QUE FALLÓ: ${modelo_fallido}\nMODELO ANTERIOR (activo ahora): ${modelo_anterior}\nFECHA: ${new Date().toISOString()}\n\n` +
+    `═══ PASO 1 — Verificar si los datos se pueden restaurar:\n` +
+    `Abre: ${BASE}/api/v1/storage/outcomes/${zona}/sismicidad_acumulada\n` +
+    `Si ves datos recientes → los outcomes están en PostgreSQL y se recuperarán solos.\n\n` +
+    `═══ PASO 2 — Si los datos NO se restauran, pega en Claude Code:\n` +
+    `"OMAIRA — el sistema revirtió al modelo anterior (${modelo_anterior}) por pérdida de outcomes.\n` +
+    `El modelo ${modelo_fallido} tiene BSS insuficiente (${bss_caido} con ${n_outcomes} outcomes).\n` +
+    `Verificar estado del sistema de Credibilidad y documentar pérdida de datos."\n\n` +
+    `— Sistema OMAIRA v6, generado automáticamente`;
+  fetch(BASE+'/api/v1/notificaciones/email', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({tipo:'rollback_modelo',
+      asunto:'⚠️ OMAIRA — Reversión automática de modelo de riesgo', cuerpo}),
+    signal: AbortSignal.timeout(10000)
+  }).catch(()=>{});
+}
+
+function enviarEmailRecomendacion(comparacion) {
+  const KEY = 'omaira_email_rec_'+comparacion.modelo_ganador;
+  if(localStorage.getItem(KEY)) return; // ya enviado una vez
+  const BASE = _STORAGE_BASE();
+  const detalle = (comparacion.detalle||[]).map(x=>`  ${x.etiqueta}: BSS ${x.bss?.toFixed(3)||'N/D'} (${x.n} outcomes)`).join('\n');
+  const cuerpo = `⚡ OMAIRA — Evidencia suficiente para unificar modelos de riesgo\n\n` +
+    `El sistema de Credibilidad detectó evidencia estadística confiable.\n\n` +
+    `MODELO RECOMENDADO: ${comparacion.etiqueta_ganador}\n` +
+    `BSS: ${(comparacion.detalle||[])[0]?.bss?.toFixed(3)||'N/D'}\nDIFERENCIA BSS: ${comparacion.diferencia_bss?.toFixed(3)}\n` +
+    `FECHA: ${new Date().toISOString()}\n\nDetalle por modelo:\n${detalle}\n\n` +
+    `Cuando estés listo, pega en Claude Code:\n\n` +
+    `"OMAIRA — ejecutar unificación de modelos. El sistema de Credibilidad recomienda ` +
+    `${comparacion.etiqueta_ganador} como modelo canónico. ` +
+    `Ver docs/investigacion-dos-modelos-riesgo.md y docs/verificacion-aprendizaje-continuo.md. ` +
+    `Implementar Opción 3 documentada en la investigación de Sesión 5."\n\n` +
+    `— Sistema OMAIRA v6, generado automáticamente`;
+  fetch(BASE+'/api/v1/notificaciones/email', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({tipo:'recomendacion_modelo',
+      asunto:'⚡ OMAIRA — Evidencia suficiente para unificar modelos de riesgo', cuerpo}),
+    signal: AbortSignal.timeout(10000)
+  }).then(()=>localStorage.setItem(KEY, new Date().toISOString())).catch(()=>{});
+}
+
 // VISOR SISTEMA DE CREDIBILIDAD — Renderizado completo
 // ═══════════════════════════════════════════════════════════════════════
 let credTabActual = 'resumen';
@@ -9052,7 +9227,36 @@ function renderCredResumen(){
   }
   const cred_color = cred_promedio>75?'#22c55e':cred_promedio>50?'#f59e0b':'#ef4444';
 
-  return `
+  // Evaluación comparativa de los 3 modelos
+  const _comp = evaluarComparacionModelos(zona);
+  if(_comp.hay_evidencia && _comp.recomendar_unificacion) {
+    guardarHistorialModelo('calcIRGConPesos_v6',
+      CRED_DATA.model_performance?.['calcIRGConPesos_v6']?.bss,
+      CRED_DATA.model_performance?.['calcIRGConPesos_v6']?.n||0);
+    enviarEmailRecomendacion(_comp);
+  }
+  const notif_modelos = _comp.hay_evidencia && _comp.recomendar_unificacion
+    ? `<div style="background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);
+         border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:8px">
+         <div style="font-weight:700;color:#f59e0b;margin-bottom:4px">
+           ⚡ Evidencia BSS suficiente para unificar modelos
+         </div>
+         <div style="color:var(--text2)">${_comp.mensaje}</div>
+         <div style="margin-top:6px;font-size:7px;color:var(--text3)">
+           ${(_comp.detalle||[]).map(x=>x.etiqueta.split(' ')[0]+': BSS '+(x.bss?.toFixed(3)||'N/D')+' (N='+x.n+')').join(' · ')}
+         </div>
+       </div>`
+    : _comp.hay_evidencia
+      ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);
+           border-radius:8px;padding:8px 14px;margin-bottom:12px;font-size:8px;color:var(--text3)">
+           ✅ ${_comp.mensaje}
+         </div>`
+      : `<div style="background:var(--bg3);border-radius:8px;padding:8px 14px;
+           margin-bottom:12px;font-size:8px;color:var(--text3)">
+           📊 ${_comp.mensaje}
+         </div>`;
+
+  return `${notif_modelos}
   <!-- KPIs principales -->
   <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
     <div style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;border:1px solid var(--border)">
