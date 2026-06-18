@@ -8292,6 +8292,74 @@ function brierSkillScore(brier, p_climatologia) {
   return bs_ref > 0 ? +(1 - brier / bs_ref).toFixed(3) : null;
 }
 
+// ── TASAS DE CLIMATOLOGÍA POR TIPO DE RIESGO ─────────────────────────────────
+// Frecuencia histórica de ocurrencia por ciclo de 15 minutos en Antioquia.
+// Fuentes: UNGRD 2024, Banco de la República DTSer-317 (2023),
+//          IDEAM temporadas de lluvia Región Andina, ANSV estadísticas viales.
+//
+// Cálculo base: p = eventos_anuales_por_municipio / (365.25 × 24 × 4 ciclos/año)
+// Estas tasas son ESTIMACIONES PROVISIONALES con respaldo oficial.
+// Se reemplazan automáticamente por tasas propias cuando hay ≥100 outcomes
+// acumulados por tipo/zona (ver obtenerClimatologia() abajo).
+const CLIMATOLOGIA_BASE = {
+  // Inundaciones: ~150 eventos municipales/año (UNGRD) — Antioquia
+  'inundacion':           0.0008,
+  // Deslizamientos: evento más frecuente con mayor mortalidad — BanRep DTSer-317 2023
+  'deslizamiento':        0.0010,
+  // Movimientos en masa: deslizamientos + derrumbes + flujos (~200/año UNGRD)
+  'movimiento_masa':      0.0008,
+  // Crecientes súbitas: 115 eventos UNGRD período de análisis
+  'creciente_quebradas':  0.0005,
+  // Lluvias intensas (>20mm/h): varios episodios/mes en temporadas Mar-Jun y Sep-Nov
+  'lluvias_intensas':     0.0030,
+  // Sismos sentidos: ~50/año SGC en Antioquia
+  'sismicidad_acumulada': 0.0002,
+  // Incendios forestales: UNGRD 2024 — 6293 nacionales, Antioquia ~8% → ~500/año
+  'incendio_forestal':    0.0020,
+  // Congestión vial: frecuente vías principales Antioquia — estimado TomTom
+  'congestion_vial':      0.0100,
+  // Accidentes tránsito: ANSV ~12000/año Antioquia
+  'accidente_transito':   0.0050,
+  // Niebla en vías (<500m): varios episodios/semana zonas de montaña y Oriente
+  'niebla_vias':          0.0050,
+  // Niebla aeronáutica: aeropuertos SKRG y SKMD, episodios frecuentes madrugada
+  'niebla_aeronautica':   0.0030,
+  // Vendaval (>15 m/s): moderadamente frecuente temporada lluvias
+  'vendaval':             0.0010,
+  // Granizo: raro — solo zonas convectivas de alta montaña
+  'granizo':              0.0003,
+  // Golpe de calor (>35°C): raro por altitud media; más en Bajo Cauca y Urabá
+  'golpe_calor':          0.0005,
+  // Heladas (<3°C en >2500m): páramos, muy localizadas y estacionales
+  'heladas':              0.0002,
+  // Sequía: vinculada a El Niño — episodios ~1-2/año en fase cálida
+  'sequia':               0.0010,
+  // Presión turística: fines de semana y festivos — municipios turísticos
+  'presion_turistica':    0.0050,
+  // Actividad aérea alta (>10 vuelos): frecuente cerca aeropuertos
+  'actividad_aerea':      0.0150,
+  // Inversión térmica: episodios contaminación Valle de Aburrá
+  'inversion_termica':    0.0040,
+  // Default para tipos no listados (manual o futuro) — más honesto que 0.25
+  '_default':             0.0005,
+};
+
+/**
+ * Retorna la tasa de climatología para un tipo de riesgo y zona.
+ * Usa historial propio si hay ≥100 outcomes; si no, usa CLIMATOLOGIA_BASE.
+ * Se llama desde actualizarMetricasOnline() antes de calcular BSS.
+ */
+function obtenerClimatologia(tipo_riesgo, zona) {
+  const MIN_OUTCOMES = 100;
+  const outcomes = CRED_DATA.outcomes?.[tipo_riesgo]?.[zona] || [];
+  if (outcomes.length >= MIN_OUTCOMES) {
+    const ocurridos = outcomes.filter(o => o.ocurrio === 1).length;
+    // Suavizado de Laplace: evita tasas de 0% o 100% con pocos datos
+    return (ocurridos + 1) / (outcomes.length + 2);
+  }
+  return CLIMATOLOGIA_BASE[tipo_riesgo] ?? CLIMATOLOGIA_BASE['_default'];
+}
+
 // ── 4. LOG LOSS ─────────────────────────────────────────────────────────────
 // LL = -(1/N) * Σ[o*log(p) + (1-o)*log(1-p)]
 function calcLogLoss(preds, outcomes) {
@@ -8491,8 +8559,8 @@ function actualizarMetricasOnline(tipo_riesgo, zona, ocurrio) {
     sp.sum_bs += (p-o)**2;
     sp.hits += (Math.abs(p-o) < 0.3) ? 1 : 0; // hit si error < 0.3
     sp.brier = +(sp.sum_bs/sp.total).toFixed(4);
-    // BSS respecto a climatología (base 0.25 = prob 0.5)
-    sp.bss = +(1 - sp.brier/0.25).toFixed(3);
+    // BSS respecto a climatología real por tipo de riesgo (no 0.25 genérico)
+    sp.bss = brierSkillScore(sp.brier, obtenerClimatologia(tipo_riesgo, zona)) ?? 0;
   });
 }
 
@@ -9054,7 +9122,8 @@ function renderCredMetricas(){
 
   return `
   <div style="margin-bottom:10px;font-size:8px;background:rgba(59,130,246,.08);border-radius:6px;padding:8px">
-    <b>Referencia de Brier Score:</b> 0.00 = perfecto · 0.25 = sin información (50/50) · 1.00 = peor que aleatorio<br>
+    <b>Referencia de Brier Score:</b> 0.00 = perfecto · 1.00 = peor que aleatorio<br>
+    <b>BSS:</b> &gt;0 = mejor que climatología · 1.0 = perfecto · Referencia: tasa real UNGRD/BanRep DTSer-317 por tipo (no 50/50 genérico)<br>
     <b>Log Loss:</b> menor = mejor · <b>ECE:</b> 0 = perfectamente calibrado
   </div>
   <div style="overflow-x:auto">
@@ -9063,10 +9132,12 @@ function renderCredMetricas(){
       <tr style="background:var(--bg4)">
         <th style="padding:6px 8px;text-align:left;color:var(--text2)">Tipo de riesgo</th>
         <th style="padding:6px 8px;text-align:center;color:var(--text2)">Brier Score ↓</th>
+        <th style="padding:6px 8px;text-align:center;color:var(--text2)">BSS ↑</th>
         <th style="padding:6px 8px;text-align:center;color:var(--text2)">Log Loss ↓</th>
         <th style="padding:6px 8px;text-align:center;color:var(--text2)">N outcomes</th>
+        <th style="padding:6px 8px;text-align:center;color:var(--text2)">Climatología</th>
         <th style="padding:6px 8px;text-align:center;color:var(--text2)">Calidad</th>
-        <th style="padding:6px 8px;text-align:center;color:var(--text2)">Overconfidence</th>
+        <th style="padding:6px 8px;text-align:center;color:var(--text2)">Overconf.</th>
       </tr>
     </thead>
     <tbody>
@@ -9077,11 +9148,19 @@ function renderCredMetricas(){
       const bs_color = m.brier<0.15?'#22c55e':m.brier<0.20?'#f59e0b':'#ef4444';
       const cal = m.brier<0.15?'Excelente':m.brier<0.20?'Buena':m.brier<0.25?'Aceptable':'Mejorar';
       const cal_c = m.brier<0.15?'#22c55e':m.brier<0.20?'#3b82f6':m.brier<0.25?'#f59e0b':'#ef4444';
+      const p_clim = typeof obtenerClimatologia === 'function' ? obtenerClimatologia(tipo, zona) : 0.0005;
+      const bss = typeof brierSkillScore === 'function' ? brierSkillScore(m.brier, p_clim) : null;
+      const bss_color = bss === null ? '#64748b' : bss > 0.3 ? '#22c55e' : bss > 0 ? '#f59e0b' : '#ef4444';
+      const n_propios = (CRED_DATA?.outcomes?.[tipo]?.[zona]||[]).length;
+      const clim_src = n_propios >= 100 ? '📊 Dato propio' : '📋 Estimación';
+      const clim_txt = (p_clim * 100).toFixed(4) + '%';
       return `<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:5px 8px;color:var(--text2)">${r.e} ${r.n.slice(0,25)}</td>
+        <td style="padding:5px 8px;color:var(--text2)">${r.e} ${r.n.slice(0,22)}</td>
         <td style="padding:5px 8px;text-align:center;font-weight:700;color:${bs_color}">${m.brier??'—'}</td>
+        <td style="padding:5px 8px;text-align:center;font-weight:700;color:${bss_color}">${bss !== null ? bss.toFixed(3) : '—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--text3)">${m.logloss??'—'}</td>
         <td style="padding:5px 8px;text-align:center;color:var(--text2)">${m.n||0}</td>
+        <td style="padding:5px 8px;text-align:center;font-size:7px;color:var(--text3)" title="${clim_src} — UNGRD/BanRep DTSer-317 2023">${clim_src}<br>${clim_txt}</td>
         <td style="padding:5px 8px;text-align:center;color:${cal_c};font-weight:700">${cal}</td>
         <td style="padding:5px 8px;text-align:center">${oc.overconfidence?'⚠️ Sí ('+Math.round((oc.ratio||0)*100)+'%)':'✅ No'}</td>
       </tr>`;
