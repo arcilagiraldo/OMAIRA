@@ -1744,9 +1744,19 @@ main{flex:1;display:flex;overflow:hidden}
       <span class="cm">// Robustez: penaliza si faltan fuentes críticas (Open-Meteo, USGS, NOAA)</span>
     </div>
 
+    <h3>Tres modelos de riesgo con roles complementarios</h3>
+    <p>OMAIRA opera con <strong>tres implementaciones del marco H×E×V</strong> que coexisten con propósitos distintos y no redundantes:</p>
+    <ul style="font-size:8.5px;line-height:1.7;margin:4px 0 10px 16px">
+      <li><strong>calcIRGConPesos() — Frontend</strong>: el modelo que ve el operador en el dashboard. 20+ variables, pesos dinámicos ENSO e IDF DAGRAN, fuentes externas en vivo. Es el más completo y el único que puede correr sin servidor propio.</li>
+      <li><strong>irg_service — Backend</strong>: IRG server-side para el chatbot de IA y alertas automáticas sin navegador. Devuelve un índice global único (no desagrega por tipo de riesgo).</li>
+      <li><strong>riesgo_service — Backend</strong>: predicciones por tipo específico (deslizamiento, inundación, incendio, tormenta, sequía). Alimenta el sistema de alertas SIRGA y la predicción multi-horizonte.</li>
+    </ul>
+    <p>Los tres modelos usan el mismo vocabulario de niveles (muy_bajo · bajo · medio · alto · muy_alto · critico) pero con umbrales distintos sobre escalas incomparables, lo que hace que puedan dar valores distintos para la misma zona en el mismo momento. Esta diferencia es intencional — cada modelo responde una pregunta distinta. El sistema de Credibilidad los mide en paralelo para determinar empíricamente cuál predice mejor eventos reales.</p>
+
     <h3>Aprendizaje continuo (Online Learning)</h3>
     <p>El sistema actualiza Brier Score y Log Loss incrementalmente con cada outcome registrado, sin recalcular desde cero. Cada 15 minutos se generan <strong>outcomes automáticos</strong> a partir de datos reales: sismos USGS, focos NASA FIRMS, lluvia vs umbrales IDF, tráfico TomTom, visibilidad aeronáutica y nivel de embalses. La <strong>calibración isotónica (PAVA)</strong> se activa automáticamente con ≥10 outcomes, ajustando las probabilidades predichas para que reflejen las frecuencias reales observadas. Todos los outcomes se persisten en localStorage (respuesta inmediata) y se sincronizan al backend PostgreSQL (historial compartido entre dispositivos, requiere base de datos Railway provisionada).</p>
-    <p>El <strong>Brier Skill Score (BSS)</strong> usa como referencia de climatología las <strong>tasas históricas reales de ocurrencia por tipo de riesgo</strong> en Antioquia, basadas en datos de UNGRD 2024 y Banco de la República DTSer-317 (2023) — por ejemplo, 0.20% por ciclo para incendios forestales, 0.02% para sismos significativos, 0.08% para inundaciones. Cuando se acumulan ≥100 outcomes propios por tipo y zona, el sistema reemplaza automáticamente la tasa estimada por la tasa real observada (con suavizado de Laplace para estabilidad estadística). Esta referencia real evita que el BSS aparezca artificialmente alto comparado contra un modelo hipotético que siempre predice 50%.</p>
+    <p>El <strong>Brier Skill Score (BSS)</strong> se mide de forma independiente para los <strong>tres modelos</strong>. Usa como referencia de climatología las tasas históricas reales de ocurrencia por tipo de riesgo en Antioquia (UNGRD 2024, BanRep DTSer-317). Cuando algún modelo acumula ≥500 outcomes y supera a los demás en BSS por ≥0.15, el panel de Credibilidad muestra una <strong>notificación automática</strong> y envía un email al operador con instrucciones específicas para Claude Code. Esto convierte la comparación de modelos en un proceso continuo y automático — sin necesidad de recordarlo entre sesiones.</p>
+    <p>El <strong>rollback automático</strong> revierte al modelo anterior si el BSS cae por debajo de -0.5 con menos de 50 outcomes — señal de pérdida de datos de calibración. El sistema notifica al operador con una URL de verificación y el mensaje exacto para restaurar.</p>
   </div>
 
   <!-- IA MULTI-MODELO -->
@@ -1810,7 +1820,7 @@ main{flex:1;display:flex;overflow:hidden}
     <table class="vtab">
       <tr><th>Componente</th><th>Tecnología</th><th>Descripción</th></tr>
       <tr><td><strong>Frontend</strong></td><td>GitHub Pages</td><td>App web estática sin servidor propio. Acceso desde cualquier dispositivo con navegador.</td></tr>
-      <tr><td><strong>Backend / APIs externas</strong></td><td>Railway (FastAPI + Python)</td><td>Servidor en la nube que integra REPS, SIVIGILA, ENSO, SISAIRE, DANE, ANSV y las sirve con un solo endpoint optimizado.</td></tr>
+      <tr><td><strong>Backend / APIs externas</strong></td><td>Railway (FastAPI + Python)</td><td>Servidor en la nube con 3 modelos de riesgo (irg_service, riesgo_service, prediccion) e integración de fuentes externas: REPS, SIVIGILA, ENSO, SISAIRE, DANE, ANSV. Cada modelo expone endpoints documentados con campo modelo: en la respuesta JSON.</td></tr>
       <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 8 horas.</td></tr>
       <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
       <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
@@ -1822,7 +1832,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;margin-top:10px;border:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v6 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
     <div style="font-size:8px;color:var(--text3);line-height:17px">
-      123 municipios · 24 tipos de riesgo · 27 fuentes de datos · 5 modelos IA · Credibilidad probabilística calibrada<br>
+      123 municipios · 24 tipos de riesgo · 27 fuentes de datos · 3 modelos de riesgo + 5 modelos IA · Credibilidad probabilística calibrada<br>
       Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score
     </div>
