@@ -789,7 +789,7 @@ main{flex:1;display:flex;overflow:hidden}
 <div id="p-mapa" style="display:none">
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
     <div class="mctrl">
-      <span style="font-size:9px;color:var(--text2);font-weight:700">ANTIOQUIA — 125 MUNICIPIOS</span>
+      <span style="font-size:9px;color:var(--text2);font-weight:700">ANTIOQUIA — 123 MUNICIPIOS</span>
       <button class="mbtn on" id="mb-osm" onclick="setCapa('osm')">Mapa</button>
       <button class="mbtn" id="mb-sat" onclick="setCapa('sat')">Satélite</button>
       <button class="mbtn" id="mb-topo" onclick="setCapa('topo')">Topografía</button>
@@ -1890,7 +1890,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function addLog(id,txt,c='#3b82f6'){const el=document.getElementById(id);if(!el)return;const d=document.createElement('div');d.className='ll';d.innerHTML=`<div class="ldot" style="background:${c}"></div><span>${txt}</span>`;el.appendChild(d);el.scrollTop=el.scrollHeight;}
 function setP(fid,lid,pct,lbl){const f=document.getElementById(fid),l=document.getElementById(lid);if(f)f.style.width=pct+'%';if(l)l.textContent=lbl;}
 
-// ── MUNICIPIOS (105 únicos) ───────────────────────────────
+// ── MUNICIPIOS (123) ─────────────────────────────────────
 const MUNS=[
   ['medellin','Medellín',6.2442,-75.5812,'Valle de Aburrá',2526795,1495,'montañoso','rio_medellin','deslizamiento','alta'],
   ['bello','Bello',6.3395,-75.5564,'Valle de Aburrá',609168,1475,'montañoso','rio_medellin','deslizamiento','alta'],
@@ -6963,7 +6963,7 @@ function guardarNotif(){alert('✅ Notificaciones guardadas');}
 function selNiv(nv,el){document.querySelectorAll('#niv-chips span').forEach(c=>{c.style.background='var(--bg4)';c.style.color='var(--text3)';c.style.borderColor='var(--border2)';c.textContent=c.textContent.replace(' ✓','');});el.style.background='rgba(59,130,246,.1)';el.style.color='var(--az)';el.style.borderColor='rgba(59,130,246,.4)';el.textContent=nv.replace('_',' ')+' ✓';}
 
 // ═══════════════════════════════════════════════════════════
-// SELECTOR 125 MUNICIPIOS
+// SELECTOR 123 MUNICIPIOS
 // ═══════════════════════════════════════════════════════════
 function poblarSel(){
   const sel=document.getElementById('zsel');if(!sel)return;
