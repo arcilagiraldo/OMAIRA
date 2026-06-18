@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from typing import Optional, List
 from app.models.schemas import TipoRiesgo, HorizontePrediccion
 from app.services.riesgo_service import calcular_riesgo_zona
+from app.services.modelo_roles import MODELO_RIESGO_BACKEND, DESCRIPCION_MODELOS
 
 router = APIRouter()
 
@@ -16,7 +17,10 @@ async def get_riesgo_zona(
     tipo: Optional[TipoRiesgo] = None,
 ):
     """Calcula riesgo actual para una zona específica"""
-    return await calcular_riesgo_zona(zona_id, tipo_riesgo=tipo, horizonte=horizonte)
+    resultado = await calcular_riesgo_zona(zona_id, tipo_riesgo=tipo, horizonte=horizonte)
+    resultado["modelo"] = MODELO_RIESGO_BACKEND
+    resultado["modelo_descripcion"] = DESCRIPCION_MODELOS[MODELO_RIESGO_BACKEND]
+    return resultado
 
 
 @router.get("/multihorizonte/{zona_id}")
@@ -24,8 +28,10 @@ async def get_riesgo_multihorizonte(zona_id: str):
     """Predicciones para todos los horizontes: 1h, 6h, 24h, 72h"""
     resultados = {}
     for h in HorizontePrediccion:
-        resultados[h.value] = await calcular_riesgo_zona(zona_id, horizonte=h)
-    return {"zona_id": zona_id, "horizontes": resultados}
+        r = await calcular_riesgo_zona(zona_id, horizonte=h)
+        r["modelo"] = MODELO_RIESGO_BACKEND
+        resultados[h.value] = r
+    return {"zona_id": zona_id, "horizontes": resultados, "modelo": MODELO_RIESGO_BACKEND}
 
 
 @router.get("/mapa/{zona_id}")
@@ -47,6 +53,7 @@ async def get_mapa_riesgo(zona_id: str):
                 "nivel": pred["nivel"],
                 "probabilidad": pred["probabilidad"],
                 "color": _color_por_nivel(pred["nivel"]),
+                "modelo": MODELO_RIESGO_BACKEND,
             }
         })
     return {"type": "FeatureCollection", "features": features}

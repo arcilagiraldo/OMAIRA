@@ -10,6 +10,7 @@ from datetime import datetime
 from app.services.irg_service import calcular_irg
 from app.services.ia_service import analizar_con_ia, ModeloIA, MODELOS_INFO
 from app.services.riesgo_service import calcular_riesgo_zona, _simular_datos_meteorologicos
+from app.services.modelo_roles import MODELO_IRG_BACKEND, DESCRIPCION_MODELOS
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
 from app.services.consultas_service import responder_consulta
 from app.services.database import guardar_consulta
@@ -55,6 +56,8 @@ async def get_irg(zona_id: str, hora: Optional[int] = None):
         "alertas_irg": resultado.alertas_irg,
         "contexto_local": resultado.contexto_local,
         "timestamp": resultado.timestamp.isoformat(),
+        "modelo": MODELO_IRG_BACKEND,
+        "modelo_descripcion": DESCRIPCION_MODELOS[MODELO_IRG_BACKEND],
         "variables": {
             k: {
                 "nombre": v.nombre, "valor": v.valor,
@@ -87,6 +90,8 @@ async def get_irg_dashboard(zona_id: str):
         "turismo": r.contexto_local.get("turismo_nivel"),
         "hora": r.contexto_local.get("hora"),
         "fuentes_activas": r.contexto_local.get("fuentes_externas_activas", []),
+        "modelo": MODELO_IRG_BACKEND,
+        "modelo_descripcion": DESCRIPCION_MODELOS[MODELO_IRG_BACKEND],
     }
 
 
