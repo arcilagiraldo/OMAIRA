@@ -1028,7 +1028,7 @@ main{flex:1;display:flex;overflow:hidden}
       <div>
         <div class="ctit">🎯 Sistema de Credibilidad Probabilística</div>
         <div style="font-size:8px;color:var(--text3);margin-top:2px">
-          Brier Score · ECE · Isotonic Regression · Platt Scaling · Ensemble ponderado · Online Learning
+          Brier Score · ECE · Isotonic Regression (activa) · Platt Scaling (disponible, no activa) · Online Learning
         </div>
       </div>
       <div style="display:flex;gap:6px">
@@ -1625,7 +1625,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>Datos en tiempo real</strong></td><td>Open-Meteo · USGS · ADS-B · TomTom · NOAA ONI</td><td>Clima, sismos, vuelos, tráfico, índice ENSO — consultados cada 15 minutos</td></tr>
       <tr><td><strong>Núcleo científico</strong></td><td>JavaScript · API Index · Pesos ENSO · IDF DAGRAN</td><td>IRG dinámico con 24 tipos de riesgo, modelo H×E×V×F, calibrado metodología DAGRAN</td></tr>
       <tr><td><strong>IA multi-modelo</strong></td><td>Claude API · OpenAI GPT-4o mini · Gemini Flash · Motor local</td><td>Diagnóstico automático, análisis de riesgo con lenguaje natural, predicción multi-horizonte</td></tr>
-      <tr><td><strong>Credibilidad</strong></td><td>Brier Score · ECE · Isotonic Regression · Platt Scaling</td><td>Calibración probabilística automática, peso dinámico por fuente, detección sobreconfianza</td></tr>
+      <tr><td><strong>Credibilidad</strong></td><td>Brier Score · ECE · Isotonic Regression (activa, ≥10 outcomes) · Platt Scaling (disponible, no activa)</td><td>Calibración probabilística automática, detección sobreconfianza, outcomes sincronizados al backend</td></tr>
       <tr><td><strong>Persistencia</strong></td><td>IndexedDB (50MB+) · localStorage · Railway PostgreSQL</td><td>Historial 90 días lluvia, 30 días IRG; outcomes de calibración guardados localmente y sincronizados al backend para preservar el aprendizaje entre dispositivos</td></tr>
     </table>
   </div>
@@ -1730,7 +1730,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>Log Loss</strong></td><td>LL = -(1/N)×Σ[o×log(p)+(1-o)×log(1-p)]</td><td>Penaliza predicciones confiadas incorrectas · Menor es mejor</td></tr>
       <tr><td><strong>ECE (Calibration Error)</strong></td><td>ECE = Σ(n/N)×|acc-conf| por bin</td><td>0 = perfectamente calibrado · Visualizado en Reliability Diagram</td></tr>
       <tr><td><strong>Isotonic Regression (PAVA)</strong></td><td>Pool Adjacent Violators Algorithm</td><td>Calibra probabilidades monotónicamente sin parámetros</td></tr>
-      <tr><td><strong>Platt Scaling</strong></td><td>p_cal = σ(a×f+b) · gradient descent 200 iter.</td><td>Calibración sigmoide paramétrica · Estima a,b con histórico</td></tr>
+      <tr><td><strong>Platt Scaling</strong></td><td>p_cal = σ(a×f+b) · gradient descent 200 iter.</td><td>Calibración sigmoide paramétrica · Implementada, disponible · <em>No activa en el flujo principal — método activo es Isotonic Regression</em></td></tr>
     </table>
 
     <h3>Credibilidad compuesta — 5 componentes</h3>
