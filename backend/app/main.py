@@ -1,4 +1,4 @@
-"""OMAIRA v4 — Backend FastAPI"""
+"""OMAIRA v6 — Backend FastAPI"""
 import asyncio
 import json
 from contextlib import asynccontextmanager
@@ -13,6 +13,7 @@ from app.api.monitor import router as router_monitor
 from app.api.storage import router as router_storage
 from app.api.proxy import router as router_proxy
 from app.api.fuentes_deteccion import router as router_deteccion
+from app.api.notificaciones import router as router_notificaciones
 from app.services.websocket_manager import ConnectionManager
 from app.services.riesgo_service import generar_alertas
 from app.services.database import init_pool, close_pool
@@ -47,6 +48,7 @@ app.include_router(router_monitor,         prefix="/api/v1/monitor")
 app.include_router(router_storage,         prefix="/api/v1/storage")
 app.include_router(router_proxy,           prefix="/api/v1/proxy")
 app.include_router(router_deteccion,       prefix="/api/v1/fuentes/deteccion")
+app.include_router(router_notificaciones,  prefix="/api/v1/notificaciones")
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 manager = ConnectionManager()
