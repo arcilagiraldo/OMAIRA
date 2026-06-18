@@ -543,7 +543,7 @@ main{flex:1;display:flex;overflow:hidden}
 <div id="auth-overlay">
   <div class="auth-box">
     <div class="auth-logo">🛰️</div>
-    <div class="auth-title">OMAIRA V5.0</div>
+    <div class="auth-title">OMAIRA v6</div>
     <div class="auth-sub">Observación, Monitoreo, Análisis e Inteligencia<br>de Riesgos y Amenazas</div>
     <div id="g-signin-btn" style="display:flex;justify-content:center;min-height:44px"></div>
     <div id="auth-loading" style="display:none;font-size:10px;color:var(--text3);margin-top:10px">Verificando acceso…</div>
@@ -789,7 +789,7 @@ main{flex:1;display:flex;overflow:hidden}
 <div id="p-mapa" style="display:none">
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:8px">
     <div class="mctrl">
-      <span style="font-size:9px;color:var(--text2);font-weight:700">ANTIOQUIA — 125 MUNICIPIOS</span>
+      <span style="font-size:9px;color:var(--text2);font-weight:700">ANTIOQUIA — 123 MUNICIPIOS</span>
       <button class="mbtn on" id="mb-osm" onclick="setCapa('osm')">Mapa</button>
       <button class="mbtn" id="mb-sat" onclick="setCapa('sat')">Satélite</button>
       <button class="mbtn" id="mb-topo" onclick="setCapa('topo')">Topografía</button>
@@ -1890,7 +1890,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function addLog(id,txt,c='#3b82f6'){const el=document.getElementById(id);if(!el)return;const d=document.createElement('div');d.className='ll';d.innerHTML=`<div class="ldot" style="background:${c}"></div><span>${txt}</span>`;el.appendChild(d);el.scrollTop=el.scrollHeight;}
 function setP(fid,lid,pct,lbl){const f=document.getElementById(fid),l=document.getElementById(lid);if(f)f.style.width=pct+'%';if(l)l.textContent=lbl;}
 
-// ── MUNICIPIOS (105 únicos) ───────────────────────────────
+// ── MUNICIPIOS (123) ─────────────────────────────────────
 const MUNS=[
   ['medellin','Medellín',6.2442,-75.5812,'Valle de Aburrá',2526795,1495,'montañoso','rio_medellin','deslizamiento','alta'],
   ['bello','Bello',6.3395,-75.5564,'Valle de Aburrá',609168,1475,'montañoso','rio_medellin','deslizamiento','alta'],
@@ -2205,7 +2205,7 @@ const FUENTES_CONF=[
    desc:'Pronóstico de inundaciones 15-30 días en ríos Cauca, Magdalena y Porce. Sistema europeo Copernicus de alarma temprana. Mayor impacto en precisión IRG.',
    key_label:'CDS API Key (Copernicus Climate Data Store)',url:'https://cds.climate.copernicus.eu',
    instrucciones:'GloFAS requiere acceso a través de la API CDS de Copernicus (Python).\nSe recomienda activar en el backend de OMAIRA:\n1. cds.climate.copernicus.eu → Registrarse (gratis)\n2. Mi perfil → API Key → Copiar\n3. Aceptar términos GloFAS dataset\n4. Configurar en backend/app/services/\n\nContacto soporte: copernicus-support@ecmwf.int'},
-  // ── Fuentes externas integradas en backend v4.2 ─────────────────────────
+  // ── Fuentes externas integradas en backend v6 ───────────────────────────
   {id:'DANE_CENSO',n:'DANE — Censo CNPV 2018 + Proyecciones',ico:'👥',estado:'ok',tipo:'SIN_KEY',
    desc:'NBI, población y vulnerabilidad social por municipio (datos.gov.co). Mejora el factor V del modelo H×E×V. Sin registro ni clave — acceso automático.'},
   {id:'REPS_MINSALUD',n:'REPS — Prestadores de Salud (MinSalud)',ico:'🏥',estado:'ok',tipo:'SIN_KEY',
@@ -6963,7 +6963,7 @@ function guardarNotif(){alert('✅ Notificaciones guardadas');}
 function selNiv(nv,el){document.querySelectorAll('#niv-chips span').forEach(c=>{c.style.background='var(--bg4)';c.style.color='var(--text3)';c.style.borderColor='var(--border2)';c.textContent=c.textContent.replace(' ✓','');});el.style.background='rgba(59,130,246,.1)';el.style.color='var(--az)';el.style.borderColor='rgba(59,130,246,.4)';el.textContent=nv.replace('_',' ')+' ✓';}
 
 // ═══════════════════════════════════════════════════════════
-// SELECTOR 125 MUNICIPIOS
+// SELECTOR 123 MUNICIPIOS
 // ═══════════════════════════════════════════════════════════
 function poblarSel(){
   const sel=document.getElementById('zsel');if(!sel)return;

@@ -25,7 +25,7 @@ async def lifespan(app: FastAPI):
     await close_pool()
 
 
-app = FastAPI(title="OMAIRA v4 API", version="4.1.0", lifespan=lifespan)
+app = FastAPI(title="OMAIRA v6 API", version="6.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
