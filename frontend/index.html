@@ -1746,6 +1746,7 @@ main{flex:1;display:flex;overflow:hidden}
 
     <h3>Aprendizaje continuo (Online Learning)</h3>
     <p>El sistema actualiza Brier Score y Log Loss incrementalmente con cada outcome registrado, sin recalcular desde cero. Cada 15 minutos se generan <strong>outcomes automáticos</strong> a partir de datos reales: sismos USGS, focos NASA FIRMS, lluvia vs umbrales IDF, tráfico TomTom, visibilidad aeronáutica y nivel de embalses. La <strong>calibración isotónica (PAVA)</strong> se activa automáticamente con ≥10 outcomes, ajustando las probabilidades predichas para que reflejen las frecuencias reales observadas. Todos los outcomes se persisten en localStorage (respuesta inmediata) y se sincronizan al backend PostgreSQL (historial compartido entre dispositivos, requiere base de datos Railway provisionada).</p>
+    <p>El <strong>Brier Skill Score (BSS)</strong> usa como referencia de climatología las <strong>tasas históricas reales de ocurrencia por tipo de riesgo</strong> en Antioquia, basadas en datos de UNGRD 2024 y Banco de la República DTSer-317 (2023) — por ejemplo, 0.20% por ciclo para incendios forestales, 0.02% para sismos significativos, 0.08% para inundaciones. Cuando se acumulan ≥100 outcomes propios por tipo y zona, el sistema reemplaza automáticamente la tasa estimada por la tasa real observada (con suavizado de Laplace para estabilidad estadística). Esta referencia real evita que el BSS aparezca artificialmente alto comparado contra un modelo hipotético que siempre predice 50%.</p>
   </div>
 
   <!-- IA MULTI-MODELO -->
