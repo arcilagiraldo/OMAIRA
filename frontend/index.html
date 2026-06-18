@@ -8248,6 +8248,23 @@ function registrarOutcome(tipo_riesgo, zona, ocurrio, magnitud_norm) {
   // Actualizar métricas incrementalmente (online learning)
   actualizarMetricasOnline(tipo_riesgo, zona, ocurrio);
   saveCredDB();
+  // Sincronizar al backend PostgreSQL — fire-and-forget, no bloquea si Railway no responde
+  try {
+    const preds = CRED_DATA.predictions[tipo_riesgo]?.[zona] || [];
+    const ultima_pred = preds[preds.length - 1];
+    fetch(_STORAGE_BASE() + '/api/v1/storage/outcomes', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        zona_id: zona,
+        tipo_riesgo: tipo_riesgo,
+        email: _currentEmail || 'auto',
+        ocurrio: ocurrio ? 1 : 0,
+        prob_predicha: ultima_pred?.prob ?? 0.5
+      }),
+      signal: AbortSignal.timeout(8000)
+    }).catch(() => {}); // error silencioso — localStorage es la fuente de verdad
+  } catch(e) {}
 }
 
 // ── 3. BRIER SCORE INCREMENTAL ──────────────────────────────────────────────
