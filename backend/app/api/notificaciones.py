@@ -1,24 +1,20 @@
 """
-API Router — Notificaciones por email al operador
+API Router — Notificaciones por email al operador via Resend
 
 Envía emails automáticos cuando el sistema de Credibilidad detecta
 evidencia suficiente para recomendar unificación de modelos, o cuando
 ocurre un rollback automático por pérdida de outcomes.
 
 Requiere variables de entorno en Railway:
-  SMTP_HOST     — servidor SMTP (ej: smtp.gmail.com)
-  SMTP_PORT     — puerto (ej: 587 para TLS, 465 para SSL)
-  SMTP_USER     — cuenta emisora (ej: tu-cuenta@gmail.com)
-  SMTP_PASSWORD — contraseña de aplicación (no la contraseña de cuenta)
-  OPERADOR_EMAIL — destinatario (ej: criaderolasluciernagas@gmail.com)
+  RESEND_API_KEY  — clave de API de resend.com (gratis hasta 3000 emails/mes)
+  OPERADOR_EMAIL  — destinatario (ej: arcilagiraldo@gmail.com)
+  RESEND_FROM     — remitente verificado en Resend (opcional, default: onboarding@resend.dev)
 
-Si no están configuradas: el endpoint retorna ok:true con modo:simulado.
+Si RESEND_API_KEY no está configurada: retorna ok:true con modo:simulado.
 Los emails nunca bloquean el flujo principal — fire-and-forget desde frontend.
 """
 import os
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from datetime import datetime
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -26,43 +22,40 @@ from pydantic import BaseModel
 router = APIRouter()
 
 OPERADOR_EMAIL_DEFAULT = "criaderolasluciernagas@gmail.com"
+RESEND_API_URL = "https://api.resend.com/emails"
 
 
 class EmailPayload(BaseModel):
-    tipo: str                    # "recomendacion_modelo" | "rollback_modelo"
+    tipo: str
     asunto: str
     cuerpo: str
 
 
-def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> tuple[bool, str]:
-    """Intenta enviar via SMTP. Retorna (True, '') si éxito, (False, error) si falla."""
-    host = os.getenv("SMTP_HOST", "")
-    port = int(os.getenv("SMTP_PORT", "587"))
-    user = os.getenv("SMTP_USER", "")
-    password = os.getenv("SMTP_PASSWORD", "")
+async def _enviar_resend(asunto: str, cuerpo: str, destinatario: str) -> tuple[bool, str]:
+    """Envía email via Resend API. Retorna (True, '') si éxito, (False, error) si falla."""
+    api_key = os.getenv("RESEND_API_KEY", "")
+    if not api_key:
+        return False, "RESEND_API_KEY no configurada en Railway"
 
-    if not all([host, user, password]):
-        vars_faltantes = [k for k, v in {"SMTP_HOST": host, "SMTP_USER": user, "SMTP_PASSWORD": password}.items() if not v]
-        return False, f"Variables no configuradas: {vars_faltantes}"
+    from_email = os.getenv("RESEND_FROM", "OMAIRA <onboarding@resend.dev>")
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = asunto
-    msg["From"] = user
-    msg["To"] = destinatario
-    msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
+    payload = {
+        "from": from_email,
+        "to": [destinatario],
+        "subject": asunto,
+        "text": cuerpo,
+    }
 
     try:
-        if port == 465:
-            with smtplib.SMTP_SSL(host, port, timeout=10) as s:
-                s.login(user, password)
-                s.sendmail(user, [destinatario], msg.as_string())
-        else:
-            with smtplib.SMTP(host, port, timeout=10) as s:
-                s.ehlo()
-                s.starttls()
-                s.login(user, password)
-                s.sendmail(user, [destinatario], msg.as_string())
-        return True, ""
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.post(
+                RESEND_API_URL,
+                headers={"Authorization": f"Bearer {api_key}"},
+                json=payload,
+            )
+        if resp.status_code in (200, 201):
+            return True, ""
+        return False, f"Resend {resp.status_code}: {resp.text}"
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"
 
@@ -71,18 +64,18 @@ def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> tuple[bool, str
 async def enviar_email(payload: EmailPayload):
     """
     Envía email al operador. Llamado desde el frontend en dos situaciones:
-    1. Sistema de Credibilidad detecta evidencia BSS suficiente (≥500 outcomes, Δ BSS ≥ 0.15)
+    1. Sistema de Credibilidad detecta evidencia BSS suficiente (>=500 outcomes, delta BSS >= 0.15)
     2. Rollback automático se activa por pérdida de outcomes
     """
     destinatario = os.getenv("OPERADOR_EMAIL", OPERADOR_EMAIL_DEFAULT)
-    enviado, error = _enviar_smtp(payload.asunto, payload.cuerpo, destinatario)
+    enviado, error = await _enviar_resend(payload.asunto, payload.cuerpo, destinatario)
 
     return {
         "ok": True,
         "tipo": payload.tipo,
         "destinatario": destinatario,
         "enviado": enviado,
-        "modo": "smtp" if enviado else "simulado",
+        "modo": "resend" if enviado else "simulado",
         "timestamp": datetime.utcnow().isoformat(),
         "error": error if not enviado else "",
     }
