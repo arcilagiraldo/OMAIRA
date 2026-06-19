@@ -7133,25 +7133,47 @@ function conectarWebSocketZona(zona_id) {
   }
 }
 
+// Retorna el BSS del modelo solo si hay ≥10 outcomes acumulados.
+// Con menos de 10, el número es ruido estadístico — no se muestra nada.
+// Mismo umbral que activa Isotonic Regression en el sistema de Credibilidad.
+function _obtenerConfianzaSiSignificativa(modelo_id) {
+  const MIN_OUTCOMES = 10;
+  const mp = (typeof CRED_DATA !== 'undefined') && CRED_DATA.model_performance?.[modelo_id];
+  if (!mp || mp.n < MIN_OUTCOMES || mp.bss == null) return null;
+  return mp.bss;
+}
+
 function manejarEventoTiempoReal(data) {
   // Solo los 5 tipos con ventana real de acción antes del desastre.
-  // Cada toast muestra acciones si el backend las incluyó.
+  // Acciones del backend se muestran si existen.
+  // Confianza del modelo (BSS) se muestra SOLO si hay ≥10 outcomes —
+  // antes de eso sería precisión falsa sin respaldo estadístico.
   const acc = data.acciones && data.acciones.length ? '\n▶ ' + data.acciones[0] : '';
+
+  // lluvia_intensa es detección por umbral directo, no predicción del modelo IRG.
+  // Para los otros 4 tipos, el modelo es calcIRGConPesos_v6.
+  const MODELO_IRG = 'calcIRGConPesos_v6';
+  const esTipoIRG = data.tipo !== 'lluvia_intensa';
+  const bss = esTipoIRG ? _obtenerConfianzaSiSignificativa(MODELO_IRG) : null;
+  const conf = bss !== null
+    ? '\n📊 Confianza del modelo: BSS ' + bss.toFixed(2) + ' (histórico real)'
+    : '';
+
   switch(data.tipo) {
     case 'lluvia_intensa':
       toast('🌧️ ' + data.mensaje, 'warn');
       break;
     case 'deslizamiento':
-      toast('⛰️ ' + data.mensaje + acc, 'warn');
+      toast('⛰️ ' + data.mensaje + acc + conf, 'warn');
       break;
     case 'creciente_quebradas':
-      toast('🌊 ' + data.mensaje + acc, 'warn');
+      toast('🌊 ' + data.mensaje + acc + conf, 'warn');
       break;
     case 'inundacion':
-      toast('💧 ' + data.mensaje + acc, 'warn');
+      toast('💧 ' + data.mensaje + acc + conf, 'warn');
       break;
     case 'vendaval':
-      toast('💨 ' + data.mensaje + acc, 'warn');
+      toast('💨 ' + data.mensaje + acc + conf, 'warn');
       break;
   }
 }
