@@ -1829,6 +1829,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
       <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos. 3 reportes del mismo tipo en la misma zona activan una alerta automática confirmada.</td></tr>
       <tr><td><strong>Notificaciones email</strong></td><td>Resend API (HTTPS)</td><td>Emails automáticos al operador cuando el sistema Credibilidad detecta evidencia BSS suficiente para recomendar unificación de modelos, o cuando ocurre un rollback automático. Railway bloquea SMTP saliente; se usa Resend (API sobre HTTPS 443).</td></tr>
+      <tr><td><strong>WebSocket tiempo real</strong></td><td>WebSocket · <code>/ws/riesgo/{zona_id}</code></td><td>Conexión bajo demanda al municipio activo — se abre al seleccionar un municipio y se cierra al cambiar. Entrega inmediata de alertas nuevas y lluvia intensa sin esperar el próximo ciclo de polling. Funciona para cualquiera de los 123 municipios (no limitado a zonas fijas). Datos de baja frecuencia (embalse, censo) siguen en polling. Fallback silencioso a polling si WebSocket no está disponible. Límite: 500 conexiones simultáneas.</td></tr>
     </table>
   </div>
 
