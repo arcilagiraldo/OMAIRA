@@ -2,6 +2,7 @@
 import asyncio
 import re
 import json
+import time
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
@@ -19,6 +20,7 @@ from app.api.notificaciones import router as router_notificaciones
 from app.services.websocket_manager import ConnectionManager
 from app.services.riesgo_service import calcular_riesgo_zona
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
+from app.services.fuentes_externas import obtener_enso
 from app.models.schemas import NivelRiesgo
 from app.services.database import init_pool, close_pool
 
@@ -62,9 +64,53 @@ _ZONA_RE = re.compile(r'^[a-z0-9_]{2,50}$')
 # Niveles que activan envío por WebSocket
 _NIVELES_ALERTA = {NivelRiesgo.ALTO.value, NivelRiesgo.MUY_ALTO.value, NivelRiesgo.CRITICO.value}
 
-# Umbral de lluvia reciente (mm/h) para distinguir creciente súbita de inundación gradual
+# Umbrales base de lluvia reciente (mm/h) — se ajustan dinámicamente por fase ENSO
 _LLUVIA_INTENSA_MM = 20.0      # precursor directo: aguacero intenso → crecientes en minutos
 _LLUVIA_CRECIENTE_MM = 15.0    # combinado con INUNDACION ALTO+ → creciente_quebradas
+
+# ── Cache ENSO — se refresca cada hora (el ONI real cambia mensualmente) ─────
+# obtener_enso() tiene su propio caché de 24h en fuentes_externas; este cache
+# adicional evita que múltiples conexiones WS simultáneas accedan al dict de
+# caché interno en ráfagas, aunque ambos son seguros (el impacto es mínimo).
+_enso_cache: dict = {"factor": 1.0, "fase": "Neutro", "ts": 0.0}
+_ENSO_TTL = 3600  # 1 hora en segundos
+
+
+async def _obtener_factor_enso() -> tuple[float, str]:
+    """
+    Devuelve (factor_clima, fase_enso) cacheados 1 hora.
+    factor_clima viene directamente de obtener_enso() — misma calibración
+    que usa el modelo H×E×V internamente. Rango: 0.70 (El Niño fuerte)
+    a 1.55 (La Niña fuerte). Neutro = 1.0.
+    """
+    ahora = time.monotonic()
+    if ahora - _enso_cache["ts"] > _ENSO_TTL:
+        try:
+            datos = await obtener_enso()
+            _enso_cache["factor"] = datos.get("factor_clima", 1.0)
+            _enso_cache["fase"] = datos.get("fase_enso", "Neutro")
+            _enso_cache["ts"] = ahora
+        except Exception:
+            pass  # mantener último valor conocido si falla NOAA
+    return _enso_cache["factor"], _enso_cache["fase"]
+
+
+# ── Criterio de ajuste ENSO para umbrales de lluvia ──────────────────────────
+# La lógica usa el factor_clima que ya existe en obtener_enso() — es la misma
+# calibración que usa el modelo H×E×V para amplificar/reducir el riesgo base.
+#
+# Transformación: umbral_ajustado = umbral_base / factor_clima
+#   La Niña  (factor > 1.0, ej. 1.20 con ONI=-0.9): umbral = 20/1.20 = 16.7 mm/h
+#            → más sensible: la saturación del suelo es mayor, menos lluvia basta
+#   El Niño  (factor < 1.0, ej. 0.85 con ONI=+1.2): umbral = 20/0.85 = 23.5 mm/h
+#            → menos sensible: suelo más seco, aguacero puntual es menos peligroso
+#   Neutro   (factor = 1.0):                          umbral = 20/1.0  = 20.0 mm/h
+#
+# Estos rangos son estimaciones razonables derivadas del sistema ONI. No existe
+# un estudio publicado que fije estos valores exactos para Antioquia; el modelo
+# usa la calibración del propio sistema ENSO del proyecto (Sesión 1, rango
+# 0.70–1.55 derivado de literatura IDEAM y UNGRD).
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ── Criterio de selección de eventos para WebSocket ──────────────────────────
 # Un tipo de riesgo va por WebSocket SOLO SI el aviso instantáneo le da al
@@ -117,11 +163,20 @@ async def ws_riesgo_zona(
     try:
         # Trackea eventos activos por clave para enviar solo los que son nuevos
         eventos_activos: set = set()
+        # Ciclo en que se debe re-consultar ENSO (cada 120 ciclos × 30s = 1 hora)
+        _enso_recalc_en = 0
 
         while True:
+            # Ajustar umbrales según fase ENSO actual (se refresca cada ~1 hora)
+            if _enso_recalc_en <= 0:
+                factor_enso, fase_enso = await _obtener_factor_enso()
+                _enso_recalc_en = 120
+            _enso_recalc_en -= 1
+            umbral_intensa   = _LLUVIA_INTENSA_MM  / factor_enso
+            umbral_creciente = _LLUVIA_CRECIENTE_MM / factor_enso
+
             resultado = await calcular_riesgo_zona(zona_id)
             preds = {p["tipo_riesgo"]: p for p in resultado["predicciones"]}
-            meteo = resultado.get("metadata", {}).get("datos_meteo") or {}
 
             # Leer lluvia reciente desde Open-Meteo (no está en calcular_riesgo_zona)
             try:
@@ -134,13 +189,15 @@ async def ws_riesgo_zona(
             envios = []
 
             # 1. lluvia_intensa — precursor directo: da minutos antes del deslizamiento/creciente
-            if lluvia_1h >= _LLUVIA_INTENSA_MM:
+            if lluvia_1h >= umbral_intensa:
                 sig_eventos.add("lluvia_intensa")
                 if "lluvia_intensa" not in eventos_activos:
                     envios.append({
                         "tipo": "lluvia_intensa",
                         "zona_id": zona_id,
                         "lluvia_mm_1h": round(lluvia_1h, 1),
+                        "fase_enso": fase_enso,
+                        "umbral_aplicado": round(umbral_intensa, 1),
                         "mensaje": f"Lluvia intensa: {lluvia_1h:.1f} mm/h — riesgo de deslizamiento y crecientes",
                     })
 
@@ -162,8 +219,9 @@ async def ws_riesgo_zona(
             # 3. creciente_quebradas — INUNDACION ALTO+ combinado con lluvia reciente intensa
             # El backend no tiene TipoRiesgo.CRECIENTE_QUEBRADAS; se detecta con el mismo
             # modelo H×E×V de INUNDACION cuando lluvia_mm_1h supera el umbral de creciente.
+            # umbral_creciente también se ajusta por ENSO (mismo factor que umbral_intensa).
             p_inund = preds.get("inundacion", {})
-            if p_inund.get("nivel") in _NIVELES_ALERTA and lluvia_1h >= _LLUVIA_CRECIENTE_MM:
+            if p_inund.get("nivel") in _NIVELES_ALERTA and lluvia_1h >= umbral_creciente:
                 clave = ("creciente_quebradas", p_inund["nivel"])
                 sig_eventos.add(clave)
                 if clave not in eventos_activos:
