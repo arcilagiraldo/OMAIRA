@@ -52,11 +52,16 @@ def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> tuple[bool, str
     msg.attach(MIMEText(cuerpo, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(host, port, timeout=10) as s:
-            s.ehlo()
-            s.starttls()
-            s.login(user, password)
-            s.sendmail(user, [destinatario], msg.as_string())
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=10) as s:
+                s.login(user, password)
+                s.sendmail(user, [destinatario], msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=10) as s:
+                s.ehlo()
+                s.starttls()
+                s.login(user, password)
+                s.sendmail(user, [destinatario], msg.as_string())
         return True, ""
     except Exception as e:
         return False, f"{type(e).__name__}: {e}"
