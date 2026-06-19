@@ -1645,6 +1645,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>GDACS (ONU) Alertas</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Alertas multi-amenaza ONU nivel naranja/rojo en Colombia → inyectadas en panel Alertas</td><td>Alerta internacional</td></tr>
       <tr><td><strong>ReliefWeb (OCHA) Colombia</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Reportes humanitarios Colombia últimos 30 días (RSS). Alerta solo si título dice emergencia/desastre activo</td><td>Contexto humanitario</td></tr>
       <tr><td><strong>Aerocivil METAR</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Visibilidad y viento reales aeropuertos SKRG (Rionegro) y SKMD (Olaya Herrera) → niebla aeronáutica</td><td>Meteorología aeroportuaria</td></tr>
+      <tr><td><strong>XM / SIMEM — Embalses</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Nivel real embalses: El Peñol, Guatapé, San Carlos, Alejandría (PENOL) e Ituango — dataset 843497 Reservas Hidráulicas del SIN. Caché 4 h acorde a frecuencia de actualización diaria.</td><td>Embalse (dato crítico)</td></tr>
       <tr style="background:rgba(59,130,246,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:var(--az);padding:4px 8px;letter-spacing:.5px">▶ CLAVE GRATUITA — registrarse en sitio web (5 minutos)</td></tr>
       <tr><td><strong>TomTom Traffic</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>Velocidad vías, nivel flujo, incidentes → estado vías principales Antioquia</td><td>Movilidad y emergencias</td></tr>
       <tr><td><strong>Tomorrow.io</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>UV, calidad aire EPA, tipo precipitación, neblina → sensores s.uv, s.ica</td><td>Clima hiperlocal</td></tr>
@@ -1659,13 +1660,14 @@ main{flex:1;display:flex;overflow:hidden}
       <tr style="background:rgba(139,92,246,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:#8b5cf6;padding:4px 8px;letter-spacing:.5px">▶ INSTITUCIONALES — requieren convenio formal</td></tr>
       <tr><td><strong>SIATA</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Sensores RT Área Metro: lluvia, PM2.5, nivel quebradas, caudal → sobrescribe Open-Meteo</td><td>Máxima prioridad local</td></tr>
       <tr><td><strong>SAMA (DAGRAN)</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>118 instrumentos: nivel ríos/quebradas, lluvia estaciones → máxima prioridad departamental</td><td>Máxima prioridad dept.</td></tr>
-      <tr><td><strong>EPM — Embalse El Peñol</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Nivel real embalse El Peñol (%), caudal afluente/efluente → reemplaza proxy lluvia</td><td>Embalse (dato crítico)</td></tr>
+      <tr><td><strong>EPM — Embalse El Peñol</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Nivel real embalse El Peñol (%), caudal afluente/efluente. <em>Sin token activo — dato real provisto por XM/SIMEM (automática).</em></td><td>Embalse (pendiente convenio)</td></tr>
       <tr><td><strong>IDEAM — DHIME</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Lluvia ponderada con Open-Meteo, temperatura estaciones, caudal quebradas</td><td>Hidrología nacional</td></tr>
       <tr><td><strong>CORNARE</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>ICA agua, nivel quebrada Oriente antioqueño</td><td>Calidad hídrica</td></tr>
       <tr><td><strong>Piragua (Corantioquia)</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>pH agua, turbidez, nivel quebrada → calidad agua Oriente</td><td>Calidad hídrica</td></tr>
       <tr><td><strong>Isagen — Embalses</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Nivel tiempo real embalses Miel I, Jaguas y Porce → riesgo creciente corriente abajo</td><td>Embalses hidroeléctricos</td></tr>
       <tr><td><strong>GeoPortal DAGRAN (ArcGIS)</strong></td><td><span class="real-badge real-sim">Público</span></td><td>Capas históricas: zonas amenaza, inventario desastres, áreas retiro hídrico</td><td>Contexto territorial</td></tr>
     </table>
+    <p><strong>Detección automática de fuentes:</strong> el sistema analiza URLs de fuentes personalizadas que el operador ingrese y las clasifica automáticamente por tipo de dato (lluvia, temperatura, sismos, etc.) mediante puntuación de palabras clave. Las fuentes detectadas quedan en estado <em>pendiente de aprobación</em> hasta que el operador las confirme explícitamente — ninguna fuente pendiente entra al cálculo del IRG. El administrador aprueba o rechaza desde el panel de fuentes. Si hay ambigüedad en la clasificación, el sistema solicita confirmación manual. Endpoints: <code>/api/v1/fuentes/deteccion/</code>.</p>
   </div>
 
   <!-- MOTOR CIENTÍFICO -->
@@ -1826,6 +1828,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
       <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
       <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos. 3 reportes del mismo tipo en la misma zona activan una alerta automática confirmada.</td></tr>
+      <tr><td><strong>Notificaciones email</strong></td><td>Resend API (HTTPS)</td><td>Emails automáticos al operador cuando el sistema Credibilidad detecta evidencia BSS suficiente para recomendar unificación de modelos, o cuando ocurre un rollback automático. Railway bloquea SMTP saliente; se usa Resend (API sobre HTTPS 443).</td></tr>
     </table>
   </div>
 
