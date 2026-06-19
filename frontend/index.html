@@ -1781,14 +1781,14 @@ main{flex:1;display:flex;overflow:hidden}
   <div class="ac-s">
     <h2>📈 Predicción multi-horizonte</h2>
     <table class="vtab">
-      <tr><th>Horizonte</th><th>Fuente base</th><th>Fiabilidad</th><th>Método</th></tr>
-      <tr><td><strong>+1h, +6h</strong></td><td>Open-Meteo RT</td><td>Alta · ~92%</td><td>Pronóstico meteorológico directo GFS/ECMWF</td></tr>
-      <tr><td><strong>+24h, +72h</strong></td><td>Open-Meteo 16 días</td><td>Alta · ~85%</td><td>Modelo numérico de predicción atmosférica</td></tr>
-      <tr><td><strong>7 días</strong></td><td>Open-Meteo + ENSO</td><td>Media · ~70%</td><td>Pronóstico extendido + amplificación climática ENSO</td></tr>
+      <tr><th>Horizonte</th><th>Fuente base</th><th>Confianza relativa</th><th>Método</th></tr>
+      <tr><td><strong>+1h, +6h</strong></td><td>Open-Meteo RT</td><td>Alta</td><td>Pronóstico meteorológico directo GFS/ECMWF</td></tr>
+      <tr><td><strong>+24h, +72h</strong></td><td>Open-Meteo 16 días</td><td>Alta a media</td><td>Modelo numérico de predicción atmosférica</td></tr>
+      <tr><td><strong>7 días</strong></td><td>Open-Meteo + ENSO</td><td>Media</td><td>Pronóstico extendido + amplificación climática ENSO</td></tr>
       <tr><td><strong>15 días, 30 días</strong></td><td>Climatología + ENSO</td><td>Baja · orientativo</td><td>Patrón estacional histórico + fase ENSO actual</td></tr>
       <tr><td><strong>3 meses</strong></td><td>Climatología ENSO</td><td>Muy baja · tendencia</td><td>Solo para sequía, incendios y variabilidad climática</td></tr>
     </table>
-    <p>Para horizontes &gt;72h, el modelo ajusta las probabilidades según la estación (temporadas de lluvias: marzo-mayo, septiembre-noviembre), la fase ENSO (El Niño amplifica sequía e incendios, La Niña amplifica lluvias y deslizamientos) y el tipo de riesgo.</p>
+    <p>La confiabilidad de la predicción meteorológica disminuye con el horizonte de tiempo — mayor a corto plazo, menor a mediano plazo — siguiendo el comportamiento típico de los modelos numéricos GFS/ECMWF que alimentan OMAIRA. No se reporta un porcentaje único porque varía según la variable (lluvia vs temperatura vs viento) y la región. Para horizontes &gt;72h, el modelo ajusta las probabilidades según la estación (temporadas de lluvias: marzo-mayo, septiembre-noviembre), la fase ENSO (El Niño amplifica sequía e incendios, La Niña amplifica lluvias y deslizamientos) y el tipo de riesgo.</p>
   </div>
 
   <!-- COBERTURA -->
