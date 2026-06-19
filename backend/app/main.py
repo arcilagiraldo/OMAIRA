@@ -1,8 +1,10 @@
 """OMAIRA v6 — Backend FastAPI"""
 import asyncio
+import re
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from typing import Optional
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import riesgo, alertas, sensores, prediccion, configuracion
@@ -16,6 +18,7 @@ from app.api.fuentes_deteccion import router as router_deteccion
 from app.api.notificaciones import router as router_notificaciones
 from app.services.websocket_manager import ConnectionManager
 from app.services.riesgo_service import generar_alertas
+from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
 from app.services.database import init_pool, close_pool
 
 
@@ -53,48 +56,77 @@ app.include_router(router_notificaciones,  prefix="/api/v1/notificaciones")
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 manager = ConnectionManager()
 
+_ZONA_RE = re.compile(r'^[a-z0-9_]{2,50}$')
 
-@app.websocket("/ws/alertas")
-async def ws_alertas(websocket: WebSocket):
-    """Alertas en tiempo real — broadcast cada 30 segundos"""
-    await manager.connect(websocket)
+# Umbral de lluvia intensa para notificación inmediata (mm/h genérico Antioquia)
+_LLUVIA_INTENSA_MM = 20.0
+
+
+@app.websocket("/ws/riesgo/{zona_id}")
+async def ws_riesgo_zona(
+    websocket: WebSocket,
+    zona_id: str,
+    lat: Optional[float] = Query(default=None),
+    lon: Optional[float] = Query(default=None),
+):
+    """
+    WebSocket bajo demanda para cualquier municipio de los 123.
+    Solo envía eventos de alta velocidad: alertas nuevas, lluvia intensa.
+    Datos de baja velocidad (embalse XM/SIMEM, censo DANE) no se envían
+    por este canal — siguen su ciclo de polling normal en el frontend.
+
+    El frontend pasa lat/lon del municipio seleccionado (del array MUNS)
+    como query params para que el backend pueda consultar Open-Meteo con
+    las coordenadas correctas aunque la zona no esté en COORDS_ZONAS.
+    """
+    if not _ZONA_RE.match(zona_id):
+        await websocket.close(code=4004, reason="zona_id inválido")
+        return
+
+    connected = await manager.connect(websocket, zona_id)
+    if not connected:
+        return
+
+    # Coordenadas: las del frontend (MUNS) o fallback a las del dict backend
+    coord_lat, coord_lon = (lat, lon) if (lat and lon) else COORDS_ZONAS.get(zona_id, (6.2336, -75.1567))
+
     try:
+        # Trackea alertas activas por (tipo_riesgo, nivel) para detectar solo las nuevas
+        alertas_activas: set = set()
+
         while True:
-            zonas = ["guatape", "medellin", "rionegro"]
-            todas = []
-            for zona in zonas:
-                alertas_zona = await generar_alertas(zona)
-                todas.extend(alertas_zona)
-            await websocket.send_json({
-                "tipo": "alertas",
-                "total": len(todas),
-                "alertas": todas,
-            })
+            # ── Alertas nuevas ────────────────────────────────────────────────
+            alertas = await generar_alertas(zona_id)
+            sig_activas = {(a["tipo_riesgo"], a["nivel"]) for a in alertas}
+            nuevas = sig_activas - alertas_activas
+            for a in alertas:
+                if (a["tipo_riesgo"], a["nivel"]) in nuevas:
+                    await websocket.send_json({
+                        "tipo": "alerta_nueva",
+                        "zona_id": zona_id,
+                        "mensaje": a["descripcion"],
+                        "alerta": a,
+                    })
+            alertas_activas = sig_activas
+
+            # ── Lluvia intensa ────────────────────────────────────────────────
+            try:
+                meteo = await obtener_meteo_real(zona_id, lat=coord_lat, lon=coord_lon)
+                lluvia = meteo.get("lluvia_mm_1h", 0) or 0
+                if lluvia >= _LLUVIA_INTENSA_MM:
+                    await websocket.send_json({
+                        "tipo": "lluvia_intensa",
+                        "zona_id": zona_id,
+                        "lluvia_mm_1h": round(lluvia, 1),
+                        "mensaje": f"Lluvia intensa: {lluvia:.1f} mm/h",
+                    })
+            except Exception:
+                pass  # fallo de meteo no interrumpe el ciclo
+
             await asyncio.sleep(30)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
 
-
-@app.websocket("/ws/riesgo-live")
-async def ws_riesgo_live(websocket: WebSocket):
-    """Actualizaciones de riesgo en tiempo real — broadcast cada 60 segundos"""
-    from app.services.riesgo_service import calcular_riesgo_zona
-    await manager.connect(websocket)
-    try:
-        while True:
-            datos = {}
-            for zona in ["guatape", "medellin", "rionegro"]:
-                r = await calcular_riesgo_zona(zona)
-                datos[zona] = {
-                    "municipio": r["municipio"],
-                    "nivel_maximo": r["resumen"]["nivel_maximo"],
-                    "riesgo_dominante": r["resumen"]["riesgo_dominante"],
-                    "probabilidad_maxima": r["resumen"]["probabilidad_maxima"],
-                }
-            await websocket.send_json({"tipo": "riesgo_live", "zonas": datos})
-            await asyncio.sleep(60)
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, zona_id)
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
