@@ -17,8 +17,9 @@ from app.api.proxy import router as router_proxy
 from app.api.fuentes_deteccion import router as router_deteccion
 from app.api.notificaciones import router as router_notificaciones
 from app.services.websocket_manager import ConnectionManager
-from app.services.riesgo_service import generar_alertas
+from app.services.riesgo_service import calcular_riesgo_zona
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
+from app.models.schemas import NivelRiesgo
 from app.services.database import init_pool, close_pool
 
 
@@ -58,8 +59,31 @@ manager = ConnectionManager()
 
 _ZONA_RE = re.compile(r'^[a-z0-9_]{2,50}$')
 
-# Umbral de lluvia intensa para notificación inmediata (mm/h genérico Antioquia)
-_LLUVIA_INTENSA_MM = 20.0
+# Niveles que activan envío por WebSocket
+_NIVELES_ALERTA = {NivelRiesgo.ALTO.value, NivelRiesgo.MUY_ALTO.value, NivelRiesgo.CRITICO.value}
+
+# Umbral de lluvia reciente (mm/h) para distinguir creciente súbita de inundación gradual
+_LLUVIA_INTENSA_MM = 20.0      # precursor directo: aguacero intenso → crecientes en minutos
+_LLUVIA_CRECIENTE_MM = 15.0    # combinado con INUNDACION ALTO+ → creciente_quebradas
+
+# ── Criterio de selección de eventos para WebSocket ──────────────────────────
+# Un tipo de riesgo va por WebSocket SOLO SI el aviso instantáneo le da al
+# operador una ventana real de tiempo para actuar ANTES de que el desastre ocurra.
+#
+# INCLUIDOS:
+#   lluvia_intensa      → precursor directo: aguacero → deslizamiento/creciente en minutos
+#   deslizamiento       → mayor mortalidad histórica en Antioquia (BanRep DTSer-317)
+#   creciente_quebradas → puede arrasar viviendas en minutos tras lluvia intensa
+#   inundacion          → similar a creciente pero con más margen; requiere aviso temprano
+#   vendaval            → daño estructural súbito durante la tormenta misma
+#
+# DESCARTADOS (y por qué):
+#   sismo_detectado     → cuando se detecta ya ocurrió; no hay ventana de evacuación
+#   cambio_brusco_clima → genérico; reemplazado por los 5 tipos específicos de arriba
+#   accidente_transito, congestion_vial, niebla_*, actividad_aerea
+#                       → no amenazan vidas directamente ni requieren evacuación inmediata
+#   incendio_forestal, sequia → propagación lenta; el ciclo normal de polling (15 min) es suficiente
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 @app.websocket("/ws/riesgo/{zona_id}")
@@ -71,9 +95,9 @@ async def ws_riesgo_zona(
 ):
     """
     WebSocket bajo demanda para cualquier municipio de los 123.
-    Solo envía eventos de alta velocidad: alertas nuevas, lluvia intensa.
-    Datos de baja velocidad (embalse XM/SIMEM, censo DANE) no se envían
-    por este canal — siguen su ciclo de polling normal en el frontend.
+    Solo envía los 5 eventos con ventana real de acción antes del desastre.
+    Datos de baja frecuencia (embalse XM/SIMEM, censo DANE, incendio, sequía)
+    no se envían por este canal — siguen su ciclo de polling normal.
 
     El frontend pasa lat/lon del municipio seleccionado (del array MUNS)
     como query params para que el backend pueda consultar Open-Meteo con
@@ -87,41 +111,103 @@ async def ws_riesgo_zona(
     if not connected:
         return
 
-    # Coordenadas: las del frontend (MUNS) o fallback a las del dict backend
+    # Coordenadas: las del frontend (MUNS) o fallback al dict backend
     coord_lat, coord_lon = (lat, lon) if (lat and lon) else COORDS_ZONAS.get(zona_id, (6.2336, -75.1567))
 
     try:
-        # Trackea alertas activas por (tipo_riesgo, nivel) para detectar solo las nuevas
-        alertas_activas: set = set()
+        # Trackea eventos activos por clave para enviar solo los que son nuevos
+        eventos_activos: set = set()
 
         while True:
-            # ── Alertas nuevas ────────────────────────────────────────────────
-            alertas = await generar_alertas(zona_id)
-            sig_activas = {(a["tipo_riesgo"], a["nivel"]) for a in alertas}
-            nuevas = sig_activas - alertas_activas
-            for a in alertas:
-                if (a["tipo_riesgo"], a["nivel"]) in nuevas:
-                    await websocket.send_json({
-                        "tipo": "alerta_nueva",
-                        "zona_id": zona_id,
-                        "mensaje": a["descripcion"],
-                        "alerta": a,
-                    })
-            alertas_activas = sig_activas
+            resultado = await calcular_riesgo_zona(zona_id)
+            preds = {p["tipo_riesgo"]: p for p in resultado["predicciones"]}
+            meteo = resultado.get("metadata", {}).get("datos_meteo") or {}
 
-            # ── Lluvia intensa ────────────────────────────────────────────────
+            # Leer lluvia reciente desde Open-Meteo (no está en calcular_riesgo_zona)
             try:
-                meteo = await obtener_meteo_real(zona_id, lat=coord_lat, lon=coord_lon)
-                lluvia = meteo.get("lluvia_mm_1h", 0) or 0
-                if lluvia >= _LLUVIA_INTENSA_MM:
-                    await websocket.send_json({
+                meteo_rt = await obtener_meteo_real(zona_id, lat=coord_lat, lon=coord_lon)
+                lluvia_1h = meteo_rt.get("lluvia_mm_1h", 0) or 0
+            except Exception:
+                lluvia_1h = 0
+
+            sig_eventos: set = set()
+            envios = []
+
+            # 1. lluvia_intensa — precursor directo: da minutos antes del deslizamiento/creciente
+            if lluvia_1h >= _LLUVIA_INTENSA_MM:
+                sig_eventos.add("lluvia_intensa")
+                if "lluvia_intensa" not in eventos_activos:
+                    envios.append({
                         "tipo": "lluvia_intensa",
                         "zona_id": zona_id,
-                        "lluvia_mm_1h": round(lluvia, 1),
-                        "mensaje": f"Lluvia intensa: {lluvia:.1f} mm/h",
+                        "lluvia_mm_1h": round(lluvia_1h, 1),
+                        "mensaje": f"Lluvia intensa: {lluvia_1h:.1f} mm/h — riesgo de deslizamiento y crecientes",
                     })
-            except Exception:
-                pass  # fallo de meteo no interrumpe el ciclo
+
+            # 2. deslizamiento — mayor mortalidad histórica Antioquia (BanRep DTSer-317)
+            p_desl = preds.get("deslizamiento", {})
+            if p_desl.get("nivel") in _NIVELES_ALERTA:
+                clave = ("deslizamiento", p_desl["nivel"])
+                sig_eventos.add(clave)
+                if clave not in eventos_activos:
+                    envios.append({
+                        "tipo": "deslizamiento",
+                        "zona_id": zona_id,
+                        "nivel": p_desl["nivel"],
+                        "probabilidad": p_desl.get("probabilidad"),
+                        "mensaje": f"Riesgo {p_desl['nivel'].upper()} de deslizamiento — {p_desl.get('probabilidad', 0)*100:.1f}%",
+                        "acciones": p_desl.get("acciones_recomendadas", []),
+                    })
+
+            # 3. creciente_quebradas — INUNDACION ALTO+ combinado con lluvia reciente intensa
+            # El backend no tiene TipoRiesgo.CRECIENTE_QUEBRADAS; se detecta con el mismo
+            # modelo H×E×V de INUNDACION cuando lluvia_mm_1h supera el umbral de creciente.
+            p_inund = preds.get("inundacion", {})
+            if p_inund.get("nivel") in _NIVELES_ALERTA and lluvia_1h >= _LLUVIA_CRECIENTE_MM:
+                clave = ("creciente_quebradas", p_inund["nivel"])
+                sig_eventos.add(clave)
+                if clave not in eventos_activos:
+                    envios.append({
+                        "tipo": "creciente_quebradas",
+                        "zona_id": zona_id,
+                        "nivel": p_inund["nivel"],
+                        "lluvia_mm_1h": round(lluvia_1h, 1),
+                        "mensaje": f"Creciente súbita posible — {lluvia_1h:.1f} mm/h con riesgo {p_inund['nivel'].upper()} de inundación",
+                        "acciones": p_inund.get("acciones_recomendadas", []),
+                    })
+
+            # 4. inundacion — lluvia acumulada (72h) → zonas bajas; más margen que creciente
+            if p_inund.get("nivel") in _NIVELES_ALERTA:
+                clave = ("inundacion", p_inund["nivel"])
+                sig_eventos.add(clave)
+                if clave not in eventos_activos:
+                    envios.append({
+                        "tipo": "inundacion",
+                        "zona_id": zona_id,
+                        "nivel": p_inund["nivel"],
+                        "probabilidad": p_inund.get("probabilidad"),
+                        "mensaje": f"Riesgo {p_inund['nivel'].upper()} de inundación — {p_inund.get('probabilidad', 0)*100:.1f}%",
+                        "acciones": p_inund.get("acciones_recomendadas", []),
+                    })
+
+            # 5. vendaval — daño estructural súbito; usa TipoRiesgo.TORMENTA (viento + presión)
+            p_torm = preds.get("tormenta", {})
+            if p_torm.get("nivel") in _NIVELES_ALERTA:
+                clave = ("vendaval", p_torm["nivel"])
+                sig_eventos.add(clave)
+                if clave not in eventos_activos:
+                    envios.append({
+                        "tipo": "vendaval",
+                        "zona_id": zona_id,
+                        "nivel": p_torm["nivel"],
+                        "probabilidad": p_torm.get("probabilidad"),
+                        "mensaje": f"Riesgo {p_torm['nivel'].upper()} de vendaval — {p_torm.get('probabilidad', 0)*100:.1f}%",
+                        "acciones": p_torm.get("acciones_recomendadas", []),
+                    })
+
+            for evento in envios:
+                await websocket.send_json(evento)
+            eventos_activos = sig_eventos
 
             await asyncio.sleep(30)
 

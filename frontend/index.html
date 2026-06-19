@@ -7134,12 +7134,24 @@ function conectarWebSocketZona(zona_id) {
 }
 
 function manejarEventoTiempoReal(data) {
+  // Solo los 5 tipos con ventana real de acción antes del desastre.
+  // Cada toast muestra acciones si el backend las incluyó.
+  const acc = data.acciones && data.acciones.length ? '\n▶ ' + data.acciones[0] : '';
   switch(data.tipo) {
-    case 'alerta_nueva':
-      toast('🚨 ' + data.mensaje, 'warn');
-      break;
     case 'lluvia_intensa':
-      toast('🌧️ ' + data.mensaje, 'info');
+      toast('🌧️ ' + data.mensaje, 'warn');
+      break;
+    case 'deslizamiento':
+      toast('⛰️ ' + data.mensaje + acc, 'warn');
+      break;
+    case 'creciente_quebradas':
+      toast('🌊 ' + data.mensaje + acc, 'warn');
+      break;
+    case 'inundacion':
+      toast('💧 ' + data.mensaje + acc, 'warn');
+      break;
+    case 'vendaval':
+      toast('💨 ' + data.mensaje + acc, 'warn');
       break;
   }
 }
