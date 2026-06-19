@@ -34,15 +34,16 @@ class EmailPayload(BaseModel):
     cuerpo: str
 
 
-def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> bool:
-    """Intenta enviar via SMTP. Retorna True si éxito, False si falla."""
+def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> tuple[bool, str]:
+    """Intenta enviar via SMTP. Retorna (True, '') si éxito, (False, error) si falla."""
     host = os.getenv("SMTP_HOST", "")
     port = int(os.getenv("SMTP_PORT", "587"))
     user = os.getenv("SMTP_USER", "")
     password = os.getenv("SMTP_PASSWORD", "")
 
     if not all([host, user, password]):
-        return False
+        vars_faltantes = [k for k, v in {"SMTP_HOST": host, "SMTP_USER": user, "SMTP_PASSWORD": password}.items() if not v]
+        return False, f"Variables no configuradas: {vars_faltantes}"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = asunto
@@ -56,9 +57,9 @@ def _enviar_smtp(asunto: str, cuerpo: str, destinatario: str) -> bool:
             s.starttls()
             s.login(user, password)
             s.sendmail(user, [destinatario], msg.as_string())
-        return True
-    except Exception:
-        return False
+        return True, ""
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
 
 
 @router.post("/email")
@@ -69,7 +70,7 @@ async def enviar_email(payload: EmailPayload):
     2. Rollback automático se activa por pérdida de outcomes
     """
     destinatario = os.getenv("OPERADOR_EMAIL", OPERADOR_EMAIL_DEFAULT)
-    enviado = _enviar_smtp(payload.asunto, payload.cuerpo, destinatario)
+    enviado, error = _enviar_smtp(payload.asunto, payload.cuerpo, destinatario)
 
     return {
         "ok": True,
@@ -78,8 +79,5 @@ async def enviar_email(payload: EmailPayload):
         "enviado": enviado,
         "modo": "smtp" if enviado else "simulado",
         "timestamp": datetime.utcnow().isoformat(),
-        "nota": "" if enviado else (
-            "SMTP no configurado en Railway. Agrega SMTP_HOST, SMTP_PORT, "
-            "SMTP_USER y SMTP_PASSWORD como variables de entorno para activar emails reales."
-        ),
+        "error": error if not enviado else "",
     }
