@@ -1611,7 +1611,7 @@ main{flex:1;display:flex;overflow:hidden}
   <!-- ¿QUÉ ES OMAIRA? -->
   <div class="ac-s">
     <h2>🎯 ¿Qué es OMAIRA?</h2>
-    <p>OMAIRA es una plataforma web de monitoreo y gestión del riesgo de desastres en el territorio. Corre directamente en el navegador del operador — sin instalación en el dispositivo — respaldada por un servidor en Railway para cálculo científico e integración de fuentes institucionales. Integra en tiempo real datos de 27 fuentes institucionales y públicas para calcular un Índice de Riesgo Global (IRG) con credibilidad probabilística calibrada.</p>
+    <p>OMAIRA es una plataforma web de monitoreo y gestión del riesgo de desastres en el territorio. Corre directamente en el navegador del operador — sin instalación en el dispositivo — respaldada por un servidor en Railway para cálculo científico e integración de fuentes institucionales. Integra en tiempo real datos de 28 fuentes institucionales y públicas para calcular un Índice de Riesgo Global (IRG) con credibilidad probabilística calibrada.</p>
     <p><strong>Principio fundamental:</strong> OMAIRA diferencia siempre entre dato real (proveniente de una fuente activa verificada) y estimado (calculado cuando la fuente no está disponible). Nunca presenta ficción como hecho. Cada variable indica su origen y nivel de confianza.</p>
     <p><strong>Población protegida:</strong> ~5.8 millones de habitantes · municipios activos · 9 subregiones · Marco Sendai 2015-2030.</p>
   </div>
@@ -1632,7 +1632,7 @@ main{flex:1;display:flex;overflow:hidden}
 
   <!-- FUENTES DE DATOS -->
   <div class="ac-s">
-    <h2>📡 Fuentes de datos — 27 integradas</h2>
+    <h2>📡 Fuentes de datos — 28 integradas</h2>
     <table class="vtab">
       <tr><th>Fuente</th><th>Acceso</th><th>Variables que aporta al modelo</th><th>Prioridad en modelo</th></tr>
       <tr style="background:rgba(34,197,94,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:var(--v);padding:4px 8px;letter-spacing:.5px">▶ AUTOMÁTICAS SIN CLAVE — activas de inmediato</td></tr>
@@ -1693,7 +1693,7 @@ main{flex:1;display:flex;overflow:hidden}
       <tr><th>Variable</th><th>Fórmula</th><th>Fuente principal</th></tr>
       <tr><td><strong>crec</strong> (creciente quebradas)</td><td>ln×0.65 + hn×0.35 (sin embalse)</td><td>Open-Meteo · SAMA · SIATA</td></tr>
       <tr><td><strong>API</strong> (memoria hidrológica)</td><td>API_t = 0.85×API_{t-1} + P_t (Kohler-Linsley)</td><td>IndexedDB acumulativo</td></tr>
-      <tr><td><strong>inundación embalse</strong></td><td>max(0, (embalse%-90)/10) × (1+lluvia×3) — solo si >90%</td><td>EPM real · Proxy Open-Meteo</td></tr>
+      <tr><td><strong>inundación embalse</strong></td><td>max(0, (embalse%-90)/10) × (1+lluvia×3) — solo si >90%</td><td>XM/SIMEM real · Proxy Open-Meteo</td></tr>
       <tr><td><strong>sequía</strong></td><td>max(0,(ENSO-1.05)/0.15)×0.55 + max(0,0.40-hum)×0.45</td><td>NOAA ONI · DB 30 días</td></tr>
       <tr><td><strong>deslizamiento</strong></td><td>(pendiente×0.45 + lluvia×0.40 + humedad×0.15) × E×V×F</td><td>Open-Meteo · SAMA</td></tr>
       <tr><td><strong>nivel_rio</strong> (cuando disponible)</td><td>Dato real SAMA normalizado / 5</td><td>SAMA RT (máxima prioridad)</td></tr>
@@ -1836,7 +1836,7 @@ main{flex:1;display:flex;overflow:hidden}
   <div style="background:var(--bg3);border-radius:8px;padding:12px;text-align:center;margin-top:10px;border:1px solid var(--border)">
     <div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:4px">OMAIRA v6 — Observación, Monitoreo, Análisis e Inteligencia de Riesgos y Amenazas</div>
     <div style="font-size:8px;color:var(--text3);line-height:17px">
-      123 municipios · 24 tipos de riesgo · 27 fuentes de datos · 3 modelos de riesgo + 5 modelos IA · Credibilidad probabilística calibrada<br>
+      123 municipios · 24 tipos de riesgo · 28 fuentes de datos · 3 modelos de riesgo + 5 modelos IA · Credibilidad probabilística calibrada<br>
       Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score
     </div>
