@@ -7104,9 +7104,50 @@ function go(p){
   if(p==='capas')renderCapas();
   if(p==='config'){const cz=document.getElementById('cfg-zona');if(cz)cz.textContent=D?.muni||'—';}
 }
+// ── WebSocket bajo demanda ──────────────────────────────────────────────────
+// Conecta al municipio activo. Cierra la conexión anterior si existe.
+// Solo recibe eventos de alta velocidad: alerta_nueva, lluvia_intensa.
+// Si falla o no está disponible, el polling normal sigue sin interrupciones.
+let _wsRiesgo = null;
+
+function conectarWebSocketZona(zona_id) {
+  if (_wsRiesgo) { try { _wsRiesgo.close(); } catch(e){} _wsRiesgo = null; }
+
+  const m = MUNS.find(x => x[0] === zona_id);
+  const lat = m ? m[2] : null;
+  const lon = m ? m[3] : null;
+  const WS_BASE = (window.OMAIRA_API_URL || 'https://invigorating-creativity-production-4a58.up.railway.app')
+    .replace('https://', 'wss://').replace('http://', 'ws://');
+  const url = `${WS_BASE}/ws/riesgo/${zona_id}${lat && lon ? `?lat=${lat}&lon=${lon}` : ''}`;
+
+  try {
+    _wsRiesgo = new WebSocket(url);
+    _wsRiesgo.onmessage = (event) => {
+      try { manejarEventoTiempoReal(JSON.parse(event.data)); } catch(e) {}
+    };
+    _wsRiesgo.onerror = () => { _wsRiesgo = null; };
+    _wsRiesgo.onclose = () => { _wsRiesgo = null; };
+  } catch(e) {
+    console.warn('[OMAIRA-WS] No se pudo conectar WebSocket, usando polling normal');
+  }
+}
+
+function manejarEventoTiempoReal(data) {
+  switch(data.tipo) {
+    case 'alerta_nueva':
+      toast('🚨 ' + data.mensaje, 'warn');
+      break;
+    case 'lluvia_intensa':
+      toast('🌧️ ' + data.mensaje, 'info');
+      break;
+  }
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 function cambiarZona(z){
   zona=z;
   guardarZona(z);
+  conectarWebSocketZona(z);
   // Render instantáneo con caché localStorage — el usuario ve datos al instante
   const _cached=_leerCacheZona(z);
   if(_cached){
@@ -7356,6 +7397,7 @@ try{
 
 // 1. Restaurar configuración desde localStorage
 zona = cargarZona();
+conectarWebSocketZona(zona);
 cargarCfgInst();
 cargarFuentesPersonalizadas();
 restaurarEstadosFuentes();
