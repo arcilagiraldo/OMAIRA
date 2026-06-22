@@ -616,7 +616,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
     <button onclick="showWiz()" style="margin-left:6px;padding:4px 10px;border-radius:5px;background:var(--az);color:#fff;border:none;font-size:10px;font-weight:600;cursor:pointer;flex-shrink:0">+ Zona</button>
   </nav>
-  <div id="file-warning" style="display:none;font-size:8px;padding:3px 8px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:4px;color:var(--a);flex-shrink:0">⚠️ file://</div><div id="backend-badge" style="display:none;font-size:8px;padding:3px 8px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:4px;color:var(--pu);flex-shrink:0">⚙️ Backend</div>
+  <div id="file-warning" style="display:none;font-size:8px;padding:3px 8px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:4px;color:var(--a);flex-shrink:0;display:none;align-items:center;gap:3px"><i data-lucide="alert-triangle" style="width:10px;height:10px"></i> file://</div><div id="backend-badge" style="display:none;font-size:8px;padding:3px 8px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:4px;color:var(--pu);flex-shrink:0;align-items:center;gap:3px"><i data-lucide="server" style="width:10px;height:10px"></i> Backend</div>
   <div id="user-btn" onclick="toggleUserDrop()">
     <img id="user-foto" src="" alt="" style="display:none">
     <span id="user-nombre"></span>
@@ -816,8 +816,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <button class="mbtn" id="ml-aire"       onclick="toggleCapaMapa('aire')"><i data-lucide="wind" style="width:11px;height:11px"></i> Calidad aire</button>
       <button class="mbtn" id="ml-hospitales" onclick="toggleCapaMapa('hospitales')"><i data-lucide="cross" style="width:11px;height:11px"></i> Hospitales</button>
       <button class="mbtn" id="ml-gdacs"      onclick="toggleCapaMapa('gdacs')"><i data-lucide="globe" style="width:11px;height:11px"></i> Alertas ONU</button>
-      <button class="mbtn" id="ml-ansv"       onclick="toggleCapaMapa('ansv')">🚦 Vías críticas</button>
-      <button class="mbtn" id="ml-tomtom"     onclick="toggleCapaMapa('tomtom')">🚗 Tráfico</button>
+      <button class="mbtn" id="ml-ansv"       onclick="toggleCapaMapa('ansv')"><i data-lucide="traffic-cone" style="width:11px;height:11px"></i> Vías críticas</button>
+      <button class="mbtn" id="ml-tomtom"     onclick="toggleCapaMapa('tomtom')"><i data-lucide="car" style="width:11px;height:11px"></i> Tráfico</button>
     </div>
     <div id="mapa-lf"></div>
   </div>
@@ -953,24 +953,24 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div class="ctit">Mapa de tráfico</div>
     <div id="trafico-cont">
       <div style="background:var(--bg3);border-radius:8px;padding:20px;text-align:center" id="trafico-ph">
-        <div style="font-size:24px;margin-bottom:8px">🗺️</div>
+        <div style="margin-bottom:8px;display:flex;justify-content:center"><i data-lucide="map" style="width:24px;height:24px;color:var(--text3)"></i></div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Mapa base OpenStreetMap — siempre activo · Mejora con TomTom (gratis):</div>
         <div style="display:flex;flex-direction:column;gap:6px;max-width:320px;margin:0 auto">
           <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:left">
-            <div style="font-size:10px;font-weight:700;margin-bottom:3px">🚦 TomTom <span style="font-size:8px;color:var(--v);font-weight:400">— GRATIS 2,500 req/día</span></div>
+            <div style="font-size:10px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:5px"><i data-lucide="traffic-cone" style="width:12px;height:12px"></i> TomTom <span style="font-size:8px;color:var(--v);font-weight:400">— GRATIS 2,500 req/día</span></div>
             <div style="font-size:8px;color:var(--text3);margin-bottom:5px">Tráfico RT, incidentes, velocidades. Sin tarjeta.</div>
             <button onclick="go('fuentes')" style="padding:3px 10px;border-radius:4px;background:var(--v);color:#fff;border:none;font-size:9px;cursor:pointer">Configurar TomTom</button>
           </div>
           <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:left">
-            <div style="font-size:10px;font-weight:700;margin-bottom:3px">🗺️ Google Maps / Waze <span style="font-size:8px;color:var(--a);font-weight:400">— pago (con crédito gratuito)</span></div>
+            <div style="font-size:10px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:5px"><i data-lucide="map-pin" style="width:12px;height:12px"></i> Google Maps / Waze <span style="font-size:8px;color:var(--a);font-weight:400">— pago (con crédito gratuito)</span></div>
             <div style="font-size:8px;color:var(--text3);margin-bottom:5px">Mapa visual completo con capas Waze.</div>
             <button onclick="go('fuentes')" style="padding:3px 10px;border-radius:4px;background:var(--az);color:#fff;border:none;font-size:9px;cursor:pointer">Configurar Google Maps</button>
           </div>
           <!-- Waze Live Map — acceso directo sin API -->
           <div style="background:var(--bg2);border-radius:6px;padding:8px;text-align:left">
-            <div style="font-size:10px;font-weight:700;margin-bottom:3px">🚗 Waze Live Map <span style="font-size:8px;color:var(--v);font-weight:400">— Gratis, sin API key</span></div>
+            <div style="font-size:10px;font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:5px"><i data-lucide="navigation" style="width:12px;height:12px"></i> Waze Live Map <span style="font-size:8px;color:var(--v);font-weight:400">— Gratis, sin API key</span></div>
             <div style="font-size:8px;color:var(--text3);margin-bottom:5px">Ver tráfico en tiempo real reportado por conductores para este municipio.</div>
-            <button onclick="abrirWaze()" id="btn-waze" style="padding:3px 10px;border-radius:4px;background:#33ccff;color:#000;border:none;font-size:9px;cursor:pointer;font-weight:600">🚗 Abrir Waze Live Map</button>
+            <button onclick="abrirWaze()" id="btn-waze" style="padding:3px 10px;border-radius:4px;background:#33ccff;color:#000;border:none;font-size:9px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:4px"><i data-lucide="navigation" style="width:11px;height:11px"></i> Abrir Waze Live Map</button>
           </div>
         </div>
       </div>
@@ -981,14 +981,14 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div class="ctit">Mapa de vuelos — ADS-B <span id="adsb-badge" class="real-badge real-sim">sin activar</span></div>
     <div id="adsb-cont">
       <div style="background:var(--bg3);border-radius:8px;padding:20px;text-align:center" id="adsb-ph">
-        <div style="font-size:24px;margin-bottom:8px">✈️</div>
+        <div style="margin-bottom:8px;display:flex;justify-content:center"><i data-lucide="plane" style="width:24px;height:24px;color:var(--text3)"></i></div>
         <div style="font-size:11px;color:var(--text2);margin-bottom:10px">ADS-B Exchange — vuelos reales sin API key (gratuito)</div>
         <button onclick="activarADSB()" class="btn btpu" style="font-size:10px;padding:6px 14px">▶ Activar mapa de vuelos en tiempo real</button>
       </div>
       <div id="adsb-wrap" style="display:none;position:relative;border-radius:8px;overflow:hidden">
         <iframe id="adsb-frame" style="width:100%;height:min(450px,55vh);border:none;display:block" allow="fullscreen" loading="lazy"></iframe>
         <div id="adsb-hint" onclick="this.style.display='none'" style="position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:8px">
-          <div style="background:rgba(0,0,0,.78);padding:14px 22px;border-radius:10px;color:#fff;font-size:11px;text-align:center;pointer-events:none">👆 Toca aquí para interactuar<br><span style="font-size:9px;opacity:.7">Luego podrás hacer zoom, mover y seleccionar vuelos</span></div>
+          <div style="background:rgba(0,0,0,.78);padding:14px 22px;border-radius:10px;color:#fff;font-size:11px;text-align:center;pointer-events:none"><i data-lucide="hand" style="width:14px;height:14px;vertical-align:middle"></i> Toca aquí para interactuar<br><span style="font-size:9px;opacity:.7">Luego podrás hacer zoom, mover y seleccionar vuelos</span></div>
         </div>
       </div>
       <button id="adsb-fs-btn" onclick="window.open(document.getElementById('adsb-frame').src,'_blank','noopener')" style="display:none;margin-top:6px;padding:6px;border-radius:6px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);font-size:9px;cursor:pointer;width:100%;text-align:center">↗ Abrir mapa ADS-B en pantalla completa</button>
@@ -1004,7 +1004,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 <div id="p-ia-analisis" style="display:none">
   <div class="card" style="background:linear-gradient(135deg,var(--bg2),#150d2a);border-color:rgba(139,92,246,.2);margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px">
-      <span style="font-size:22px">🤖</span>
+      <span style="display:flex;align-items:center"><i data-lucide="bot" style="width:22px;height:22px;color:var(--pu)"></i></span>
       <div><div style="font-size:14px;font-weight:700">Análisis IA Multi-Modelo</div>
       <div style="font-size:10px;color:var(--text2)">5 modelos · Los 2 locales funcionan sin internet · Los 3 externos necesitan API key</div></div>
     </div>
@@ -1013,14 +1013,14 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div id="ia-cfg-area"></div>
     <div style="display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:9px;color:var(--text3)">Activo: <span id="ia-act" style="color:var(--pu);font-weight:700">Motor local</span></div>
-      <button class="btn btpu" id="ia-run" onclick="runIA()" style="font-size:11px;padding:7px 16px">🔍 Analizar con IA</button>
-    <div id="ia-key-warning" style="display:none;margin-top:6px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:6px 9px;font-size:9px;color:var(--a)">⚠️ Este modelo requiere API key. Ingresa la clave arriba antes de analizar.</div>
+      <button class="btn btpu" id="ia-run" onclick="runIA()" style="font-size:11px;padding:7px 16px;display:inline-flex;align-items:center;gap:5px"><i data-lucide="search" style="width:13px;height:13px"></i> Analizar con IA</button>
+    <div id="ia-key-warning" style="display:none;margin-top:6px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:5px;padding:6px 9px;font-size:9px;color:var(--a)"><i data-lucide="alert-triangle" style="width:11px;height:11px;vertical-align:middle"></i> Este modelo requiere API key. Ingresa la clave arriba antes de analizar.</div>
     </div>
     <div style="margin-top:10px;border-top:1px solid var(--b2);padding-top:10px">
       <div class="ctit" style="margin-bottom:6px">Pregunta en lenguaje natural</div>
       <div style="display:flex;gap:6px">
         <input id="consulta-input" type="text" placeholder="Ej: ¿cuándo va a escampar? ¿va a llover hoy? ¿qué temperatura hace?" onkeydown="if(event.key==='Enter')enviarConsulta()" style="flex:1;background:var(--b2);border:1px solid var(--b3);border-radius:6px;padding:7px 10px;color:var(--text1);font-size:11px;outline:none"/>
-        <button class="btn btpu" onclick="enviarConsulta()" style="font-size:11px;padding:7px 14px;white-space:nowrap">💬 Preguntar</button>
+        <button class="btn btpu" onclick="enviarConsulta()" style="font-size:11px;padding:7px 14px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px"><i data-lucide="message-circle" style="width:13px;height:13px"></i> Preguntar</button>
       </div>
       <div id="consulta-res" style="display:none;margin-top:8px;background:var(--b2);border-radius:6px;padding:10px;font-size:11px;color:var(--text1);line-height:1.5"></div>
     </div>
@@ -1068,7 +1068,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- Registro manual de outcome -->
   <div class="card">
-    <div class="ctit" style="margin-bottom:8px">📝 Registrar resultado real (outcome)</div>
+    <div class="ctit" style="margin-bottom:8px;display:flex;align-items:center;gap:5px"><i data-lucide="clipboard-pen" style="width:11px;height:11px"></i> Registrar resultado real (outcome)</div>
     <div style="font-size:8px;color:var(--text3);margin-bottom:10px">
       Cuando confirmes que un evento ocurrió o no, regístralo aquí para mejorar la calibración del modelo.
     </div>
@@ -1091,8 +1091,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
         <input id="cred-magnitud" type="number" min="0" max="1" step="0.1" value="0.5"
           style="width:100%;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:6px 8px;border-radius:5px;font-size:9px">
       </div>
-      <button onclick="registrarOutcomeUI()" style="padding:8px 14px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:9px;cursor:pointer;font-weight:700;white-space:nowrap">
-        💾 Registrar
+      <button onclick="registrarOutcomeUI()" style="padding:8px 14px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:9px;cursor:pointer;font-weight:700;white-space:nowrap;display:inline-flex;align-items:center;gap:5px">
+        <i data-lucide="save" style="width:12px;height:12px"></i> Registrar
       </button>
     </div>
     <div id="cred-registro-msg" style="margin-top:8px;font-size:8px;display:none"></div>
@@ -1123,50 +1123,50 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 <div id="p-motor-ia" style="display:none">
   <div class="card" style="background:linear-gradient(135deg,var(--bg2),#0d1a30);border-color:rgba(59,130,246,.15);margin-bottom:10px">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:20px">⚙️</span>
+      <span style="display:flex;align-items:center"><i data-lucide="settings-2" style="width:20px;height:20px;color:var(--az)"></i></span>
       <div><div style="font-size:13px;font-weight:700">Motor de Predicción</div>
       <div style="font-size:9px;color:var(--text2)">Ingesta real → Geoespacial → IRG → ML 24 riesgos → Alertas</div></div>
     </div>
     <button onclick="renderBacktest()" style="width:100%;padding:7px;border-radius:6px;background:var(--bg4);color:var(--text2);border:1px solid var(--border2);font-size:10px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;justify-content:center;gap:5px"><i data-lucide="bar-chart-2" style="width:12px;height:12px"></i> Backtesting histórico DESINVENTAR</button>
     <div id="backtest-res" style="max-height:280px;overflow-y:auto;margin-bottom:8px"></div>
     <button id="motor-btn" onclick="runMotor()" style="width:100%;padding:9px;border-radius:6px;background:linear-gradient(135deg,var(--az),var(--pu));color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer">▶ Ver ciclo con datos actuales</button>
-    <div style="margin-top:7px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:7px 10px;font-size:9px;color:var(--a)">⚠️ <strong>Nota:</strong> Visualización educativa del proceso. Los cálculos IRG y riesgos son reales. El flujo de pasos ilustra cómo opera con servidores SIATA/EPM en producción.</div>
+    <div style="margin-top:7px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:6px;padding:7px 10px;font-size:9px;color:var(--a)"><i data-lucide="alert-triangle" style="width:11px;height:11px;vertical-align:middle"></i> <strong>Nota:</strong> Visualización educativa del proceso. Los cálculos IRG y riesgos son reales. El flujo de pasos ilustra cómo opera con servidores SIATA/EPM en producción.</div>
     <div id="motor-prog" style="display:none;margin-top:6px">
       <div style="font-size:9px;color:var(--text2);margin-bottom:2px" id="motor-plbl">—</div>
       <div class="pbg"><div class="pf" id="motor-pf" style="width:0%"></div></div>
     </div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-    <div class="card" style="background:var(--bg3)"><div class="ctit">📡 Paso 1 — Ingesta real</div>
+    <div class="card" style="background:var(--bg3)"><div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="download-cloud" style="width:11px;height:11px"></i> Paso 1 — Ingesta real</div>
       <div style="font-size:9px;color:var(--text2);margin-bottom:5px">Fuentes activas por nivel de configuración:</div>
       <div id="m-fuentes-activas"></div>
       <div id="m-l1" style="margin-top:6px"></div>
     </div>
-    <div class="card" style="background:var(--bg3)"><div class="ctit">🗺️ Paso 2 — Geoespacial</div>
+    <div class="card" style="background:var(--bg3)"><div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="map-pin" style="width:11px;height:11px"></i> Paso 2 — Geoespacial</div>
       <div class="ia-step"><div class="ia-sn">1</div><div>Grid 30m×30m. IDW con datos reales Open-Meteo + NASA POWER.</div></div>
       <div class="ia-step"><div class="ia-sn">2</div><div>Open-Elevation: altitud y pendiente reales por coordenada.</div></div>
       <div id="m-l2"></div>
     </div>
     <div class="card" style="background:var(--bg3);grid-column:1/-1">
-      <div class="ctit">🧮 Paso 3 — IRG (21 vars) + ML (24 riesgos)</div>
+      <div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="calculator" style="width:11px;height:11px"></i> Paso 3 — IRG (21 vars) + ML (24 riesgos)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><div style="font-size:9px;color:var(--text2);margin-bottom:5px">IRG = Σwᵢvᵢ</div><div id="m-irg"></div></div>
         <div><div style="font-size:9px;color:var(--text2);margin-bottom:5px">RIESGO=(H×E×V)×F_clima</div><div id="m-ml"></div></div>
       </div>
     </div>
-    <div class="card" style="background:var(--bg3)"><div class="ctit">🧠 Paso 4 — Modelos IA</div>
+    <div class="card" style="background:var(--bg3)"><div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="brain" style="width:11px;height:11px"></i> Paso 4 — Modelos IA</div>
       <div class="ia-step"><div class="ia-sn">1</div><div>Físico: FS Bishop, balance hídrico, umbrales DAGRAN.</div></div>
       <div class="ia-step"><div class="ia-sn">2</div><div>ML: XGBoost + corrección histórica. Bootstrap IC90%.</div></div>
       <div id="m-l4"></div>
     </div>
-    <div class="card" style="background:var(--bg3)"><div class="ctit">📤 Paso 5 — Salidas</div>
+    <div class="card" style="background:var(--bg3)"><div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="send" style="width:11px;height:11px"></i> Paso 5 — Salidas</div>
       <div class="ia-step"><div class="ia-sn">1</div><div>24 riesgos → 6 niveles. Alertas cuando ≥2 vars críticas.</div></div>
       <div class="ia-step"><div class="ia-sn">2</div><div>API → WebSocket → WA/Email/SMS.</div></div>
       <div id="m-l5"></div>
     </div>
   </div>
   <div class="card" id="motor-res" style="display:none;margin-top:8px">
-    <div class="ctit">🎯 Resultado del ciclo</div>
+    <div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="target" style="width:11px;height:11px"></i> Resultado del ciclo</div>
     <div id="motor-rb"></div>
   </div>
 </div>
@@ -1185,8 +1185,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 <div id="p-monitor-web" style="display:none">
   <div class="card" style="margin-bottom:10px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div class="ctit" style="margin-bottom:0">🌐 Monitor de alertas en internet</div>
-      <button onclick="buscarAlertas()" id="btn-buscar-web" style="padding:4px 12px;border-radius:5px;background:var(--az);color:#fff;border:none;font-size:9px;cursor:pointer;font-weight:600">🔍 Buscar ahora</button>
+      <div class="ctit" style="margin-bottom:0;display:flex;align-items:center;gap:5px"><i data-lucide="globe" style="width:11px;height:11px"></i> Monitor de alertas en internet</div>
+      <button onclick="buscarAlertas()" id="btn-buscar-web" style="padding:4px 12px;border-radius:5px;background:var(--az);color:#fff;border:none;font-size:9px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:4px"><i data-lucide="search" style="width:11px;height:11px"></i> Buscar ahora</button>
     </div>
     <div style="font-size:9px;color:var(--text2);margin-bottom:10px;line-height:1.6">
       Monitorea en tiempo real noticias, alertas y reportes de emergencias publicados en internet para <strong id="mw-zona-lbl">este municipio</strong> y Antioquia. Las fuentes incluyen medios de comunicación, agencias de emergencia y organismos internacionales.
@@ -1224,14 +1224,14 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- Fuentes activas del monitor -->
   <div class="card">
-    <div class="ctit" style="margin-bottom:8px">📡 Fuentes del monitor web</div>
+    <div class="ctit" style="margin-bottom:8px;display:flex;align-items:center;gap:5px"><i data-lucide="radio" style="width:11px;height:11px"></i> Fuentes del monitor web</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;font-size:9px">
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--v)"><div style="font-weight:700;margin-bottom:2px">🌍 GDACS — ONU</div><div style="color:var(--text3)">Alertas globales naranja/rojo · automático</div></div>
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--v)"><div style="font-weight:700;margin-bottom:2px">🆘 ReliefWeb — OCHA</div><div style="color:var(--text3)">Reportes humanitarios Colombia · automático</div></div>
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--a)"><div style="font-weight:700;margin-bottom:2px">🇨🇴 UNGRD Colombia</div><div style="color:var(--text3)">Emergencias Antioquia · datos.gov.co</div></div>
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--az)"><div style="font-weight:700;margin-bottom:2px">📰 Google News Colombia</div><div style="color:var(--text3)">Noticias emergencias · tiempo real</div></div>
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--az)"><div style="font-weight:700;margin-bottom:2px">🔬 IDEAM / SGC</div><div style="color:var(--text3)">Alertas meteorológicas e hidrológicas</div></div>
-      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--pu)"><div style="font-weight:700;margin-bottom:2px">🌋 USGS Earthquakes</div><div style="color:var(--text3)">Sismos significativos · en tiempo real</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--v)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="globe" style="width:10px;height:10px"></i> GDACS — ONU</div><div style="color:var(--text3)">Alertas globales naranja/rojo · automático</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--v)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="life-buoy" style="width:10px;height:10px"></i> ReliefWeb — OCHA</div><div style="color:var(--text3)">Reportes humanitarios Colombia · automático</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--a)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="shield-alert" style="width:10px;height:10px"></i> UNGRD Colombia</div><div style="color:var(--text3)">Emergencias Antioquia · datos.gov.co</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--az)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="newspaper" style="width:10px;height:10px"></i> Google News Colombia</div><div style="color:var(--text3)">Noticias emergencias · tiempo real</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--az)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="microscope" style="width:10px;height:10px"></i> IDEAM / SGC</div><div style="color:var(--text3)">Alertas meteorológicas e hidrológicas</div></div>
+      <div style="background:var(--bg3);border-radius:6px;padding:8px;border-left:3px solid var(--pu)"><div style="font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:4px"><i data-lucide="activity" style="width:10px;height:10px"></i> USGS Earthquakes</div><div style="color:var(--text3)">Sismos significativos · en tiempo real</div></div>
     </div>
   </div>
 </div>
@@ -1241,7 +1241,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- ── TABLA RESUMEN — todas las fuentes ────────────────────── -->
   <div class="card" style="margin-bottom:10px">
-    <div class="ctit" style="margin-bottom:10px">📋 Tabla de todas las fuentes — <span id="fuentes-total-badge" style="color:var(--az)">27 integradas</span></div>
+    <div class="ctit" style="margin-bottom:10px;display:flex;align-items:center;gap:5px"><i data-lucide="clipboard-list" style="width:11px;height:11px"></i> Tabla de todas las fuentes — <span id="fuentes-total-badge" style="color:var(--az)">27 integradas</span></div>
     <div style="font-size:9px;color:var(--text2);margin-bottom:10px">
       Esta tabla muestra <strong>todas</strong> las fuentes que OMAIRA puede consultar. Las automáticas funcionan sin ninguna acción. Las que requieren clave se configuran en la sección de abajo.
     </div>
@@ -1274,20 +1274,20 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- ── CONFIGURACIÓN DETALLADA ────────────────────────────── -->
   <div class="card" style="margin-bottom:10px">
-    <div class="ctit">⚙️ Configuración de fuentes</div>
+    <div class="ctit" style="display:flex;align-items:center;gap:5px"><i data-lucide="settings" style="width:11px;height:11px"></i> Configuración de fuentes</div>
     <div style="font-size:10px;color:var(--text2);margin-bottom:12px">
       Las fuentes <span class="real-badge real-ok">Activa</span> están conectadas y enviando datos reales ahora mismo.
       Las <span class="real-badge real-sim">Simulado</span> necesitan configuración. Nada es ficticio — si no hay dato real, se indica claramente.
     </div>
     <div style="background:var(--bg3);border-radius:7px;padding:9px;margin-bottom:10px;font-size:9px;color:var(--text2)">
-  🔒 <strong>Tus API keys se guardan solo en este navegador</strong> — no se comparten con nadie ni se envían a ningún servidor externo. Cada persona que use la app pone las suyas. Usa <strong>Exportar config</strong> para guardar un archivo de respaldo y <strong>Importar</strong> para restaurarla cuando actualices el HTML.
+  <i data-lucide="lock" style="width:11px;height:11px;vertical-align:middle"></i> <strong>Tus API keys se guardan solo en este navegador</strong> — no se comparten con nadie ni se envían a ningún servidor externo. Cada persona que use la app pone las suyas. Usa <strong>Exportar config</strong> para guardar un archivo de respaldo y <strong>Importar</strong> para restaurarla cuando actualices el HTML.
 </div>
 <div id="fuentes-lista" style="overflow-y:auto"></div>
   </div>
   <!-- Sección fuentes personalizadas -->
   <div style="margin:12px 0 8px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-      <div style="font-size:9px;font-weight:700;color:var(--text2)">🔧 Fuentes personalizadas</div>
+      <div style="font-size:9px;font-weight:700;color:var(--text2);display:flex;align-items:center;gap:4px"><i data-lucide="wrench" style="width:11px;height:11px"></i> Fuentes personalizadas</div>
       <div style="font-size:7.5px;color:var(--text3)">Se consultan automáticamente cada ciclo</div>
     </div>
     <div id="fuentes-custom-panel">
@@ -1298,10 +1298,10 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
   <div style="display:flex;gap:6px;margin-top:4px">
     <button class="btn" onclick="abrirModalNuevaFuente()"
       style="flex:1;padding:10px;background:var(--az);color:#fff;border:none;border-radius:6px;font-size:10px;cursor:pointer;font-weight:600">
-      ➕ Agregar fuente
+      <i data-lucide="plus" style="width:13px;height:13px"></i> Agregar fuente
     </button>
-    <button class="btn btp" style="flex:2;padding:10px" onclick="guardarFuentes()">
-      💾 Guardar y reconectar fuentes
+    <button class="btn btp" style="flex:2;padding:10px;display:inline-flex;align-items:center;justify-content:center;gap:5px" onclick="guardarFuentes()">
+      <i data-lucide="save" style="width:13px;height:13px"></i> Guardar y reconectar fuentes
     </button>
   </div>
 </div>
@@ -1312,7 +1312,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div class="ctit"><i data-lucide="bell" style="width:11px;height:11px"></i> Canales de notificación</div>
     <p style="font-size:10px;color:var(--text2);margin-bottom:10px">Los mensajes se envían desde las cuentas configuradas al activarse alertas del nivel seleccionado.</p>
     <div class="nc">
-      <div class="nc-h"><div class="nc-t"><span style="font-size:16px">💬</span> WhatsApp Business</div><label class="tog"><input type="checkbox" id="wa-on" checked><span class="tsl"></span></label></div>
+      <div class="nc-h"><div class="nc-t"><i data-lucide="message-circle" style="width:16px;height:16px;color:#25D366"></i> WhatsApp Business</div><label class="tog"><input type="checkbox" id="wa-on" checked><span class="tsl"></span></label></div>
       <input class="fkey-inp" id="wa-from" placeholder="+57 300 000 0000 (número remitente con WhatsApp Business)"/>
       <input class="fkey-inp" id="wa-token" type="password" placeholder="EAAxxxxxxx (token Meta WhatsApp Business API)"/>
       <div style="font-size:8px;color:var(--text3);margin-bottom:7px">Obtener: developers.facebook.com → WhatsApp → API Setup</div>
@@ -1324,7 +1324,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       </div>
     </div>
     <div class="nc">
-      <div class="nc-h"><div class="nc-t"><span style="font-size:16px">📧</span> Correo electrónico</div><label class="tog"><input type="checkbox" id="mail-on" checked><span class="tsl"></span></label></div>
+      <div class="nc-h"><div class="nc-t"><i data-lucide="mail" style="width:16px;height:16px;color:var(--az)"></i> Correo electrónico</div><label class="tog"><input type="checkbox" id="mail-on" checked><span class="tsl"></span></label></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:5px">
         <input class="fkey-inp" id="mail-from" placeholder="alertas@municipio.gov.co" style="margin:0"/>
         <input class="fkey-inp" id="mail-pass" type="password" placeholder="Contraseña / App Password" style="margin:0"/>
@@ -1367,8 +1367,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div class="crow"><div><div style="font-size:11px">Resumen diario 7:00 AM</div></div><label class="tog"><input type="checkbox" id="not-diario" checked><span class="tsl"></span></label></div>
   </div>
   <div style="display:flex;gap:8px">
-    <button class="btn btg" onclick="testNotif()" style="flex:1">🧪 Enviar prueba a todos</button>
-    <button class="btn btp" onclick="guardarNotif()" style="flex:1">💾 Guardar</button>
+    <button class="btn btg" onclick="testNotif()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px"><i data-lucide="flask-conical" style="width:13px;height:13px"></i> Enviar prueba a todos</button>
+    <button class="btn btp" onclick="guardarNotif()" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px"><i data-lucide="save" style="width:13px;height:13px"></i> Guardar</button>
   </div>
 </div>
 
@@ -1378,7 +1378,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
     <!-- Perfil del operador -->
     <div class="card">
-      <div class="ctit" style="margin-bottom:10px">👤 Perfil del operador</div>
+      <div class="ctit" style="margin-bottom:10px;display:flex;align-items:center;gap:5px"><i data-lucide="user" style="width:11px;height:11px"></i> Perfil del operador</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div>
           <div style="font-size:9px;color:var(--text3);margin-bottom:3px">Nombre completo</div>
@@ -1569,11 +1569,11 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     </div>
   </div>
 
-  <button class="btn btp" style="width:100%;padding:12px;font-size:12px" onclick="guardarConfiguracion()">💾 Guardar configuración</button>
+  <button class="btn btp" style="width:100%;padding:12px;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px" onclick="guardarConfiguracion()"><i data-lucide="save" style="width:14px;height:14px"></i> Guardar configuración</button>
 
   <!-- GESTIÓN DE USUARIOS -->
   <div class="card" style="margin-top:10px">
-    <div class="ctit" style="margin-bottom:6px">👥 Control de acceso</div>
+    <div class="ctit" style="margin-bottom:6px;display:flex;align-items:center;gap:5px"><i data-lucide="users" style="width:11px;height:11px"></i> Control de acceso</div>
     <div style="font-size:9px;color:var(--text2);margin-bottom:12px;line-height:1.6;background:var(--bg3);border-radius:6px;padding:8px">
       Solo cuentas de Google autorizadas aquí pueden entrar a OMAIRA. Como <strong style="color:var(--pu)">propietario</strong> puedes invitar o retirar acceso a otras personas cuando quieras.
     </div>
@@ -1592,7 +1592,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
     <!-- Agregar usuario -->
     <div style="background:var(--bg3);border-radius:7px;padding:10px">
-      <div style="font-size:9px;font-weight:600;color:var(--text2);margin-bottom:7px">➕ Invitar a alguien</div>
+      <div style="font-size:9px;font-weight:600;color:var(--text2);margin-bottom:7px;display:flex;align-items:center;gap:4px"><i data-lucide="user-plus" style="width:11px;height:11px"></i> Invitar a alguien</div>
       <div style="display:flex;gap:6px">
         <input id="nuevo-usuario-email" type="email" placeholder="correo@gmail.com" style="flex:1;background:var(--bg2);border:1px solid var(--border2);color:var(--text);padding:7px 10px;border-radius:5px;font-size:10px">
         <button onclick="agregarUsuario()" style="padding:7px 16px;background:var(--v);color:#fff;border:none;border-radius:5px;font-size:10px;cursor:pointer;font-weight:600;white-space:nowrap">Invitar</button>
@@ -1603,9 +1603,9 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
     <!-- Compartir configuración con el equipo -->
     <div style="background:var(--bg3);border-radius:7px;padding:10px;margin-top:8px;border:1px solid rgba(124,58,237,.2)">
-      <div style="font-size:9px;font-weight:600;color:var(--pu);margin-bottom:5px">🔗 Configuración compartida del equipo</div>
+      <div style="font-size:9px;font-weight:600;color:var(--pu);margin-bottom:5px;display:flex;align-items:center;gap:4px"><i data-lucide="link" style="width:11px;height:11px"></i> Configuración compartida del equipo</div>
       <div style="font-size:8px;color:var(--text3);margin-bottom:8px;line-height:1.5">Publica tus API keys y fuentes activas para que todos los usuarios autorizados las tengan disponibles al entrar. Ellos ya las reciben automáticamente en su próximo inicio de sesión.</div>
-      <button onclick="publicarConfigOrg()" style="width:100%;padding:9px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.4);color:var(--pu);border-radius:6px;font-size:10px;cursor:pointer;font-weight:600">☁️ Publicar mi configuración para el equipo</button>
+      <button onclick="publicarConfigOrg()" style="width:100%;padding:9px;background:rgba(124,58,237,.15);border:1px solid rgba(124,58,237,.4);color:var(--pu);border-radius:6px;font-size:10px;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;justify-content:center;gap:5px"><i data-lucide="cloud-upload" style="width:13px;height:13px"></i> Publicar mi configuración para el equipo</button>
     </div>
   </div>
 </div>
@@ -1641,7 +1641,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- ARQUITECTURA -->
   <div class="ac-s">
-    <h2>🏗️ Arquitectura del sistema — 6 capas</h2>
+    <h2><i data-lucide="layers" style="width:14px;height:14px;vertical-align:middle"></i> Arquitectura del sistema — 6 capas</h2>
     <table class="vtab">
       <tr><th>Capa</th><th>Tecnología</th><th>Función</th></tr>
       <tr><td><strong>Presentación</strong></td><td>HTML5 · JavaScript ES2022 · Leaflet.js · Chart.js</td><td>Dashboard interactivo, mapas en tiempo real, gráficos de predicción, alertas visuales</td></tr>
@@ -1655,7 +1655,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- FUENTES DE DATOS -->
   <div class="ac-s">
-    <h2>📡 Fuentes de datos — 28 integradas</h2>
+    <h2><i data-lucide="radio" style="width:14px;height:14px;vertical-align:middle"></i> Fuentes de datos — 28 integradas</h2>
     <table class="vtab">
       <tr><th>Fuente</th><th>Acceso</th><th>Variables que aporta al modelo</th><th>Prioridad en modelo</th></tr>
       <tr style="background:rgba(34,197,94,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:var(--v);padding:4px 8px;letter-spacing:.5px">▶ AUTOMÁTICAS SIN CLAVE — activas de inmediato</td></tr>
@@ -1664,7 +1664,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <tr><td><strong>IRIS / SGC Colombia</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Sismos Colombia M≥1.5 red IRIS — detecta eventos más pequeños que USGS, mejor acumulación energética 72h</td><td>Riesgo sísmico local</td></tr>
       <tr><td><strong>ADS-B Exchange</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Vuelos sobre Antioquia: aerolínea, altitud, velocidad → restricción aérea de rescate</td><td>Actividad aérea</td></tr>
       <tr><td><strong>NOAA ONI (ENSO)</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Índice Oscilación Sur real: fase El Niño / La Niña / Neutro → amplificador climático F</td><td>Factor climático global</td></tr>
-      <tr><td><strong>OpenAQ — Calidad Aire</strong></td><td><span class="real-badge" style="background:#1e40af20;color:#1e40af">🔑 Key gratis</span></td><td>PM2.5, PM10, NO₂ de estaciones reales en Medellín/Antioquia → sensor ICA calidad aire</td><td>Calidad del aire</td></tr>
+      <tr><td><strong>OpenAQ — Calidad Aire</strong></td><td><span class="real-badge" style="background:#1e40af20;color:#1e40af;display:inline-flex;align-items:center;gap:3px"><i data-lucide="key" style="width:9px;height:9px"></i> Key gratis</span></td><td>PM2.5, PM10, NO₂ de estaciones reales en Medellín/Antioquia → sensor ICA calidad aire</td><td>Calidad del aire</td></tr>
       <tr><td><strong>GDACS (ONU) Alertas</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Alertas multi-amenaza ONU nivel naranja/rojo en Colombia → inyectadas en panel Alertas</td><td>Alerta internacional</td></tr>
       <tr><td><strong>ReliefWeb (OCHA) Colombia</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Reportes humanitarios Colombia últimos 30 días (RSS). Alerta solo si título dice emergencia/desastre activo</td><td>Contexto humanitario</td></tr>
       <tr><td><strong>Aerocivil METAR</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Visibilidad y viento reales aeropuertos SKRG (Rionegro) y SKMD (Olaya Herrera) → niebla aeronáutica</td><td>Meteorología aeroportuaria</td></tr>
@@ -1695,7 +1695,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- MOTOR CIENTÍFICO -->
   <div class="ac-s">
-    <h2>🔬 Motor científico — cómo se calculan los riesgos</h2>
+    <h2><i data-lucide="microscope" style="width:14px;height:14px;vertical-align:middle"></i> Motor científico — cómo se calculan los riesgos</h2>
 
     <h3>1. Índice de Riesgo Global (IRG)</h3>
     <div class="fbx">IRG = Σ(<span>wᵢ × vᵢ</span>) &nbsp; donde i = 1…24 variables<br>
@@ -1802,7 +1802,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- PREDICCIÓN MULTI-HORIZONTE -->
   <div class="ac-s">
-    <h2>📈 Predicción multi-horizonte</h2>
+    <h2><i data-lucide="trending-up" style="width:14px;height:14px;vertical-align:middle"></i> Predicción multi-horizonte</h2>
     <table class="vtab">
       <tr><th>Horizonte</th><th>Fuente base</th><th>Confianza relativa</th><th>Método</th></tr>
       <tr><td><strong>+1h, +6h</strong></td><td>Open-Meteo RT</td><td>Alta</td><td>Pronóstico meteorológico directo GFS/ECMWF</td></tr>
@@ -1823,7 +1823,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
 
   <!-- MARCO NORMATIVO -->
   <div class="ac-s">
-    <h2>📋 Marco normativo y científico</h2>
+    <h2><i data-lucide="scroll-text" style="width:14px;height:14px;vertical-align:middle"></i> Marco normativo y científico</h2>
     <table class="vtab">
       <tr><th>Referencia</th><th>Aplicación en OMAIRA</th></tr>
       <tr><td><strong>Ley 1523 de 2012</strong></td><td>Marco de la gestión del riesgo en Colombia — sistema de alertas y monitoreo</td></tr>
@@ -1842,7 +1842,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
   <!-- PIE -->
   <!-- DESPLIEGUE Y ACCESO -->
   <div class="ac-s">
-    <h2>☁️ Despliegue, acceso y seguridad</h2>
+    <h2><i data-lucide="cloud" style="width:14px;height:14px;vertical-align:middle"></i> Despliegue, acceso y seguridad</h2>
     <table class="vtab">
       <tr><th>Componente</th><th>Tecnología</th><th>Descripción</th></tr>
       <tr><td><strong>Frontend</strong></td><td>GitHub Pages</td><td>App web estática sin servidor propio. Acceso desde cualquier dispositivo con navegador.</td></tr>
@@ -1882,7 +1882,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px"><i data-lucide="alert-triangle" style="width:15px;height:15px;color:var(--r)"></i> Reportar evento</div>
       <button onclick="document.getElementById('modal-reporte').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
     </div>
-    <div style="font-size:9px;color:var(--az);background:rgba(59,130,246,.1);border-radius:5px;padding:6px 8px;margin-bottom:12px">📡 Tu reporte se valida cruzado con sensores. 3+ reportes del mismo tipo = alerta confirmada automáticamente.</div>
+    <div style="font-size:9px;color:var(--az);background:rgba(59,130,246,.1);border-radius:5px;padding:6px 8px;margin-bottom:12px"><i data-lucide="radio" style="width:11px;height:11px;vertical-align:middle"></i> Tu reporte se valida cruzado con sensores. 3+ reportes del mismo tipo = alerta confirmada automáticamente.</div>
     <div style="margin-bottom:10px">
       <div style="font-size:9px;font-weight:600;color:var(--text3);margin-bottom:5px">Tipo de evento</div>
       <div id="tipos-reporte" style="display:grid;grid-template-columns:1fr 1fr;gap:5px"></div>
@@ -1895,7 +1895,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <input type="checkbox" id="rep-gps" checked style="accent-color:var(--az);width:14px;height:14px">
       <label for="rep-gps" style="font-size:9px;color:var(--text2)">Incluir mi ubicación GPS</label>
     </div>
-    <button onclick="enviarReporte()" style="width:100%;padding:9px;border-radius:7px;background:var(--r);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:10px">📤 Enviar reporte</button>
+    <button onclick="enviarReporte()" style="width:100%;padding:9px;border-radius:7px;background:var(--r);color:#fff;border:none;font-size:11px;font-weight:600;cursor:pointer;margin-bottom:10px;display:inline-flex;align-items:center;justify-content:center;gap:6px"><i data-lucide="send" style="width:14px;height:14px"></i> Enviar reporte</button>
     <div style="font-size:9px;font-weight:600;color:var(--text3);margin-bottom:5px">Reportes recientes en <span id="rep-zona-n">esta zona</span></div>
     <div id="rep-lista" style="overflow-y:auto;max-height:200px" style="max-height:130px;overflow-y:auto"></div>
   </div>
