@@ -1850,7 +1850,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 8 horas.</td></tr>
       <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
       <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
-      <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos. 3 reportes del mismo tipo en la misma zona activan una alerta automática confirmada.</td></tr>
+      <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos (10 tipos: deslizamiento, inundación, creciente, vendaval, etc.). 3 reportes de usuarios distintos del mismo tipo en la misma zona en la última hora disparan una alerta WebSocket en tiempo real a todos los vecinos conectados — sin esperar sensores automáticos. El conteo se centraliza en PostgreSQL (Railway) para que refleje 3 ciudadanos distintos, no 3 clics del mismo dispositivo.</td></tr>
       <tr><td><strong>Notificaciones email</strong></td><td>Resend API (HTTPS)</td><td>Emails automáticos al operador cuando el sistema Credibilidad detecta evidencia BSS suficiente para recomendar unificación de modelos, o cuando ocurre un rollback automático. Railway bloquea SMTP saliente; se usa Resend (API sobre HTTPS 443).</td></tr>
       <tr><td><strong>WebSocket tiempo real</strong></td><td>WebSocket · <code>/ws/riesgo/{zona_id}</code></td><td>Conexión bajo demanda al municipio activo — se abre al seleccionar un municipio y se cierra al cambiar. Entrega inmediata de alertas nuevas y lluvia intensa sin esperar el próximo ciclo de polling. Funciona para cualquiera de los 123 municipios (no limitado a zonas fijas). Datos de baja frecuencia (embalse, censo) siguen en polling. Fallback silencioso a polling si WebSocket no está disponible. Límite: 500 conexiones simultáneas.</td></tr>
     </table>
@@ -1863,7 +1863,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       123 municipios · 24 tipos de riesgo · 28 fuentes de datos · 3 modelos de riesgo + 5 modelos IA · Credibilidad probabilística calibrada<br>
       Colombia · 2026 · Desarrollado por Arcil Ríos · GitHub Pages + Railway<br>
       Marco Sendai 2030 · Ley 1523/2012 · Metodología DAGRAN · Kohler-Linsley · Brier Score<br>
-      <span style="color:var(--az)">Sesión 14 (2026-06-22): Iconos Lucide — UI profesional SVG sin emojis</span>
+      <span style="color:var(--az)">Sesión 14 (2026-06-22): Iconos Lucide — UI profesional SVG sin emojis</span><br>
+      <span style="color:var(--az)">Sesión 15 (2026-06-22): Reportes ciudadanos confirmados disparan WebSocket en tiempo real</span>
     </div>
   </div>
 
