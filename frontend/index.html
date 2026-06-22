@@ -7237,6 +7237,12 @@ function manejarEventoTiempoReal(data) {
     case 'vendaval':
       toast('💨 ' + data.mensaje + acc + conf, 'warn');
       break;
+    case 'reporte_ciudadano':
+      // Los reportes ciudadanos confirmados no pasan por el modelo IRG — son
+      // observaciones directas de vecinos EN CURSO, no predicciones del sensor.
+      // No se muestra BSS porque no hay modelo involucrado.
+      toast('👥 ' + data.mensaje, 'warn');
+      break;
   }
 }
 // ────────────────────────────────────────────────────────────────────────────

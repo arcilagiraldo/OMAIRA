@@ -22,7 +22,7 @@ from app.services.riesgo_service import calcular_riesgo_zona
 from app.services.openmeteo_service import obtener_meteo_real, COORDS_ZONAS
 from app.services.fuentes_externas import obtener_enso
 from app.models.schemas import NivelRiesgo
-from app.services.database import init_pool, close_pool
+from app.services.database import init_pool, close_pool, get_reportes_confirmados
 
 
 @asynccontextmanager
@@ -141,9 +141,9 @@ async def ws_riesgo_zona(
 ):
     """
     WebSocket bajo demanda para cualquier municipio de los 123.
-    Solo envía los 5 eventos con ventana real de acción antes del desastre.
-    Datos de baja frecuencia (embalse XM/SIMEM, censo DANE, incendio, sequía)
-    no se envían por este canal — siguen su ciclo de polling normal.
+    Envía 5 eventos de sensor con ventana real de acción + reportes ciudadanos
+    confirmados (≥3 usuarios distintos/1h). Datos de baja frecuencia (embalse
+    XM/SIMEM, censo DANE, incendio, sequía) siguen su ciclo de polling normal.
 
     El frontend pasa lat/lon del municipio seleccionado (del array MUNS)
     como query params para que el backend pueda consultar Open-Meteo con
@@ -261,6 +261,35 @@ async def ws_riesgo_zona(
                         "probabilidad": p_torm.get("probabilidad"),
                         "mensaje": f"Riesgo {p_torm['nivel'].upper()} de vendaval — {p_torm.get('probabilidad', 0)*100:.1f}%",
                         "acciones": p_torm.get("acciones_recomendadas", []),
+                    })
+
+            # 6. Reportes ciudadanos confirmados — alerta temprana real para vecinos
+            # Un ciudadano que reporta "el río está subiendo" o "hay un deslizamiento
+            # en mi barrio" le da ventana de acción a quienes aún no han sido afectados.
+            # Esto es distinto a un sensor automático que detecta algo que ya terminó
+            # (ej. sismo): aquí la información EN CURSO tiene valor para los vecinos.
+            # Se dispara para CUALQUIER tipo del formulario ciudadano (lista cerrada de
+            # 10 tipos, ninguno puramente informativo sin acción posible para vecinos).
+            # Umbral: ≥3 usuarios distintos en la última hora (por email, no por IP).
+            try:
+                confirmados = await get_reportes_confirmados(zona_id, ventana_horas=1, umbral=3)
+            except Exception:
+                confirmados = []
+            for rep in confirmados:
+                clave = ("reporte_ciudadano", rep["tipo"])
+                sig_eventos.add(clave)
+                if clave not in eventos_activos:
+                    envios.append({
+                        "tipo": "reporte_ciudadano",
+                        "zona_id": zona_id,
+                        "tipo_riesgo": rep["tipo"],
+                        "num_reportes": rep["num_reportes"],
+                        "usuarios_distintos": rep["usuarios_distintos"],
+                        "mensaje": (
+                            f"{rep['usuarios_distintos']} vecinos reportaron "
+                            f"{rep['tipo'].replace('_', ' ')} en tu zona — "
+                            "verifica tu entorno y sigue instrucciones de autoridades"
+                        ),
                     })
 
             for evento in envios:
