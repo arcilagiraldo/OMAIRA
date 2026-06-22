@@ -904,6 +904,16 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div id="pred-resumen" style="font-size:9px;color:var(--text2);background:var(--bg3);border-radius:7px;padding:8px 10px;margin-top:8px;line-height:1.6;min-height:20px"></div>
     <div class="tl" id="tl"></div>
     <div id="pred-fiab-warn" style="display:none;font-size:8px;color:var(--a);background:rgba(245,158,11,.1);border-radius:5px;padding:5px 8px;margin-top:6px;border:1px solid rgba(245,158,11,.3)"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;margin-top:8px">
+      <span style="font-size:8px;color:var(--text3)">Riesgos en gráfico:</span>
+      <div style="display:flex;gap:3px" id="topn-pred-btns">
+        <button onclick="setTopNPred(3)"  id="tnp-3"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">3</button>
+        <button onclick="setTopNPred(5)"  id="tnp-5"  class="hbtn hbtn-act" style="padding:2px 7px;font-size:8px;min-height:0">5</button>
+        <button onclick="setTopNPred(8)"  id="tnp-8"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">8</button>
+        <button onclick="setTopNPred(10)" id="tnp-10" class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">10</button>
+        <button onclick="setTopNPred(0)"  id="tnp-0"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">Todos</button>
+      </div>
+    </div>
     <canvas id="c-pred" height="190" style="max-height:190px;width:100%"></canvas>
   </div>
   <div class="card" style="margin-bottom:10px">
@@ -915,7 +925,15 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px" id="comp-g"></div>
   </div>
   <div class="card">
-    <div class="ctit">Incertidumbre por horizonte (IC 90%)</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px">
+      <div class="ctit" style="margin-bottom:0">Incertidumbre por horizonte (IC 90%)</div>
+      <div style="display:flex;gap:3px" id="topn-inc-btns">
+        <button onclick="setTopNInc(3)"  id="tni-3"  class="hbtn hbtn-act" style="padding:2px 7px;font-size:8px;min-height:0">3</button>
+        <button onclick="setTopNInc(5)"  id="tni-5"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">5</button>
+        <button onclick="setTopNInc(8)"  id="tni-8"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">8</button>
+        <button onclick="setTopNInc(0)"  id="tni-0"  class="hbtn" style="padding:2px 7px;font-size:8px;min-height:0">Todos</button>
+      </div>
+    </div>
     <canvas id="c-inc" height="150" style="max-height:150px;width:100%"></canvas>
   </div>
 </div>
@@ -5227,30 +5245,36 @@ function renderComp(){
   const H=+(top.H??top.prob??0),E=+(top.E??0),V=+(top.V??0),F=+(top.F??1.04);
   el.innerHTML=[{l:'H — Amenaza',v:H,d:'Físico+ML'},{l:'E — Exposición',v:E,d:'Pob.+infraest.'},{l:'V — Vulnerabilidad',v:V,d:'Social+física'},{l:'F — ENSO',v:F,d:'El Niño/La Niña',max:2}].map(({l,v,d,max=1})=>{const vc=v>.6?'#f97316':v>.3?'#f59e0b':'#22c55e';return`<div style="background:var(--bg3);border-radius:7px;padding:10px"><div style="font-size:8px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px">${l}</div><div style="font-size:18px;font-weight:700;color:${vc};margin:2px 0">${max===2?v.toFixed(2):(v*100).toFixed(0)+'%'}</div><div style="background:var(--bg2);border-radius:2px;height:7px;overflow:hidden"><div style="width:${Math.min(100,Math.round(v/max*100))}%;height:100%;background:${vc};border-radius:2px"></div></div><div style="font-size:8px;color:var(--text3);margin-top:2px">${d}</div></div>`;}).join('');
 }
+let topN_pred = 5;
+let topN_inc  = 3;
+
+function setTopNPred(n){
+  topN_pred=n;
+  document.querySelectorAll('#topn-pred-btns .hbtn').forEach(b=>b.classList.remove('hbtn-act'));
+  const id='tnp-'+(n||0);
+  const btn=document.getElementById(id);if(btn)btn.classList.add('hbtn-act');
+  renderChartPred();
+}
+function setTopNInc(n){
+  topN_inc=n;
+  document.querySelectorAll('#topn-inc-btns .hbtn').forEach(b=>b.classList.remove('hbtn-act'));
+  const id='tni-'+(n||0);
+  const btn=document.getElementById(id);if(btn)btn.classList.add('hbtn-act');
+  renderInc();
+}
+
 function renderChartPred(){
   if(!D)return;
   const ctx=document.getElementById('c-pred');if(!ctx)return;
-  // Mostrar los 5 riesgos más relevantes para este municipio específico
-  // Filtrar los que tienen probabilidad real (>5%) y son relevantes para la zona
-  const riesgosRelevantes = D.riesgos
-    .filter(r => r.prob > 0.05) // Solo con probabilidad real
-    .sort((a, b) => {
-      // Dar prioridad extra a riesgos con alta probabilidad Y alta exposición
-      const scoreA = a.prob * (a.H||0) * (a.E||0) + a.prob * 0.3;
-      const scoreB = b.prob * (b.H||0) * (b.E||0) + b.prob * 0.3;
-      return scoreB - scoreA;
-    })
-    .slice(0, 5);
-  // Si hay menos de 5, completar con los siguientes por probabilidad
-  if(riesgosRelevantes.length < 5){
-    const extras = D.riesgos
-      .filter(r => !riesgosRelevantes.find(x=>x.id===r.id))
-      .sort((a,b)=>b.prob-a.prob)
-      .slice(0, 5 - riesgosRelevantes.length);
-    riesgosRelevantes.push(...extras);
-  }
-  const top5 = riesgosRelevantes;
-  const cls=['#ef4444','#f97316','#f59e0b','#3b82f6','#8b5cf6'];
+  const N = topN_pred || D.riesgos.length;
+  const sorted = D.riesgos.slice().sort((a,b)=>{
+    const sA=a.prob*(a.H||a.prob)*(a.E||1)+a.prob*.3;
+    const sB=b.prob*(b.H||b.prob)*(b.E||1)+b.prob*.3;
+    return sB-sA;
+  });
+  const topN = sorted.slice(0, N);
+  const palette=['#ef4444','#f97316','#f59e0b','#3b82f6','#8b5cf6','#22c55e','#06b6d4','#a855f7','#ec4899','#84cc16'];
+  const cls=topN.map((_,i)=>palette[i%palette.length]);
   // Generar curva temporal adaptada al horizonte seleccionado
   const etiquetasGrafico = {
     '1h': ['+15min','+30min','+45min','+1h'],
@@ -5262,7 +5286,7 @@ function renderChartPred(){
     '30d':['+7d','+15d','+20d','+30d'],
     '90d':['+30d','+45d','+60d','+90d'],
   }[horizonteActual] || ['+6h','+12h','+18h','+24h'];
-  const ds=top5.map((r,i)=>{
+  const ds=topN.map((r,i)=>{
     const p_horizonte = factorHorizonte(r.id, horizonteActual);
     const dataGrafico = etiquetasGrafico.map((_,j)=>{
       const progress = j / (etiquetasGrafico.length-1);
@@ -5283,15 +5307,16 @@ function renderInc(){
   if(!D?.riesgos?.length)return;
   const ctx=document.getElementById('c-inc');if(!ctx)return;
   const hs=['+1h','+6h','+24h','+72h'];
-  const top3=D.riesgos
+  const NI = topN_inc || D.riesgos.length;
+  const topR=D.riesgos
     .filter(r=>r.prob>0.01)
     .sort((a,b)=>(b.prob*(b.H||b.prob)*(b.E||1)+b.prob*.3)-(a.prob*(a.H||a.prob)*(a.E||1)+a.prob*.3))
-    .slice(0,3);
-  if(!top3.length)return;
-  const cls=['#3b82f6','#8b5cf6','#06b6d4'];
-  const ds=top3.map((r,i)=>({label:r.n,data:[r.prob_h1??r.prob*.75,r.prob_h6??r.prob*.9,r.prob_h24??r.prob,r.prob_h72??r.prob*1.1].map(v=>+((v||0)*100).toFixed(1)),borderColor:cls[i],backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,tension:.3}));
+    .slice(0,NI);
+  if(!topR.length)return;
+  const pal=['#3b82f6','#8b5cf6','#06b6d4','#ef4444','#f97316','#f59e0b','#22c55e','#ec4899','#84cc16','#a855f7'];
+  const ds=topR.map((r,i)=>({label:r.n,data:[r.prob_h1??r.prob*.75,r.prob_h6??r.prob*.9,r.prob_h24??r.prob,r.prob_h72??r.prob*1.1].map(v=>+((v||0)*100).toFixed(1)),borderColor:pal[i%pal.length],backgroundColor:'transparent',borderWidth:1.5,pointRadius:3,tension:.3}));
   if(cInc)cInc.destroy();
-  cInc=new Chart(ctx,{type:'line',data:{labels:hs,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa3bf',font:{size:8},boxWidth:10}}},scales:{x:{ticks:{color:'#4d6480'},grid:{color:'#1e2d45'}},y:{min:0,max:100,ticks:{color:'#4d6480',callback:v=>v+'%'},grid:{color:'#1e2d45'}}}}});
+  cInc=new Chart(ctx,{type:'line',data:{labels:hs,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8fa3bf',font:{size:7},boxWidth:8}}},scales:{x:{ticks:{color:'#4d6480'},grid:{color:'#1e2d45'}},y:{min:0,max:100,ticks:{color:'#4d6480',callback:v=>v+'%'},grid:{color:'#1e2d45'}}}}});
 }
 
 // ═══════════════════════════════════════════════════════════
