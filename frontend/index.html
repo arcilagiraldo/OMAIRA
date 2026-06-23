@@ -8427,6 +8427,18 @@ function saveCredDB() {
 }
 
 // ── 1. REGISTRO DE PREDICCIONES ────────────────────────────────────────────
+
+// Hash anónimo del dispositivo — distingue "2 predicciones del mismo dispositivo"
+// de "2 dispositivos distintos" para medir consistencia, sin identificar a nadie.
+function _dispositivoHash() {
+  let h = localStorage.getItem('omaira_device_hash');
+  if (!h) {
+    h = 'dev_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('omaira_device_hash', h);
+  }
+  return h;
+}
+
 function registrarPrediccion(tipo_riesgo, zona, prob, fuentes_activas, horizonte_h) {
   if(!CRED_DATA.predictions[tipo_riesgo]) CRED_DATA.predictions[tipo_riesgo] = {};
   if(!CRED_DATA.predictions[tipo_riesgo][zona]) CRED_DATA.predictions[tipo_riesgo][zona] = [];
@@ -8445,6 +8457,21 @@ function registrarPrediccion(tipo_riesgo, zona, prob, fuentes_activas, horizonte
   }
   // También registrar en model_performance para comparación BSS entre modelos
   registrarPrediccionModelo('calcIRGConPesos_v6', tipo_riesgo, zona, registro.prob);
+  // Sincronizar a PostgreSQL — fire-and-forget, no bloquea si Railway no responde
+  try {
+    fetch(_STORAGE_BASE() + '/api/v1/storage/predicciones', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        zona_id: zona,
+        tipo_riesgo: tipo_riesgo,
+        modelo_id: 'calcIRGConPesos_v6',
+        probabilidad: registro.prob,
+        dispositivo_hash: _dispositivoHash()
+      }),
+      signal: AbortSignal.timeout(8000)
+    }).catch(() => {});
+  } catch(e) {}
 }
 
 // ── 1b. REGISTRO DE PREDICCIÓN POR MODELO (para comparación BSS entre modelos) ──
