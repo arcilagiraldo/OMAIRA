@@ -11,7 +11,10 @@ from app.models.schemas import (
     RiesgoComponentes, PrediccionRiesgo, AlertaRiesgo
 )
 from app.services.openmeteo_service import obtener_meteo_real
-from app.services.database import guardar_predicciones as _db_guardar_predicciones
+from app.services.database import (
+    guardar_predicciones as _db_guardar_predicciones,
+    guardar_api_zona, get_api_zona,
+)
 
 # ---------------------------------------------------------------------------
 # Datos simulados de sensores (reemplazar con integración real SIATA/EPM)
@@ -161,6 +164,15 @@ def _calcular_vulnerabilidad(zona: Dict, dane_data: Dict = None) -> float:
             # 60% físico + 40% índice social DANE
             v_fisico = v_fisico * 0.60 + idx * 0.40
     return round(min(1.0, v_fisico), 4)
+
+
+def _nivel_api(valor: float) -> str:
+    """Clasificación del API según saturación del suelo (DAGRAN Antioquia)."""
+    if valor < 20:  return "bajo"
+    if valor < 50:  return "medio"
+    if valor < 90:  return "alto"
+    if valor < 140: return "critico"
+    return "extremo"
 
 
 def _nivel_desde_probabilidad(prob: float) -> NivelRiesgo:
@@ -316,9 +328,32 @@ async def calcular_riesgo_zona(
         }
     }
 
-    # Persistir en PostgreSQL de forma no bloqueante
+    # Persistir predicciones en PostgreSQL de forma no bloqueante
     import asyncio
     asyncio.ensure_future(_db_guardar_predicciones(zona_id, predicciones))
+
+    # ── API hidrológico (Kohler-Linsley) ─────────────────────────────────────
+    # Se calcula aquí, server-side, para que todos los clientes vean el mismo
+    # valor de saturación del suelo — independientemente de cuándo o desde dónde
+    # abrieron la app.  K=0.85 (coeficiente de drenaje tropical húmedo, Antioquia).
+    try:
+        api_estado = await get_api_zona(zona_id)
+        api_prev = api_estado["valor"] if api_estado else 0.0
+        if api_estado:
+            ts_prev = datetime.fromisoformat(api_estado["ts"].replace("Z", "+00:00")
+                                             .replace("+00:00", ""))
+            horas = min((datetime.utcnow() - ts_prev).total_seconds() / 3600.0, 72.0)
+        else:
+            horas = 1.0
+        K = 0.85
+        lluvia_h = meteo.get("precipitacion_actual_mm", 0.0) or 0.0
+        api_nuevo = min(200.0, round(api_prev * (K ** horas) + lluvia_h * max(horas, 0.25), 1))
+        asyncio.ensure_future(guardar_api_zona(zona_id, api_nuevo))
+    except Exception:
+        api_nuevo = 0.0
+
+    resultado["api_valor"] = api_nuevo
+    resultado["api_nivel"] = _nivel_api(api_nuevo)
 
     return resultado
 

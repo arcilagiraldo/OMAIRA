@@ -7285,6 +7285,19 @@ async function actualizarDatos(){
   const lupd=document.getElementById('lupd');if(lupd)lupd.textContent='⏳ Cargando datos reales…';
   const chip=document.getElementById('chip');if(chip){chip.className='chip chip-loading';chip.textContent='⟳ Conectando…';}document.querySelector('header')?.classList.add('cargando');document.getElementById('arcoiris-overlay')?.classList.add('on');
   try{
+    // Sincronizar API hidrológico desde backend antes de cargar datos locales.
+    // Garantiza que todos los usuarios/dispositivos parten del mismo valor de
+    // saturación del suelo, sin importar cuándo o desde dónde abrieron la app.
+    if(!API_STORE[zona] || API_STORE[zona].valor === 0) {
+      try {
+        const _apiR = await _storageGet('/api/'+zona);
+        if(_apiR?.api_valor > 0) {
+          API_STORE[zona] = {valor:_apiR.api_valor, ts:Date.now(),
+                             historial_72h: API_STORE[zona]?.historial_72h||[]};
+          _saveAPIStore();
+        }
+      } catch(e) {}
+    }
     // Timeout global de 20 segundos para evitar cuelgue indefinido
     const _timeout = new Promise((_, rej) =>
       setTimeout(()=>rej(new Error('Timeout 20s — sin respuesta de las APIs')), 20000));
@@ -7315,8 +7328,22 @@ async function actualizarDatos(){
         const _BASE = window.OMAIRA_API_URL||'https://invigorating-creativity-production-4a58.up.railway.app';
         fetch(_BASE+'/api/v1/riesgo/zona/'+zona, {signal:AbortSignal.timeout(5000)})
           .then(r=>r.json())
-          .then(d=>{if(d.predicciones)d.predicciones.forEach(p=>
-            registrarPrediccionModelo('riesgo_service_v6',p.tipo_riesgo,zona,p.probabilidad))})
+          .then(d=>{
+            if(d.predicciones)d.predicciones.forEach(p=>
+              registrarPrediccionModelo('riesgo_service_v6',p.tipo_riesgo,zona,p.probabilidad));
+            // Sincronizar memoria hidrológica — backend es la fuente de verdad compartida.
+            // Todos los clientes convergen al mismo API independientemente de cuándo
+            // o desde dónde abrieron la app.
+            if(d.api_valor > 0) {
+              const _est = API_STORE[zona]||{historial_72h:[]};
+              API_STORE[zona] = {..._est, valor:d.api_valor, ts:Date.now()};
+              _saveAPIStore();
+              if(D && D.zona===zona) {
+                D.api_valor = d.api_valor;
+                D.api_nivel = nivelAPI(d.api_valor);
+              }
+            }
+          })
           .catch(()=>{});
         fetch(_BASE+'/api/v1/irg/dashboard/'+zona, {signal:AbortSignal.timeout(5000)})
           .then(r=>r.json())

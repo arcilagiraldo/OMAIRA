@@ -11,6 +11,7 @@ from app.services.database import (
     guardar_preferencias, get_preferencias,
     guardar_reporte, get_reportes, get_reportes_confirmados,
     guardar_outcome, get_outcomes,
+    get_api_zona,
 )
 
 router = APIRouter()
@@ -81,6 +82,14 @@ async def post_reporte(body: Reporte):
 async def get_reportes_zona(zona_id: str, horas: int = Query(48)):
     data = await get_reportes(zona_id, min(horas, 168))
     return {"zona_id": zona_id, "reportes": data, "n": len(data)}
+
+
+@router.get("/api/{zona_id}")
+async def get_api_endpoint(zona_id: str):
+    """API hidrológico actual de la zona — fuente de verdad compartida entre clientes."""
+    data = await get_api_zona(zona_id)
+    return {"zona_id": zona_id, "api_valor": data["valor"] if data else 0.0,
+            "ts": data["ts"] if data else None}
 
 
 @router.get("/reportes/{zona_id}/confirmados")

@@ -119,6 +119,12 @@ CREATE TABLE IF NOT EXISTS outcomes_credibilidad (
     ts TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS api_hidrologico (
+    zona_id VARCHAR(100) PRIMARY KEY,
+    valor FLOAT NOT NULL DEFAULT 0,
+    ts TIMESTAMP DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS fuentes_detectadas (
     id VARCHAR(40) PRIMARY KEY,
     url TEXT NOT NULL,
@@ -474,6 +480,51 @@ async def get_reportes_confirmados(zona_id: str, ventana_horas: int = 1,
     except Exception as e:
         logger.debug(f"get_reportes_confirmados: {e}")
         return []
+
+
+# ── API hidrológico (memoria de saturación del suelo) ────────────────────────
+
+async def guardar_api_zona(zona_id: str, valor: float) -> None:
+    """
+    Upsert del índice API (Antecedent Precipitation Index) por zona.
+    Fuente de verdad compartida entre todos los clientes — evita que
+    distintos dispositivos/usuarios vean valores distintos según cuándo
+    abrieron la app.
+    """
+    if not _pool_disponible():
+        return
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO api_hidrologico (zona_id, valor, ts)
+                   VALUES ($1, $2, NOW())
+                   ON CONFLICT (zona_id) DO UPDATE
+                   SET valor = EXCLUDED.valor, ts = EXCLUDED.ts""",
+                zona_id, round(float(valor), 1),
+            )
+    except Exception as e:
+        logger.debug(f"guardar_api_zona: {e}")
+
+
+async def get_api_zona(zona_id: str) -> Optional[Dict]:
+    """
+    Lee el API actual y su timestamp para una zona.
+    Retorna None si no hay registro (primera vez) o si la DB no está disponible.
+    """
+    if not _pool_disponible():
+        return None
+    try:
+        async with _pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT valor, ts FROM api_hidrologico WHERE zona_id=$1",
+                zona_id,
+            )
+            if row:
+                return {"valor": row["valor"], "ts": row["ts"].isoformat()}
+            return None
+    except Exception as e:
+        logger.debug(f"get_api_zona: {e}")
+        return None
 
 
 # ── Outcomes credibilidad ─────────────────────────────────────────────────────
