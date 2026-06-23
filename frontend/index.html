@@ -1670,8 +1670,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <tr><td><strong>Aerocivil METAR</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Visibilidad y viento reales aeropuertos SKRG (Rionegro) y SKMD (Olaya Herrera) → niebla aeronáutica</td><td>Meteorología aeroportuaria</td></tr>
       <tr><td><strong>XM / SIMEM — Embalses</strong></td><td><span class="real-badge real-ok">Automática · Gratis</span></td><td>Nivel real embalses: El Peñol, Guatapé, San Carlos, Alejandría (PENOL) e Ituango — dataset 843497 Reservas Hidráulicas del SIN. Caché 4 h acorde a frecuencia de actualización diaria.</td><td>Embalse (dato crítico)</td></tr>
       <tr style="background:rgba(59,130,246,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:var(--az);padding:4px 8px;letter-spacing:.5px">▶ CLAVE GRATUITA — registrarse en sitio web (5 minutos)</td></tr>
-      <tr><td><strong>TomTom Traffic</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>Velocidad vías, nivel flujo, incidentes → estado vías principales Antioquia</td><td>Movilidad y emergencias</td></tr>
-      <tr><td><strong>Tomorrow.io</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>UV, calidad aire EPA, tipo precipitación, neblina → sensores s.uv, s.ica</td><td>Clima hiperlocal</td></tr>
+      <tr><td><strong>TomTom Traffic</strong></td><td><span class="real-badge real-sim">Key en Railway</span></td><td>Velocidad vías, nivel flujo, incidentes → estado vías principales Antioquia. Key configura el desarrollador; ningún usuario la ve.</td><td>Movilidad y emergencias</td></tr>
+      <tr><td><strong>Tomorrow.io</strong></td><td><span class="real-badge real-sim">Key en Railway</span></td><td>UV, calidad aire EPA, tipo precipitación, neblina → sensores s.uv, s.ica. Key configura el desarrollador; ningún usuario la ve.</td><td>Clima hiperlocal</td></tr>
       <tr><td><strong>NASA FIRMS</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>Focos de calor VIIRS activos en Colombia → riesgo incendio forestal</td><td>Incendios forestales</td></tr>
       <tr><td><strong>OpenWeatherMap</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>Lluvia refinada, temperatura estación → complementa Open-Meteo</td><td>Validación cruzada clima</td></tr>
       <tr><td><strong>INVIAS — datos.gov.co</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>Estado vías nacionales, PCI, incidentes registrados, cierres</td><td>Infraestructura vial</td></tr>
@@ -1679,7 +1679,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <tr><td><strong>WAQI — Índice Aire Global</strong></td><td><span class="real-badge real-sim">Key gratuita</span></td><td>AQI estandarizado, PM2.5, NO₂, advertencias de salud estaciones urbanas Medellín</td><td>Calidad del aire urbana</td></tr>
       <tr><td><strong>DANE — Vulnerabilidad Social</strong></td><td><span class="real-badge real-sim">Token datos.gov.co</span></td><td>Índice de Pobreza Multidimensional (IPM) por municipio → componente E (exposición) del IRG</td><td>Vulnerabilidad social</td></tr>
       <tr><td><strong>UNGRD — Emergencias Antioquia</strong></td><td><span class="real-badge real-sim">Token datos.gov.co</span></td><td>Registro oficial de emergencias y desastres últimos 30 días en Antioquia → calibración IRG</td><td>Calibración histórica</td></tr>
-      <tr><td><strong>GloFAS (Copernicus EU)</strong></td><td><span class="real-badge real-sim">Key gratuita CDS</span></td><td>Pronóstico inundaciones 15-30 días ríos Cauca, Magdalena, Porce → alarma temprana</td><td>Pronóstico inundaciones</td></tr>
+      <tr><td><strong>GloFAS (Copernicus EU)</strong></td><td><span class="real-badge real-sim">Key en Railway</span></td><td>Pronóstico inundaciones 15-30 días ríos Cauca, Magdalena, Porce → alarma temprana. Key configura el desarrollador vía COPERNICUS_API_KEY en Railway.</td><td>Pronóstico inundaciones</td></tr>
       <tr style="background:rgba(139,92,246,.04)"><td colspan="4" style="font-size:8px;font-weight:700;color:#8b5cf6;padding:4px 8px;letter-spacing:.5px">▶ INSTITUCIONALES — requieren convenio formal</td></tr>
       <tr><td><strong>SIATA</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>Sensores RT Área Metro: lluvia, PM2.5, nivel quebradas, caudal → sobrescribe Open-Meteo</td><td>Máxima prioridad local</td></tr>
       <tr><td><strong>SAMA (DAGRAN)</strong></td><td><span class="real-badge real-sim">Institucional</span></td><td>118 instrumentos: nivel ríos/quebradas, lluvia estaciones → máxima prioridad departamental</td><td>Máxima prioridad dept.</td></tr>
@@ -1779,7 +1779,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <p>Los tres modelos usan el mismo vocabulario de niveles (muy_bajo · bajo · medio · alto · muy_alto · critico) pero con umbrales distintos sobre escalas incomparables, lo que hace que puedan dar valores distintos para la misma zona en el mismo momento. Esta diferencia es intencional — cada modelo responde una pregunta distinta. El sistema de Credibilidad los mide en paralelo para determinar empíricamente cuál predice mejor eventos reales.</p>
 
     <h3>Aprendizaje continuo (Online Learning)</h3>
-    <p>El sistema actualiza Brier Score y Log Loss incrementalmente con cada outcome registrado, sin recalcular desde cero. Cada 15 minutos se generan <strong>outcomes automáticos</strong> a partir de datos reales: sismos USGS, focos NASA FIRMS, lluvia vs umbrales IDF, tráfico TomTom, visibilidad aeronáutica y nivel de embalses. La <strong>calibración isotónica (PAVA)</strong> se activa automáticamente con ≥10 outcomes, ajustando las probabilidades predichas para que reflejen las frecuencias reales observadas. Todos los outcomes se persisten en localStorage (respuesta inmediata) y se sincronizan al backend PostgreSQL (historial compartido entre dispositivos, requiere base de datos Railway provisionada).</p>
+    <p>El sistema actualiza Brier Score y Log Loss incrementalmente con cada outcome registrado, sin recalcular desde cero. Cada 15 minutos se generan <strong>outcomes automáticos</strong> a partir de datos reales: sismos USGS, focos NASA FIRMS, lluvia vs umbrales IDF, tráfico TomTom, visibilidad aeronáutica y nivel de embalses. La <strong>calibración isotónica (PAVA)</strong> se activa automáticamente con ≥10 outcomes, ajustando las probabilidades predichas para que reflejen las frecuencias reales observadas. Todos los outcomes se persisten en localStorage (respuesta inmediata) y se sincronizan al backend PostgreSQL (historial compartido entre dispositivos, requiere base de datos Railway provisionada). Las <strong>predicciones del IRG</strong> también se sincronizan a PostgreSQL — cada cálculo es una observación independiente que se acumula en la base compartida; dos dispositivos viendo el mismo municipio simultáneamente generan dos registros distintos, sin que uno sobreescriba al otro, lo que permite medir la consistencia del modelo entre observaciones casi simultáneas.</p>
     <p>El <strong>Brier Skill Score (BSS)</strong> se mide de forma independiente para los <strong>tres modelos</strong>. Usa como referencia de climatología las tasas históricas reales de ocurrencia por tipo de riesgo en Antioquia (UNGRD 2024, BanRep DTSer-317). Cuando algún modelo acumula ≥500 outcomes y supera a los demás en BSS por ≥0.15, el panel de Credibilidad muestra una <strong>notificación automática</strong> y envía un email al operador con instrucciones específicas para Claude Code. Esto convierte la comparación de modelos en un proceso continuo y automático — sin necesidad de recordarlo entre sesiones.</p>
     <p>El <strong>rollback automático</strong> revierte al modelo anterior si el BSS cae por debajo de -0.5 con menos de 50 outcomes — señal de pérdida de datos de calibración. El sistema notifica al operador con una URL de verificación y el mensaje exacto para restaurar.</p>
   </div>
@@ -1849,7 +1849,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <tr><td><strong>Backend / APIs externas</strong></td><td>Railway (FastAPI + Python)</td><td>Servidor en la nube con 3 modelos de riesgo (irg_service, riesgo_service, prediccion) e integración de fuentes externas: REPS, SIVIGILA, ENSO, SISAIRE, DANE, ANSV. Cada modelo expone endpoints documentados con campo modelo: en la respuesta JSON.</td></tr>
       <tr><td><strong>Autenticación</strong></td><td>Google OAuth 2.0</td><td>Acceso exclusivo con cuenta Google. Solo correos autorizados por el administrador pueden ingresar. Sesión de 8 horas.</td></tr>
       <tr><td><strong>Gestión de usuarios</strong></td><td>Panel integrado en Configuración</td><td>El administrador agrega o retira correos autorizados sin tocar código. Los cambios aplican de inmediato.</td></tr>
-      <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>API keys, preferencias e historial se guardan únicamente en el navegador local. Nunca se envían al servidor.</td></tr>
+      <tr><td><strong>Datos sensibles</strong></td><td>localStorage (solo en el dispositivo)</td><td>Preferencias e historial de credibilidad se guardan en el navegador local; predicciones y outcomes también se sincronizan al backend PostgreSQL compartido. Las API keys de fuentes institucionales (TomTom, Tomorrow.io, HERE) viven exclusivamente en Railway bajo control del desarrollador — ningún usuario necesita escribir ni ver claves.</td></tr>
       <tr><td><strong>Reporte ciudadano</strong></td><td>Sistema interno con validación cruzada</td><td>Ciudadanos reportan eventos (10 tipos: deslizamiento, inundación, creciente, vendaval, etc.). 3 reportes de usuarios distintos del mismo tipo en la misma zona en la última hora disparan una alerta WebSocket en tiempo real a todos los vecinos conectados — sin esperar sensores automáticos. El conteo se centraliza en PostgreSQL (Railway) para que refleje 3 ciudadanos distintos, no 3 clics del mismo dispositivo.</td></tr>
       <tr><td><strong>Notificaciones email</strong></td><td>Resend API (HTTPS)</td><td>Emails automáticos al operador cuando el sistema Credibilidad detecta evidencia BSS suficiente para recomendar unificación de modelos, o cuando ocurre un rollback automático. Railway bloquea SMTP saliente; se usa Resend (API sobre HTTPS 443).</td></tr>
       <tr><td><strong>WebSocket tiempo real</strong></td><td>WebSocket · <code>/ws/riesgo/{zona_id}</code></td><td>Conexión bajo demanda al municipio activo — se abre al seleccionar un municipio y se cierra al cambiar. Entrega inmediata de alertas nuevas y lluvia intensa sin esperar el próximo ciclo de polling. Funciona para cualquiera de los 123 municipios (no limitado a zonas fijas). Datos de baja frecuencia (embalse, censo) siguen en polling. Fallback silencioso a polling si WebSocket no está disponible. Límite: 500 conexiones simultáneas.</td></tr>
@@ -3149,7 +3149,17 @@ async function obtenerReales(z){
     (async()=>{try{res.vuelos=await apiVuelos(m.lat,m.lon);res.fuentes_activas.push('ADS-B');}catch(e){res.fuentes_error.push('ADS-B:'+e.message);}})(),
     (async()=>{const k=apiKeys['WINDY']||'';if(k)try{res.windy=await apiWindy(m.lat,m.lon,k);if(res.windy)res.fuentes_activas.push('Windy');}catch(e){res.fuentes_error.push('Windy:'+e.message);}})(),
     (async()=>{const k=apiKeys['NASA_FIRMS']||'';if(k)try{res.incendios=await apiIncendios(k);if(Array.isArray(res.incendios))res.fuentes_activas.push('NASA FIRMS');}catch(e){res.fuentes_error.push('FIRMS:'+e.message);}})(),
-    (async()=>{const k=apiKeys['TOMORROW_IO']||'';if(k)try{res.tomorrow=await apiTomorrow(m.lat,m.lon,k);if(res.tomorrow)res.fuentes_activas.push('Tomorrow.io');}catch(e){res.fuentes_error.push('Tomorrow:'+e.message);}})(),
+    (async()=>{
+      // Tomorrow.io: primero backend (key en Railway), fallback a key local durante transición
+      try{
+        const br=await fetch(_STORAGE_BASE()+'/api/v1/fuentes/tomorrow/'+z,{signal:AbortSignal.timeout(8000)});
+        if(br.ok){const bd=await br.json();if(bd.fuente_real){res.tomorrow=bd.values_raw||bd;res.fuentes_activas.push('Tomorrow.io');return;}}
+      }catch{}
+      // TODO: eliminar fallback local cuando TOMORROW_IO_API_KEY esté configurada en Railway
+      const k=apiKeys['TOMORROW_IO']||'';
+      if(k)try{res.tomorrow=await apiTomorrow(m.lat,m.lon,k);if(res.tomorrow)res.fuentes_activas.push('Tomorrow.io');}
+      catch(e){res.fuentes_error.push('Tomorrow:'+e.message);}
+    })(),
     (async()=>{const k=apiKeys['OWM']||'';if(k)try{res.owm=await apiOWM(m.lat,m.lon,k);if(res.owm)res.fuentes_activas.push('OpenWeatherMap');}catch(e){res.fuentes_error.push('OWM:'+e.message);}})(),
     (async()=>{const k=apiKeys['INVIAS']||'';if(k)try{res.invias=await apiINVIAS(k);if(Array.isArray(res.invias))res.fuentes_activas.push('INVIAS');}catch(e){res.fuentes_error.push('INVIAS:'+e.message);}})(),
     // ENSO: NOAA ONI data (async aquí, resultado pasa a construirSensores via dr.enso_oni)
@@ -3187,7 +3197,17 @@ async function obtenerReales(z){
     (async()=>{// DAGRAN: si tipo vacío pero estado=ok, usar 'arcgis' público por defecto
     if(!arcgisDagranCfg.tipo&&FUENTES_CONF.find(f=>f.id==='ARCGIS_DAGRAN')?.estado==='ok')arcgisDagranCfg.tipo='arcgis';
     if(arcgisDagranCfg.tipo)try{res.arcgis_dagran=await apiArcGISDAGRAN();if(res.arcgis_dagran)res.fuentes_activas.push('DAGRAN-ArcGIS');}catch(e){res.fuentes_error.push('ArcGIS:'+e.message);}})(),
-    (async()=>{const k=apiKeys['TOMTOM']||'';if(k)try{res.tomtom=await apiTomTom(m.lat,m.lon,k);if(res.tomtom)res.fuentes_activas.push('TomTom');}catch(e){res.fuentes_error.push('TomTom:'+e.message);}})(),
+    (async()=>{
+      // TomTom: primero backend (key en Railway), fallback a key local durante transición
+      try{
+        const br=await fetch(_STORAGE_BASE()+'/api/v1/fuentes/tomtom/'+z,{signal:AbortSignal.timeout(8000)});
+        if(br.ok){const bd=await br.json();if(bd.fuente_real){res.tomtom=bd;res.fuentes_activas.push('TomTom');return;}}
+      }catch{}
+      // TODO: eliminar fallback local cuando TOMTOM_API_KEY esté configurada en Railway
+      const k=apiKeys['TOMTOM']||'';
+      if(k)try{res.tomtom=await apiTomTom(m.lat,m.lon,k);if(res.tomtom)res.fuentes_activas.push('TomTom');}
+      catch(e){res.fuentes_error.push('TomTom:'+e.message);}
+    })(),
     (async()=>{if(siataCfg.tipo)try{res.siata=await apiSIATA(z);if(res.siata)res.fuentes_activas.push('SIATA');}catch(e){res.fuentes_error.push('SIATA:'+e.message);}})(),
     (async()=>{if(epmCfg.tipo)try{res.epm=await apiEPM();if(res.epm)res.fuentes_activas.push('EPM');}catch(e){res.fuentes_error.push('EPM:'+e.message);}})(),
     (async()=>{if(ideamCfg.tipo)try{res.ideam=await apiIDEAM(z);if(res.ideam)res.fuentes_activas.push('IDEAM');}catch(e){res.fuentes_error.push('IDEAM:'+e.message);}})(),
@@ -5637,20 +5657,45 @@ function _capaANSV(g){
 
 // ── 9. TRÁFICO TOMTOM ────────────────────────────────────────────────────────
 function _capaTomTom(g){
-  const key=apiKeys['TOMTOM']||document.getElementById('fk-TOMTOM')?.value||'';
-  if(!key){
-    sirga('warn','🚗 TomTom requiere una API key gratuita. Configúrala en ⚙️ Sistema → Fuentes de datos.');
-    // Remove the layer group since we can't show anything
-    if(_ML['tomtom']){mapa.removeLayer(_ML['tomtom']);_ML['tomtom']=null;}
-    const btn=document.getElementById('ml-tomtom');if(btn)btn.classList.remove('on');
-    return;
-  }
-  // TomTom vector flow tile
-  L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key=${key}`,
-    {attribution:'TomTom Traffic',opacity:.7,maxZoom:18}).addTo(g);
-  L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/incidents/s3/{z}/{x}/{y}.png?key=${key}`,
-    {attribution:'TomTom Incidents',opacity:.8,maxZoom:18}).addTo(g);
-  sirga('ok','🚗 Capa de tráfico TomTom activada');
+  // Tiles via backend proxy (TOMTOM_API_KEY en Railway — clave nunca expuesta al navegador)
+  const base=_STORAGE_BASE();
+  const flowUrl=`${base}/api/v1/proxy/tomtom-tile/{z}/{x}/{y}?tipo=flow`;
+  const incUrl=`${base}/api/v1/proxy/tomtom-tile/{z}/{x}/{y}?tipo=incidents`;
+
+  // Verificar si el backend tiene la clave configurada — si no, intentar fallback local
+  // TODO: eliminar fallback local cuando TOMTOM_API_KEY esté configurada en Railway
+  fetch(base+'/api/v1/fuentes/tomtom/'+(zona||'guatape'),{signal:AbortSignal.timeout(4000)})
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{
+      if(d&&d.fuente_real){
+        L.tileLayer(flowUrl,{attribution:'TomTom Traffic',opacity:.7,maxZoom:18}).addTo(g);
+        L.tileLayer(incUrl,{attribution:'TomTom Incidents',opacity:.8,maxZoom:18}).addTo(g);
+        sirga('ok','🚗 Capa de tráfico TomTom activada');
+      } else {
+        // Fallback a key local durante transición
+        const key=apiKeys['TOMTOM']||'';
+        if(key){
+          L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key=${key}`,
+            {attribution:'TomTom Traffic',opacity:.7,maxZoom:18}).addTo(g);
+          L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/incidents/s3/{z}/{x}/{y}.png?key=${key}`,
+            {attribution:'TomTom Incidents',opacity:.8,maxZoom:18}).addTo(g);
+          sirga('ok','🚗 Capa de tráfico TomTom activada');
+        } else {
+          sirga('warn','🚗 TomTom requiere configurar TOMTOM_API_KEY en Railway. Contactar al desarrollador.');
+          if(_ML['tomtom']){mapa.removeLayer(_ML['tomtom']);_ML['tomtom']=null;}
+          const btn=document.getElementById('ml-tomtom');if(btn)btn.classList.remove('on');
+        }
+      }
+    })
+    .catch(()=>{
+      // Sin conexión al backend: intentar key local
+      const key=apiKeys['TOMTOM']||'';
+      if(key){
+        L.tileLayer(`https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key=${key}`,
+          {attribution:'TomTom Traffic',opacity:.7,maxZoom:18}).addTo(g);
+        sirga('ok','🚗 TomTom activado (modo local)');
+      }
+    });
 }
 
 // Actualiza las capas activas cuando cambian los datos
@@ -8427,6 +8472,18 @@ function saveCredDB() {
 }
 
 // ── 1. REGISTRO DE PREDICCIONES ────────────────────────────────────────────
+
+// Hash anónimo del dispositivo — distingue "2 predicciones del mismo dispositivo"
+// de "2 dispositivos distintos" para medir consistencia, sin identificar a nadie.
+function _dispositivoHash() {
+  let h = localStorage.getItem('omaira_device_hash');
+  if (!h) {
+    h = 'dev_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('omaira_device_hash', h);
+  }
+  return h;
+}
+
 function registrarPrediccion(tipo_riesgo, zona, prob, fuentes_activas, horizonte_h) {
   if(!CRED_DATA.predictions[tipo_riesgo]) CRED_DATA.predictions[tipo_riesgo] = {};
   if(!CRED_DATA.predictions[tipo_riesgo][zona]) CRED_DATA.predictions[tipo_riesgo][zona] = [];
@@ -8445,6 +8502,21 @@ function registrarPrediccion(tipo_riesgo, zona, prob, fuentes_activas, horizonte
   }
   // También registrar en model_performance para comparación BSS entre modelos
   registrarPrediccionModelo('calcIRGConPesos_v6', tipo_riesgo, zona, registro.prob);
+  // Sincronizar a PostgreSQL — fire-and-forget, no bloquea si Railway no responde
+  try {
+    fetch(_STORAGE_BASE() + '/api/v1/storage/predicciones', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        zona_id: zona,
+        tipo_riesgo: tipo_riesgo,
+        modelo_id: 'calcIRGConPesos_v6',
+        probabilidad: registro.prob,
+        dispositivo_hash: _dispositivoHash()
+      }),
+      signal: AbortSignal.timeout(8000)
+    }).catch(() => {});
+  } catch(e) {}
 }
 
 // ── 1b. REGISTRO DE PREDICCIÓN POR MODELO (para comparación BSS entre modelos) ──

@@ -12,6 +12,7 @@ from app.services.database import (
     guardar_reporte, get_reportes, get_reportes_confirmados,
     guardar_outcome, get_outcomes,
     get_api_zona,
+    guardar_prediccion_compartida, get_predicciones_recientes,
 )
 
 router = APIRouter()
@@ -102,6 +103,34 @@ async def get_reportes_confirmados_zona(zona_id: str,
     """
     data = await get_reportes_confirmados(zona_id, min(ventana_horas, 6), max(umbral, 2))
     return {"zona_id": zona_id, "confirmados": data, "n": len(data)}
+
+
+# ── Predicciones compartidas ──────────────────────────────────────────────────
+
+class PrediccionPayload(BaseModel):
+    zona_id: str
+    tipo_riesgo: str
+    modelo_id: str
+    probabilidad: float
+    dispositivo_hash: Optional[str] = None
+
+
+@router.post("/predicciones")
+async def post_prediccion(payload: PrediccionPayload):
+    await guardar_prediccion_compartida(
+        payload.zona_id, payload.tipo_riesgo, payload.modelo_id,
+        payload.probabilidad, payload.dispositivo_hash,
+    )
+    return {"ok": True}
+
+
+@router.get("/predicciones/{zona_id}/{tipo_riesgo}/recientes")
+async def get_predicciones_zona(zona_id: str, tipo_riesgo: str,
+                                ventana_minutos: int = Query(5)):
+    data = await get_predicciones_recientes(zona_id, tipo_riesgo,
+                                            min(int(ventana_minutos), 60))
+    return {"zona_id": zona_id, "tipo_riesgo": tipo_riesgo,
+            "predicciones": data, "n": len(data)}
 
 
 # ── Outcomes credibilidad ─────────────────────────────────────────────────────

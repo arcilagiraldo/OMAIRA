@@ -10,6 +10,7 @@ Servicios de fuentes externas de datos para OMAIRA v4:
 Todas las fuentes públicas usan la API Socrata SODA de datos.gov.co.
 Patrón: GET https://www.datos.gov.co/resource/{dataset_id}.json?...
 """
+import os
 import aiohttp
 import ssl
 import logging
@@ -1523,3 +1524,186 @@ async def obtener_nivel_embalse_xm(zona_id: str) -> Dict:
         }
         _cache[cache_key] = (ahora - 13200, fallback)  # reintentar en 1 h
         return fallback
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 7. TOMTOM — Tráfico en tiempo real (key en Railway, nunca en el frontend)
+# ═══════════════════════════════════════════════════════════════════════════════
+async def obtener_tomtom(zona_id: str) -> Dict:
+    """
+    Consulta TomTom Traffic API usando TOMTOM_API_KEY del entorno Railway.
+    Ningún usuario necesita escribir ni ver la clave — el control es del desarrollador.
+    """
+    api_key = os.getenv("TOMTOM_API_KEY")
+    if not api_key:
+        return {
+            "fuente": "TomTom Traffic",
+            "fuente_id": "TOMTOM",
+            "zona_id": zona_id,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": "TOMTOM_API_KEY no configurada en Railway",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    cache_key = f"tomtom:{zona_id}"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 300:  # 5 min — datos de tráfico cambian rápido
+        return cached[1]
+
+    from app.services.openmeteo_service import COORDS_ZONAS
+    lat, lon = COORDS_ZONAS.get(zona_id, (6.2442, -75.5812))
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            flow_url = (
+                f"https://api.tomtom.com/traffic/services/4/flowSegmentData"
+                f"/absolute/10/json?point={lat},{lon}&key={api_key}"
+            )
+            async with session.get(flow_url, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=8)) as r:
+                if r.status != 200:
+                    raise ConnectionError(f"TomTom flow HTTP {r.status}")
+                flow_data = await r.json(content_type=None)
+
+            delta = 0.5
+            bbox = f"{lon-delta},{lat-delta},{lon+delta},{lat+delta}"
+            inc_url = (
+                f"https://api.tomtom.com/traffic/services/5/incidentDetails"
+                f"?bbox={bbox}&fields={{incidents{{type,properties{{iconCategory,"
+                f"magnitudeOfDelay,events{{description}},from,to,delay}}}}}}"
+                f"&language=es-419&t=1111&categoryFilter=0,1,2,3,4,5,6,7,8,9,10,11"
+                f"&timeValidityFilter=present&key={api_key}"
+            )
+            async with session.get(inc_url, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=8)) as r:
+                inc_data = await r.json(content_type=None) if r.status == 200 else {}
+
+        f = flow_data.get("flowSegmentData", {})
+        inc = inc_data.get("incidents", [])
+        velocidad = f.get("currentSpeed", 0)
+        velocidad_libre = f.get("freeFlowSpeed", 0)
+        congestion_pct = (
+            round((1 - velocidad / velocidad_libre) * 100)
+            if velocidad and velocidad_libre else 0
+        )
+        tt_actual = f.get("currentTravelTime", 0)
+        tt_libre = f.get("freeFlowTravelTime", 0)
+        if tt_actual and tt_libre:
+            nivel_flujo = ("congestionado" if tt_actual > tt_libre * 1.5
+                           else "lento" if tt_actual > tt_libre * 1.2 else "normal")
+        else:
+            nivel_flujo = "normal"
+
+        resultado = {
+            "fuente": "TomTom Traffic — tiempo real",
+            "fuente_id": "TOMTOM",
+            "zona_id": zona_id,
+            "velocidad_actual": velocidad,
+            "velocidad_libre": velocidad_libre,
+            "congestion_pct": congestion_pct,
+            "nivel_flujo": nivel_flujo,
+            "num_incidentes": len(inc),
+            "incidentes": [
+                {
+                    "tipo": i.get("properties", {}).get("iconCategory", "?"),
+                    "descripcion": (i.get("properties", {}).get("events") or [{}])[0].get("description", "Incidente vial"),
+                    "desde": i.get("properties", {}).get("from", ""),
+                    "hasta": i.get("properties", {}).get("to", ""),
+                    "demora_min": round((i.get("properties", {}).get("delay", 0) or 0) / 60),
+                }
+                for i in inc[:5]
+            ],
+            "fuente_real": True,
+            "modo_degradado": False,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"TomTom error para {zona_id}: {e}")
+        return {
+            "fuente": "TomTom Traffic",
+            "fuente_id": "TOMTOM",
+            "zona_id": zona_id,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 8. TOMORROW.IO — Clima hiperlocal (key en Railway, nunca en el frontend)
+# ═══════════════════════════════════════════════════════════════════════════════
+async def obtener_tomorrow(zona_id: str) -> Dict:
+    """
+    Consulta Tomorrow.io usando TOMORROW_IO_API_KEY del entorno Railway.
+    Ningún usuario necesita escribir ni ver la clave — el control es del desarrollador.
+    """
+    api_key = os.getenv("TOMORROW_IO_API_KEY")
+    if not api_key:
+        return {
+            "fuente": "Tomorrow.io",
+            "fuente_id": "TOMORROW_IO",
+            "zona_id": zona_id,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": "TOMORROW_IO_API_KEY no configurada en Railway",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    cache_key = f"tomorrow:{zona_id}"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 900:  # 15 min
+        return cached[1]
+
+    from app.services.openmeteo_service import COORDS_ZONAS
+    lat, lon = COORDS_ZONAS.get(zona_id, (6.2442, -75.5812))
+
+    try:
+        url = (
+            f"https://api.tomorrow.io/v4/weather/realtime"
+            f"?location={lat},{lon}&apikey={api_key}"
+        )
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=8)) as r:
+                if r.status != 200:
+                    raise ConnectionError(f"Tomorrow.io HTTP {r.status}")
+                data = await r.json(content_type=None)
+
+        values = data.get("data", {}).get("values", {})
+        resultado = {
+            "fuente": "Tomorrow.io — clima hiperlocal",
+            "fuente_id": "TOMORROW_IO",
+            "zona_id": zona_id,
+            "uv_index": values.get("uvIndex"),
+            "epa_index": values.get("epaIndex"),
+            "precipitation_type": values.get("precipitationType"),
+            "visibility": values.get("visibility"),
+            "humidity": values.get("humidity"),
+            "wind_speed": values.get("windSpeed"),
+            "values_raw": values,
+            "fuente_real": bool(values),
+            "modo_degradado": not bool(values),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        logger.info(f"Tomorrow.io OK {zona_id}: UV={values.get('uvIndex')} ICA={values.get('epaIndex')}")
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"Tomorrow.io error para {zona_id}: {e}")
+        return {
+            "fuente": "Tomorrow.io",
+            "fuente_id": "TOMORROW_IO",
+            "zona_id": zona_id,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
