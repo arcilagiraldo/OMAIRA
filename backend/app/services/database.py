@@ -125,6 +125,18 @@ CREATE TABLE IF NOT EXISTS api_hidrologico (
     ts TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS predicciones_compartidas (
+    id SERIAL PRIMARY KEY,
+    zona_id VARCHAR(50) NOT NULL,
+    tipo_riesgo VARCHAR(50) NOT NULL,
+    modelo_id VARCHAR(50) NOT NULL,
+    probabilidad FLOAT NOT NULL,
+    dispositivo_hash VARCHAR(64),
+    ts TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_pred_zona_tipo_ts
+    ON predicciones_compartidas (zona_id, tipo_riesgo, ts DESC);
+
 CREATE TABLE IF NOT EXISTS fuentes_detectadas (
     id VARCHAR(40) PRIMARY KEY,
     url TEXT NOT NULL,
@@ -561,6 +573,56 @@ async def get_outcomes(zona_id: str, tipo_riesgo: str) -> List[Dict]:
                      "ts": r["ts"].isoformat()} for r in rows]
     except Exception as e:
         logger.debug(f"get_outcomes: {e}")
+        return []
+
+
+# ── Predicciones compartidas (INSERT acumulativo — múltiples dispositivos no se pisan) ──
+
+async def guardar_prediccion_compartida(zona_id: str, tipo_riesgo: str,
+                                        modelo_id: str, probabilidad: float,
+                                        dispositivo_hash: str = None) -> None:
+    """
+    INSERT, nunca UPDATE. Cada predicción es una observación independiente.
+    Dos dispositivos casi simultáneos generan dos filas — no se sobreescriben.
+    """
+    if not _pool_disponible():
+        return
+    try:
+        async with _pool.acquire() as conn:
+            await conn.execute(
+                """INSERT INTO predicciones_compartidas
+                   (zona_id, tipo_riesgo, modelo_id, probabilidad, dispositivo_hash)
+                   VALUES ($1,$2,$3,$4,$5)""",
+                zona_id, tipo_riesgo[:50], modelo_id[:50],
+                round(float(probabilidad), 4), dispositivo_hash,
+            )
+    except Exception as e:
+        logger.debug(f"guardar_prediccion_compartida: {e}")
+
+
+async def get_predicciones_recientes(zona_id: str, tipo_riesgo: str,
+                                     ventana_minutos: int = 5) -> List[Dict]:
+    """
+    Todas las predicciones de los últimos N minutos para esta zona/tipo.
+    Permite medir consistencia entre dispositivos simultáneos.
+    """
+    if not _pool_disponible():
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT modelo_id, probabilidad, dispositivo_hash, ts
+                   FROM predicciones_compartidas
+                   WHERE zona_id=$1 AND tipo_riesgo=$2
+                     AND ts > NOW() - ($3 || ' minutes')::INTERVAL
+                   ORDER BY ts DESC""",
+                zona_id, tipo_riesgo, str(int(ventana_minutos)),
+            )
+            return [{"modelo_id": r["modelo_id"], "probabilidad": r["probabilidad"],
+                     "dispositivo_hash": r["dispositivo_hash"],
+                     "ts": r["ts"].isoformat()} for r in rows]
+    except Exception as e:
+        logger.debug(f"get_predicciones_recientes: {e}")
         return []
 
 
