@@ -9,7 +9,7 @@ from typing import Optional, List
 from app.services.database import (
     guardar_irg_historial, get_irg_historial,
     guardar_preferencias, get_preferencias,
-    guardar_reporte, get_reportes,
+    guardar_reporte, get_reportes, get_reportes_confirmados,
     guardar_outcome, get_outcomes,
 )
 
@@ -81,6 +81,18 @@ async def post_reporte(body: Reporte):
 async def get_reportes_zona(zona_id: str, horas: int = Query(48)):
     data = await get_reportes(zona_id, min(horas, 168))
     return {"zona_id": zona_id, "reportes": data, "n": len(data)}
+
+
+@router.get("/reportes/{zona_id}/confirmados")
+async def get_reportes_confirmados_zona(zona_id: str,
+                                        ventana_horas: int = Query(1),
+                                        umbral: int = Query(3)):
+    """
+    Tipos de evento con ≥ umbral reportes de usuarios distintos en la
+    ventana indicada. Usado por el WebSocket para disparar alertas a vecinos.
+    """
+    data = await get_reportes_confirmados(zona_id, min(ventana_horas, 6), max(umbral, 2))
+    return {"zona_id": zona_id, "confirmados": data, "n": len(data)}
 
 
 # ── Outcomes credibilidad ─────────────────────────────────────────────────────

@@ -436,6 +436,46 @@ async def get_reportes(zona_id: str, horas: int = 48) -> List[Dict]:
         return []
 
 
+async def get_reportes_confirmados(zona_id: str, ventana_horas: int = 1,
+                                   umbral: int = 3) -> List[Dict]:
+    """
+    Retorna tipos de evento con ≥ `umbral` reportes distintos de ciudadanos
+    distintos (por email) en la ventana de tiempo indicada.
+    Un reporte ciudadano de algo EN CURSO es alerta temprana para vecinos
+    que aún no han sido afectados — por eso el umbral es bajo (3) y la
+    ventana es corta (1h).
+    """
+    if not _pool_disponible():
+        return []
+    try:
+        async with _pool.acquire() as conn:
+            rows = await conn.fetch(
+                """SELECT tipo,
+                          COUNT(*)                    AS num_reportes,
+                          COUNT(DISTINCT email)       AS usuarios_distintos,
+                          MAX(ts)                     AS ultimo_reporte
+                   FROM reportes_ciudadanos
+                   WHERE zona_id=$1
+                     AND ts > NOW() - ($2 || ' hours')::INTERVAL
+                   GROUP BY tipo
+                   HAVING COUNT(DISTINCT email) >= $3
+                   ORDER BY ultimo_reporte DESC""",
+                zona_id, str(ventana_horas), umbral,
+            )
+            return [
+                {
+                    "tipo":              r["tipo"],
+                    "num_reportes":      r["num_reportes"],
+                    "usuarios_distintos": r["usuarios_distintos"],
+                    "ultimo_reporte":    r["ultimo_reporte"].isoformat(),
+                }
+                for r in rows
+            ]
+    except Exception as e:
+        logger.debug(f"get_reportes_confirmados: {e}")
+        return []
+
+
 # ── Outcomes credibilidad ─────────────────────────────────────────────────────
 
 async def guardar_outcome(zona_id: str, tipo_riesgo: str, email: str,
