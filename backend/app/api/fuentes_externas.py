@@ -40,6 +40,18 @@ async def get_here(zona_id: str):
     return await svc.obtener_here(zona_id, os.getenv("HERE_API_KEY"))
 
 
+@router.get("/tomtom/{zona_id}")
+async def get_tomtom(zona_id: str):
+    """TomTom Traffic — TOMTOM_API_KEY vive en Railway, ningún usuario la ve."""
+    return await svc.obtener_tomtom(zona_id)
+
+
+@router.get("/tomorrow/{zona_id}")
+async def get_tomorrow(zona_id: str):
+    """Tomorrow.io clima hiperlocal — TOMORROW_IO_API_KEY vive en Railway."""
+    return await svc.obtener_tomorrow(zona_id)
+
+
 @router.get("/sismicidad/{zona_id}")
 async def get_sismicidad(zona_id: str):
     """Sismos recientes en radio 250 km (USGS FDSNWS)."""

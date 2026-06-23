@@ -3,6 +3,7 @@ Proxy inverso para recursos externos con restricciones CORS.
 El frontend llama a estos endpoints en lugar de usar corsproxy.io,
 eliminando la dependencia de un tercero que bloquea peticiones de Railway.
 """
+import os
 import httpx
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse, Response
@@ -52,3 +53,31 @@ async def proxy_noaa_oni():
             return PlainTextResponse(r.text, headers={"Cache-Control": "public, max-age=21600"})
         except Exception as e:
             raise HTTPException(status_code=502, detail=f"NOAA no disponible: {e}")
+
+
+@router.get("/tomtom-tile/{z}/{x}/{y}")
+async def proxy_tomtom_tile(z: int, x: int, y: int,
+                            tipo: str = Query("flow",
+                                             description="flow | incidents")):
+    """
+    Proxy de tiles de tráfico TomTom — TOMTOM_API_KEY vive en Railway.
+    El frontend usa esta URL en Leaflet; la clave nunca se expone en el navegador.
+    Caché 5 min (tiles de tráfico cambian frecuentemente).
+    """
+    api_key = os.getenv("TOMTOM_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503,
+                            detail="TOMTOM_API_KEY no configurada en Railway")
+    if tipo == "incidents":
+        url = f"https://api.tomtom.com/traffic/map/4/tile/incidents/s3/{z}/{x}/{y}.png?key={api_key}"
+    else:
+        url = f"https://api.tomtom.com/traffic/map/4/tile/flow/relative-delay/{z}/{x}/{y}.png?key={api_key}"
+
+    async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
+        try:
+            r = await client.get(url)
+            r.raise_for_status()
+            return Response(content=r.content, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=300"})
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"TomTom tile no disponible: {e}")
