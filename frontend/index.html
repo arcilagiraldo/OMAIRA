@@ -801,8 +801,8 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
       <button class="mbtn" id="mb-dark" onclick="setCapa('dark')">Oscuro</button>
       <div style="margin-left:auto;display:flex;gap:3px;align-items:center">
         <span style="font-size:7.5px;color:var(--text3);margin-right:3px">Municipios:</span>
-        <button class="mbtn on" id="mm-todos"    onclick="setModoMunis('todos')"    title="Mostrar todos los municipios"><i data-lucide="eye" style="width:11px;height:11px"></i> Todos</button>
-        <button class="mbtn"    id="mm-activo"   onclick="setModoMunis('activo')"   title="Solo el municipio activo"><i data-lucide="map-pin" style="width:11px;height:11px"></i> Solo activo</button>
+        <button class="mbtn"    id="mm-todos"    onclick="setModoMunis('todos')"    title="Mostrar todos los municipios"><i data-lucide="eye" style="width:11px;height:11px"></i> Todos</button>
+        <button class="mbtn on" id="mm-activo"   onclick="setModoMunis('activo')"   title="Solo el municipio activo"><i data-lucide="map-pin" style="width:11px;height:11px"></i> Solo activo</button>
         <button class="mbtn"    id="mm-ninguno"  onclick="setModoMunis('ninguno')"  title="Ocultar municipios"><i data-lucide="eye-off" style="width:11px;height:11px"></i> Ninguno</button>
       </div>
     </div>
@@ -2706,7 +2706,7 @@ let zona='guatape',D=null,pg='dashboard';
 let _fuentesExt=null; // últimos datos de fuentes externas (Railway backend)
 let modeloIA='local',iaRunning=false,motorRunning=false;
 let mapa=null,capaM=null;
-let _layerMuniTodos=null,_layerMuniSel=null,_modoMunis='todos';
+let _layerMuniTodos=null,_layerMuniSel=null,_modoMunis='activo';
 let cPred=null,cInc=null,cMov=null;
 let capaMet='temp';
 let cache={},cacheTTL=15*60*1000;
@@ -5373,10 +5373,11 @@ function _dibujarMuniEnLayer(m, g, destacado=false) {
 function initMapa(){
   if(mapa)return;
   const el=document.getElementById('mapa-lf');if(!el||typeof L==='undefined')return;
-  mapa=L.map('mapa-lf',{zoomControl:true}).setView([6.5,-75.5],8);
+  const _mInit=MUNICIPIOS.find(x=>x.id===zona)||MUNICIPIOS[0];
+  mapa=L.map('mapa-lf',{zoomControl:true}).setView([_mInit.lat,_mInit.lon],12);
   capaM=L.tileLayer(CAPAS_MAPA.osm.url,{attribution:CAPAS_MAPA.osm.attr,maxZoom:18}).addTo(mapa);
-  // Todos los municipios en un LayerGroup controlable
-  _layerMuniTodos=L.layerGroup().addTo(mapa);
+  // LayerGroup controlables — todos se construye pero no se agrega al mapa por defecto
+  _layerMuniTodos=L.layerGroup();
   _layerMuniSel=L.layerGroup().addTo(mapa);
   MUNICIPIOS.forEach(m=>_dibujarMuniEnLayer(m,_layerMuniTodos,false));
   _actualizarMuniSel();
