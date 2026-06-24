@@ -430,7 +430,7 @@ async def guardar_reporte(zona_id: str, tipo: str, descripcion: str,
             )
             return row["id"] if row else 0
     except Exception as e:
-        logger.debug(f"guardar_reporte: {e}")
+        logger.error(f"guardar_reporte FALLÓ — reporte ciudadano perdido: {e}")
         return 0
 
 
@@ -555,7 +555,7 @@ async def guardar_outcome(zona_id: str, tipo_riesgo: str, email: str,
                 round(float(prob_predicha), 4),
             )
     except Exception as e:
-        logger.debug(f"guardar_outcome: {e}")
+        logger.error(f"guardar_outcome FALLÓ — outcome de credibilidad perdido: {e}")
 
 
 async def get_outcomes(zona_id: str, tipo_riesgo: str) -> List[Dict]:
@@ -597,7 +597,7 @@ async def guardar_prediccion_compartida(zona_id: str, tipo_riesgo: str,
                 round(float(probabilidad), 4), dispositivo_hash,
             )
     except Exception as e:
-        logger.debug(f"guardar_prediccion_compartida: {e}")
+        logger.error(f"guardar_prediccion_compartida FALLÓ — predicción perdida: {e}")
 
 
 async def get_predicciones_recientes(zona_id: str, tipo_riesgo: str,
