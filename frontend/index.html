@@ -3258,6 +3258,9 @@ async function obtenerReales(z){
         // Nivel embalse real (XM/SIMEM) — solo si el backend lo confirmó como fuente_real
         if(d.embalse?.fuente_real&&d.embalse?.nivel_embalse_pct!=null)
           res.ext_embalse=d.embalse.nivel_embalse_pct;
+        // Sismicidad con radio correcto (maxradiuskm=250 centrado en la zona)
+        // Sustituye la consulta directa del frontend (caja 700×600km) en generarOutcomesAuto
+        if(d.sismicidad) res.ext_sismicidad=d.sismicidad;
       }catch(e){res.fuentes_error.push('BackendExt:'+e.message);}
     })(),
   ]);
@@ -9883,25 +9886,28 @@ function generarOutcomesAuto(dr, s, D_prev){
   const ahora = Date.now();
   const z = zona;
 
-  // ── 1. SISMOS (USGS) — outcome directo ────────────────────────────
-  // Si hay sismos M≥3.5 en las últimas 3h → sismicidad_acumulada ocurrió
-  if(Array.isArray(dr.sismos)){
-    const sismos_fuertes = dr.sismos.filter(sm => (sm.mag||0) >= 3.5);
-    const sismos_leves   = dr.sismos.filter(sm => (sm.mag||0) >= 2.0);
-    if(sismos_fuertes.length > 0){
+  // ── 1. SISMOS — outcome basado en fuente del backend (radio correcto) ────────
+  // Usa ext_sismicidad (backend: maxradiuskm=250 centrado en la zona, M≥3.0, 7 días)
+  // en vez de dr.sismos (caja 700×600km que cubría toda Colombia occidental).
+  // Si el dato del backend no llegó en este ciclo, se omite el outcome — mejor
+  // no registrar que registrar con geografía incorrecta.
+  if(dr.ext_sismicidad){
+    const {sismos_7_dias=0, magnitud_maxima=0} = dr.ext_sismicidad;
+    if(sismos_7_dias > 0 && magnitud_maxima >= 3.5){
       window.CRED?.registrarOutcome('sismicidad_acumulada', z, 1,
-        Math.min(1, sismos_fuertes[0].mag / 7.0));
-      // También dispara riesgo de deslizamiento si hay precipitación
+        Math.min(1, magnitud_maxima / 7.0));
+      // Deslizamiento/masa: solo si además hay precipitación activa
       if((s.lluvia||0) > 5){
         window.CRED?.registrarOutcome('deslizamiento', z, 1,
-          Math.min(1, (sismos_fuertes[0].mag/7)*0.6 + (s.lluvia/100)*0.4));
+          Math.min(1, (magnitud_maxima/7)*0.6 + (s.lluvia/100)*0.4));
         window.CRED?.registrarOutcome('movimiento_masa', z, 1,
-          Math.min(1, sismos_fuertes[0].mag/7));
+          Math.min(1, magnitud_maxima/7));
       }
-    } else if(sismos_leves.length === 0){
-      // Sin sismos en 72h → outcome negativo para sismicidad
+    } else if(sismos_7_dias === 0){
+      // Sin sismos M≥3.0 en radio 250km en los últimos 7 días → sin actividad
       window.CRED?.registrarOutcome('sismicidad_acumulada', z, 0, 0);
     }
+    // Si hay sismos M3.0–3.4 pero no M≥3.5: zona muerta, no se registra outcome
   }
 
   // ── 2. INCENDIOS (NASA FIRMS) — outcome directo ───────────────────
