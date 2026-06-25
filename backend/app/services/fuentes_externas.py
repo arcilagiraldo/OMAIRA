@@ -1445,6 +1445,116 @@ async def obtener_sismicidad(zona_id: str) -> Dict:
         return fallback
 
 
+# ── Incendios — NASA FIRMS con bbox local (~100km) ───────────────────────────
+_DELTA_BBOX_FIRMS = 1.0  # ≈ 100-110 km a la latitud de Colombia
+
+async def obtener_incendios(zona_id: str) -> Dict:
+    """Focos de calor activos (NASA FIRMS VIIRS-SNPP) en bbox ~100km. Caché 30 min."""
+    api_key = os.getenv("FIRMS_API_KEY")
+    if not api_key:
+        return {
+            "fuente": "NASA FIRMS",
+            "fuente_id": "NASA_FIRMS",
+            "zona_id": zona_id,
+            "focos_activos": 0,
+            "focos_confirmados": 0,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": "FIRMS_API_KEY no configurada en Railway",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    cache_key = f"incendios:{zona_id}"
+    ahora = _time.time()
+    cached = _cache.get(cache_key)
+    if cached and ahora - cached[0] < 1800:
+        return cached[1]
+
+    from app.services.openmeteo_service import COORDS_ZONAS
+    lat, lon = COORDS_ZONAS.get(zona_id, (6.2442, -75.5812))
+    delta = _DELTA_BBOX_FIRMS
+    # FIRMS area bbox: W,S,E,N (lon_min, lat_min, lon_max, lat_max)
+    bbox = f"{lon-delta:.4f},{lat-delta:.4f},{lon+delta:.4f},{lat+delta:.4f}"
+    url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{api_key}/VIIRS_SNPP_NRT/{bbox}/1"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, ssl=_SSL_CTX,
+                                   timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                if resp.status != 200:
+                    raise ConnectionError(f"NASA FIRMS HTTP {resp.status}")
+                texto = await resp.text()
+
+        lineas = [l.strip() for l in texto.strip().splitlines() if l.strip()]
+        if len(lineas) < 2:
+            focos = []
+        else:
+            header = [h.strip().lower() for h in lineas[0].split(",")]
+
+            def _idx(nombre: str) -> int:
+                return header.index(nombre) if nombre in header else -1
+
+            idx_lat  = _idx("latitude")
+            idx_lon  = _idx("longitude")
+            idx_bri  = _idx("bright_ti4")
+            idx_date = _idx("acq_date")
+            idx_conf = _idx("confidence")
+            idx_frp  = _idx("frp")
+
+            focos = []
+            for linea in lineas[1:]:
+                cols = linea.split(",")
+                try:
+                    focos.append({
+                        "lat":        float(cols[idx_lat])  if idx_lat  >= 0 else 0.0,
+                        "lon":        float(cols[idx_lon])  if idx_lon  >= 0 else 0.0,
+                        "brillo":     cols[idx_bri].strip() if idx_bri  >= 0 and idx_bri  < len(cols) else "",
+                        "fecha":      cols[idx_date].strip()if idx_date >= 0 and idx_date < len(cols) else "",
+                        "confidence": cols[idx_conf].strip()if idx_conf >= 0 and idx_conf < len(cols) else "low",
+                        "frp":        float(cols[idx_frp])  if idx_frp  >= 0 and idx_frp  < len(cols) else 0.0,
+                    })
+                except (ValueError, IndexError):
+                    continue
+
+        # FIRMS VIIRS confidence: 'low'/'l', 'nominal'/'n', 'high'/'h'
+        focos_confirmados = sum(
+            1 for f in focos
+            if f.get("confidence", "").lower() in ("nominal", "high", "n", "h")
+        )
+
+        resultado = {
+            "fuente": "NASA FIRMS — VIIRS SNPP NRT (bbox local ~100km)",
+            "fuente_id": "NASA_FIRMS",
+            "zona_id": zona_id,
+            "bbox": bbox,
+            "focos_activos": len(focos),
+            "focos_confirmados": focos_confirmados,
+            "focos_recientes": focos[:10],
+            "fuente_real": True,
+            "modo_degradado": False,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora, resultado)
+        logger.info(f"NASA FIRMS OK {zona_id}: {len(focos)} focos (bbox {bbox})")
+        return resultado
+
+    except Exception as e:
+        logger.warning(f"NASA FIRMS error para {zona_id}: {e}")
+        fallback = {
+            "fuente": "Fallback — NASA FIRMS no disponible",
+            "fuente_id": "NASA_FIRMS",
+            "zona_id": zona_id,
+            "focos_activos": 0,
+            "focos_confirmados": 0,
+            "fuente_real": False,
+            "modo_degradado": True,
+            "motivo": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _cache[cache_key] = (ahora - 1740, fallback)  # reintentar en 1 min
+        return fallback
+
+
 # ── Embalses — Nivel real vía API pública XM/SIMEM ───────────────────────────
 # Fuente: https://www.simem.co/backend-files/api/PublicData?datasetid=843497
 # Dataset: Reservas Hidráulicas del SIN — actualización diaria ~08h COT

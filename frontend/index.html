@@ -1783,6 +1783,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <p>El <strong>Brier Skill Score (BSS)</strong> se mide de forma independiente para los <strong>tres modelos</strong>. Usa como referencia de climatología las tasas históricas reales de ocurrencia por tipo de riesgo en Antioquia (UNGRD 2024, BanRep DTSer-317). Cuando algún modelo acumula ≥500 outcomes y supera a los demás en BSS por ≥0.15, el panel de Credibilidad muestra una <strong>notificación automática</strong> y envía un email al operador con instrucciones específicas para Claude Code. Esto convierte la comparación de modelos en un proceso continuo y automático — sin necesidad de recordarlo entre sesiones.</p>
     <p>El <strong>rollback automático</strong> revierte al modelo anterior si el BSS cae por debajo de -0.5 con menos de 50 outcomes — señal de pérdida de datos de calibración. El sistema notifica al operador con una URL de verificación y el mensaje exacto para restaurar.</p>
     <p><strong>Auditoría de calidad de outcomes (2026-06-24):</strong> se detectó que los outcomes automáticos de sismicidad consultaban USGS con una caja geográfica de 700×600 km (toda Colombia occidental) en vez del radio real de la zona (~250 km centrado en el municipio). Cualquier sismo M≥3.5 en esa región —aunque ocurriera a 400 km de distancia— se registraba como <code>ocurrio=1</code> para el municipio activo, sin que hubiera actividad sísmica local. Corregido para usar la misma fuente que el backend: consulta USGS con <code>maxradiuskm=250</code> centrado en las coordenadas exactas de la zona. Los 115 outcomes contaminados de <code>sismicidad_acumulada</code> en Guatapé fueron eliminados de PostgreSQL; ese tipo de riesgo comienza de cero con datos confiables. Este episodio ilustra por qué el sistema de Credibilidad requiere auditorías periódicas de la calidad de sus datos de entrada, no solo de sus fórmulas.</p>
+    <p><strong>Corrección NASA FIRMS (2026-06-25):</strong> el mismo patrón de contaminación geográfica se detectó en los outcomes de <code>incendio_forestal</code>. La función <code>apiIncendios()</code> del frontend descargaba todos los focos de Colombia (<code>/api/country/csv/.../COL/1</code>), por lo que cualquier incendio en el país —a miles de kilómetros— se contaba como actividad local. Corregido: el backend ahora expone <code>obtener_incendios(zona_id)</code> que consulta FIRMS con un bbox de ±1° (~100 km) centrado en la zona, usando <code>FIRMS_API_KEY</code> configurada en Railway. El frontend usa <code>dr.ext_incendios.focos_activos</code> (fuente local) en vez de <code>dr.incendios.length</code> (fuente COL) para los outcomes. El mapa de incendios sigue usando la descarga COL completa para visualización; solo los outcomes usan la fuente geográficamente correcta.</p>
   </div>
 
   <!-- IA MULTI-MODELO -->
@@ -3262,6 +3263,9 @@ async function obtenerReales(z){
         // Sismicidad con radio correcto (maxradiuskm=250 centrado en la zona)
         // Sustituye la consulta directa del frontend (caja 700×600km) en generarOutcomesAuto
         if(d.sismicidad) res.ext_sismicidad=d.sismicidad;
+        // Incendios con bbox local (~100km, FIRMS_API_KEY en Railway)
+        // Sustituye dr.incendios (descarga COL entero sin filtro geográfico) en generarOutcomesAuto
+        if(d.incendios_local) res.ext_incendios=d.incendios_local;
       }catch(e){res.fuentes_error.push('BackendExt:'+e.message);}
     })(),
   ]);
@@ -9911,14 +9915,16 @@ function generarOutcomesAuto(dr, s, D_prev){
     // Si hay sismos M3.0–3.4 pero no M≥3.5: zona muerta, no se registra outcome
   }
 
-  // ── 2. INCENDIOS (NASA FIRMS) — outcome directo ───────────────────
-  if(Array.isArray(dr.incendios)){
-    const focos = dr.incendios.length;
+  // ── 2. INCENDIOS (NASA FIRMS) — usa fuente backend (bbox local ~100km) ───────
+  // Sustituye dr.incendios (descarga COL entero sin filtro geográfico).
+  // Si el dato del backend no llegó en este ciclo, se omite — mejor no registrar
+  // que registrar con geografía incorrecta (mismo principio que sismicidad).
+  if(dr.ext_incendios){
+    const focos = dr.ext_incendios.focos_activos || 0;
     if(focos > 0){
       window.CRED?.registrarOutcome('incendio_forestal', z, 1,
         Math.min(1, focos / 5)); // 5+ focos = magnitud máxima
     } else {
-      // Sin focos → outcome negativo (buenas noticias, modelo aprende)
       window.CRED?.registrarOutcome('incendio_forestal', z, 0, 0);
     }
   }
