@@ -10719,6 +10719,8 @@ async function analizarYAgregarFuente(){
       motivo_ambigua:analisis.motivo_rechazo||null,
       variable_sugerida:analisis.variable_sugerida||null,
       fecha_deteccion:analisis.fecha_deteccion,
+      resuelve_pendientes:analisis.resuelve_pendientes||[],
+      nota_pendiente:analisis.nota_pendiente||null,
       ultimo_valor:null, ultimo_update:null, ultimo_error:null, en_irg:false
     };
     FUENTES_CUSTOM.push(fuente);
@@ -10879,6 +10881,10 @@ function renderFuentesCustomEnPanel(){
         ${ambigua?`<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
           <select id="var-manual-${f.id}" style="font-size:7px;padding:2px 4px;border-radius:4px;background:var(--bg2);border:1px solid var(--borde);color:var(--text2)">${opts}</select>
           <span style="font-size:7px;color:var(--text3)">← variable IRG</span>
+        </div>`:''}
+        ${(f.resuelve_pendientes||[]).length>0?`<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;padding:5px 8px;font-size:9px;margin-bottom:6px">
+          <strong>⭐ Resuelve pendiente documentado:</strong> Aprobar esta fuente podría corregir <code>${(f.resuelve_pendientes||[]).join(', ')}</code>.
+          ${f.nota_pendiente?`<div style="color:#92400e;margin-top:3px;font-size:7.5px">${f.nota_pendiente}</div>`:''}
         </div>`:''}
         <div style="display:flex;gap:4px">
           <button onclick="aprobarFuenteCustom('${f.id}')" style="padding:3px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;border:1px solid rgba(34,197,94,.3);font-size:7px;cursor:pointer;font-weight:600">✅ Aprobar</button>

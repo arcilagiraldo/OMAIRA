@@ -315,6 +315,16 @@ async def analizar_fuente_nueva(req: AnalizarRequest):
         "motivo_rechazo": motivo,
         "fecha_deteccion": datetime.now(timezone.utc).isoformat(),
     }
+    if clasificacion == "reconocida" and variable:
+        from app.services.pendientes_verificacion import verificar_si_resuelve_pendiente
+        pendiente = verificar_si_resuelve_pendiente(variable)
+        if pendiente:
+            fuente["resuelve_pendientes"] = pendiente["tipos_afectados"]
+            fuente["nota_pendiente"] = (
+                f"Esta fuente, si se aprueba, podría resolver la limitación "
+                f"documentada para: {', '.join(pendiente['tipos_afectados'])}. "
+                f"Motivo actual: {pendiente['motivo']}"
+            )
     _fuentes_pendientes[fuente_id] = fuente
     await _db_guardar(fuente)
 
