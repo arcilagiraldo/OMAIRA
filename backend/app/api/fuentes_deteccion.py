@@ -321,7 +321,7 @@ async def analizar_fuente_nueva(req: AnalizarRequest):
         if pendiente:
             fuente["resuelve_pendientes"] = pendiente["tipos_afectados"]
             fuente["nota_pendiente"] = (
-                f"Esta fuente, si se aprueba, podría resolver la limitación "
+                f"Esta fuente, si se aprueba, podria resolver la limitacion "
                 f"documentada para: {', '.join(pendiente['tipos_afectados'])}. "
                 f"Motivo actual: {pendiente['motivo']}"
             )
