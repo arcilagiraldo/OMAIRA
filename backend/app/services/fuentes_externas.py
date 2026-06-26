@@ -1600,7 +1600,8 @@ async def obtener_nivel_embalse_xm(zona_id: str) -> Dict:
         if not data.get("success"):
             raise ValueError(f"SIMEM: {data.get('message', 'error desconocido')}")
 
-        records = data.get("result", {}).get("records", [])
+        result = data.get("result") or {}
+        records = result.get("records") or []
         propios = [r for r in records if r.get("CodigoEmbalse") == codigo]
         if not propios:
             raise ValueError(f"sin registros para embalse {codigo} en {fecha_base}–{fecha_hoy}")
