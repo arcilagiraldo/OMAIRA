@@ -1784,6 +1784,7 @@ i[data-lucide]{display:inline-block;vertical-align:middle;flex-shrink:0;stroke-w
     <p>El <strong>rollback automático</strong> revierte al modelo anterior si el BSS cae por debajo de -0.5 con menos de 50 outcomes — señal de pérdida de datos de calibración. El sistema notifica al operador con una URL de verificación y el mensaje exacto para restaurar.</p>
     <p><strong>Auditoría de calidad de outcomes (2026-06-24):</strong> se detectó que los outcomes automáticos de sismicidad consultaban USGS con una caja geográfica de 700×600 km (toda Colombia occidental) en vez del radio real de la zona (~250 km centrado en el municipio). Cualquier sismo M≥3.5 en esa región —aunque ocurriera a 400 km de distancia— se registraba como <code>ocurrio=1</code> para el municipio activo, sin que hubiera actividad sísmica local. Corregido para usar la misma fuente que el backend: consulta USGS con <code>maxradiuskm=250</code> centrado en las coordenadas exactas de la zona. Los 115 outcomes contaminados de <code>sismicidad_acumulada</code> en Guatapé fueron eliminados de PostgreSQL; ese tipo de riesgo comienza de cero con datos confiables. Este episodio ilustra por qué el sistema de Credibilidad requiere auditorías periódicas de la calidad de sus datos de entrada, no solo de sus fórmulas.</p>
     <p><strong>Corrección NASA FIRMS (2026-06-25):</strong> el mismo patrón de contaminación geográfica se detectó en los outcomes de <code>incendio_forestal</code>. La función <code>apiIncendios()</code> del frontend descargaba todos los focos de Colombia (<code>/api/country/csv/.../COL/1</code>), por lo que cualquier incendio en el país —a miles de kilómetros— se contaba como actividad local. Corregido: el backend ahora expone <code>obtener_incendios(zona_id)</code> que consulta FIRMS con un bbox de ±1° (~100 km) centrado en la zona, usando <code>FIRMS_API_KEY</code> configurada en Railway. El frontend usa <code>dr.ext_incendios.focos_activos</code> (fuente local) en vez de <code>dr.incendios.length</code> (fuente COL) para los outcomes. El mapa de incendios sigue usando la descarga COL completa para visualización; solo los outcomes usan la fuente geográficamente correcta.</p>
+    <p><strong>Corrección 7 tipos circulares (2026-06-25):</strong> auditoría sistemática detectó que 7 tipos de riesgo usaban Open-Meteo tanto para predecir como para verificar si el evento ocurrió, haciendo que el BSS midiera consistencia interna del modelo en lugar de precisión predictiva real. Se corrigieron 5 tipos (Clase A) conectando fuentes físicas independientes ya existentes en el sistema: <code>niebla_aeronautica</code> usa exclusivamente METAR Aerocivil (visibilidad sensor físico en SKRG/SKMD); <code>niebla_vias</code> usa METAR con Tomorrow.io como fallback; <code>vendaval</code> usa METAR con Tomorrow.io como fallback (windSpeed km/h → m/s); <code>golpe_calor</code> y <code>heladas</code> usan temperatura Tomorrow.io (modelo con ingesta diferente a Open-Meteo). Si la fuente independiente no está disponible en el ciclo, el outcome se omite —no se registra con datos circulares. Un tipo queda documentado como limitación honesta (Clase B): <code>inversion_termica</code> sigue usando Open-Meteo porque no existe fuente de radiosondeo en tiempo real; el código lo documenta explícitamente. Un tipo queda pendiente de integración futura (Clase C): <code>lluvias_intensas</code> requiere pluviómetros IDEAM SISMOI/DHIME. Ver <code>docs/propuesta-7-tipos-circulares.md</code>.</p>
   </div>
 
   <!-- IA MULTI-MODELO -->
@@ -9964,25 +9965,47 @@ function generarOutcomesAuto(dr, s, D_prev){
     }
   }
 
-  // ── 5. NIEBLA (visibilidad) ───────────────────────────────────────
-  const visib = s.visib || 9999;
-  if(visib < 500){ // <500m = niebla densa
-    window.CRED?.registrarOutcome('niebla_vias', z, 1, Math.min(1, (1000-visib)/1000));
-    window.CRED?.registrarOutcome('niebla_aeronautica', z, 1,
-      Math.min(1, (1000-visib)/1000));
-    window.CRED?.registrarOutcome('accidente_transito', z, 1, 0.3);
-  } else if(visib > 5000){
-    window.CRED?.registrarOutcome('niebla_vias', z, 0, 0);
-    window.CRED?.registrarOutcome('niebla_aeronautica', z, 0, 0);
+  // ── 5. NIEBLA — fuentes independientes de Open-Meteo ─────────────
+  const visib = s.visib || 9999;  // conservar para inversion_termica (bloque 15)
+  // 5a. NIEBLA AERONÁUTICA — solo METAR (sensor físico aeroportuario)
+  // Si aeropuerto no disponible: no se registra outcome.
+  if(dr.metar?.visib_m != null){
+    const vm = dr.metar.visib_m;
+    if(vm < 500){
+      window.CRED?.registrarOutcome('niebla_aeronautica', z, 1, Math.min(1, (1000-vm)/1000));
+    } else if(vm > 5000){
+      window.CRED?.registrarOutcome('niebla_aeronautica', z, 0, 0);
+    }
+  }
+  // 5b. NIEBLA VÍAS — METAR primero, Tomorrow.io como fallback independiente
+  {
+    const vm = dr.metar?.visib_m ?? null;
+    const vt = dr.tomorrow?.visibility != null ? dr.tomorrow.visibility * 1000 : null;
+    const vi = vm ?? vt;  // METAR tiene prioridad (sensor físico)
+    if(vi != null){
+      if(vi < 500){
+        window.CRED?.registrarOutcome('niebla_vias', z, 1, Math.min(1, (1000-vi)/1000));
+        window.CRED?.registrarOutcome('accidente_transito', z, 1, 0.3);
+      } else if(vi > 5000){
+        window.CRED?.registrarOutcome('niebla_vias', z, 0, 0);
+      }
+    }
   }
 
-  // ── 6. VENDAVAL (viento) ──────────────────────────────────────────
-  const viento = s.viento || 0;
-  if(viento > 15){ // >15 m/s = vendaval fuerte
-    window.CRED?.registrarOutcome('vendaval', z, 1, Math.min(1, viento/25));
-    window.CRED?.registrarOutcome('accidente_transito', z, 1, 0.2);
-  } else if(viento < 5){
-    window.CRED?.registrarOutcome('vendaval', z, 0, 0);
+  // ── 6. VENDAVAL — METAR primero, Tomorrow.io como fallback independiente ──
+  const viento = s.viento || 0;  // conservar para IRG score (no eliminar)
+  {
+    const vm = dr.metar?.viento_ms ?? null;
+    const vt = dr.tomorrow?.windSpeed != null ? dr.tomorrow.windSpeed / 3.6 : null;
+    const vi = vm ?? vt;  // METAR prioridad; Tomorrow.io en km/h → m/s
+    if(vi != null){
+      if(vi > 15){
+        window.CRED?.registrarOutcome('vendaval', z, 1, Math.min(1, vi/25));
+        window.CRED?.registrarOutcome('accidente_transito', z, 1, 0.2);
+      } else if(vi < 5){
+        window.CRED?.registrarOutcome('vendaval', z, 0, 0);
+      }
+    }
   }
 
   // ── 7. GRANIZO (temperatura + convección) ────────────────────────
@@ -10015,21 +10038,26 @@ function generarOutcomesAuto(dr, s, D_prev){
     }
   }
 
-  // ── 10. GOLPE DE CALOR (temperatura extrema) ─────────────────────
-  const temp = s.temp || 20;
-  if(temp > 35){
-    window.CRED?.registrarOutcome('golpe_calor', z, 1,
-      Math.min(1, (temp-35)/10));
-  } else if(temp < 28){
-    window.CRED?.registrarOutcome('golpe_calor', z, 0, 0);
-  }
-
-  // ── 11. HELADAS (temperatura baja + altitud) ─────────────────────
+  // ── 10 & 11. TEMPERATURA — Tomorrow.io (modelo independiente de Open-Meteo) ─
+  // Si Tomorrow.io no disponible: no se registra outcome (evita circularidad).
+  const temp = s.temp || 20;  // conservar para inversion_termica (bloque 15)
   const m = MUNICIPIOS.find(x=>x.id===z)||{};
-  if(temp < 3 && (m.alt||0) > 2500){
-    window.CRED?.registrarOutcome('heladas', z, 1, Math.min(1, (3-temp)/3));
-  } else if(temp > 8){
-    window.CRED?.registrarOutcome('heladas', z, 0, 0);
+  {
+    const t_tmrw = dr.tomorrow?.temperature ?? null;
+    if(t_tmrw != null){
+      // ── 10. GOLPE DE CALOR
+      if(t_tmrw > 35){
+        window.CRED?.registrarOutcome('golpe_calor', z, 1, Math.min(1, (t_tmrw-35)/10));
+      } else if(t_tmrw < 28){
+        window.CRED?.registrarOutcome('golpe_calor', z, 0, 0);
+      }
+      // ── 11. HELADAS
+      if(t_tmrw < 3 && (m.alt||0) > 2500){
+        window.CRED?.registrarOutcome('heladas', z, 1, Math.min(1, (3-t_tmrw)/3));
+      } else if(t_tmrw > 8){
+        window.CRED?.registrarOutcome('heladas', z, 0, 0);
+      }
+    }
   }
 
   // ── 12. SEQUÍA (déficit acumulado ENSO) ──────────────────────────
@@ -10063,7 +10091,12 @@ function generarOutcomesAuto(dr, s, D_prev){
     }
   }
 
-  // ── 15. INVERSIÓN TÉRMICA (presión alta + niebla) ─────────────────
+  // ── 15. INVERSIÓN TÉRMICA ─────────────────────────────────────────
+  // LIMITACIÓN DOCUMENTADA (Clase B — 2026-06-25): usa Open-Meteo tanto para
+  // predecir como para verificar (presión de superficie + visibilidad de s.*).
+  // No existe fuente de radiosondeo en tiempo real disponible hoy. El BSS de
+  // este tipo mide consistencia interna del modelo, no precisión contra
+  // observación independiente. Ver docs/propuesta-7-tipos-circulares.md.
   const presion = s.presion || 1013;
   if(presion > 1020 && visib < 3000 && temp < 15){
     window.CRED?.registrarOutcome('inversion_termica', z, 1,
